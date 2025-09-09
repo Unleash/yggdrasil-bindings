@@ -10,7 +10,7 @@ panic = "unwind"
 crate-type = ["cdylib"]
 
 [dependencies]
-unleash-yggdrasil = {path = "../unleash-yggdrasil", default-features = false}
+unleash-yggdrasil = { version = "0.18.1", default-features = false}
 getrandom = { version = "0.3" }
 chrono = { version = "0.4.40", default-features = false, features = ["serde", "std"] }
 serde_json = "1.0.135"
