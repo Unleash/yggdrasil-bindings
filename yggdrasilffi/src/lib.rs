@@ -461,8 +461,11 @@ pub unsafe extern "C" fn list_known_toggles(engine_ptr: *mut c_void) -> *mut c_c
         Ok(Some(engine.list_known_toggles()))
     })();
 
-    println!("test output -remove");
     result_to_json_ptr(result)
+}
+
+pub unsafe extern "C" fn print_hello() {
+    println!("Hello from Yggdrasil FFI");
 }
 
 #[cfg(test)]
