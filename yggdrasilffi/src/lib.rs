@@ -461,7 +461,7 @@ pub unsafe extern "C" fn list_known_toggles(engine_ptr: *mut c_void) -> *mut c_c
         Ok(Some(engine.list_known_toggles()))
     })();
 
-    println!("test");
+    println!("test output -remove");
     result_to_json_ptr(result)
 }
 
