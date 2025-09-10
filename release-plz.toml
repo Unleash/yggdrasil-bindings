@@ -100,3 +100,10 @@ body = """
     {% if commit.remote.pr_number %} - #{{ commit.remote.pr_number }}{% endif -%}
 {% endmacro -%}
 """
+
+[[package]]
+name = "pure-wasm"
+release = false
+changelog_update = false
+git_tag_enable = false
+git_release_enable = false
