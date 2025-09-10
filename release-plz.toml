@@ -108,3 +108,11 @@ publish = false
 changelog_update = false
 git_tag_enable = false
 git_release_enable = false
+
+[[package]]
+name = "yggdrasilffi"
+release = true
+publish = false
+changelog_update = true
+git_tag_enable = true
+git_release_enable = true
