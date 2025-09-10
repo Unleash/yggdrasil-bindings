@@ -104,6 +104,7 @@ body = """
 [[package]]
 name = "pure-wasm"
 release = false
+publish = false
 changelog_update = false
 git_tag_enable = false
 git_release_enable = false
