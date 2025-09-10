@@ -37,16 +37,13 @@ jobs:
           git tag -a "${{ inputs.tag }}" -m "Release ${{ inputs.tag }}"
           git push origin "${{ inputs.tag }}"
 
-      - name: Generate changelog
+      - name: Generate changelog with git-cliff
         id: changelog
         run: |
-          if [ -z "${{ steps.latest_tag.outputs.latest_tag }}" ]; then
-            git log --oneline > full_changelog.txt
-          else
-            git log --oneline "${{ steps.latest_tag.outputs.latest_tag }}"..HEAD > full_changelog.txt
-          fi
+          cargo install git-cliff
+          CHANGELOG=$(git cliff --latest --strip all)
           echo 'changelog<<EOF' >> $GITHUB_OUTPUT
-          cat full_changelog.txt >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo 'EOF' >> $GITHUB_OUTPUT
 
       - name: Create GitHub release
