@@ -39,11 +39,12 @@ jobs:
         uses: release-plz/action@v0.5
         with:
           command: release-pr
+          manifest-path: yggdrasilffi/Cargo.toml
         env:
           GITHUB_TOKEN: ${{ steps.app.outputs.token }}
 
   release-plz-release:
-    if: ${{ github.repository_owner == 'Unleash' }}
+    if: ${{ github.repository_owner == 'Unleash' && startsWith(github.event.head_commit.message, 'chore(release):') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -66,5 +67,6 @@ jobs:
         uses: release-plz/action@v0.5
         with:
           command: release
+          manifest-path: yggdrasilffi/Cargo.toml
         env:
           GITHUB_TOKEN: ${{ steps.app.outputs.token }}
