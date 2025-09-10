@@ -5,8 +5,8 @@ on:
     branches: [ main ]
     paths:
       - 'yggdrasilffi/**'
+      - 'yggdrasilffi/CHANGELOG.md'
       - 'release-plz.toml'
-      - 'CHANGELOG.md'
       - '.github/workflows/release-plz.yaml'
 
 concurrency:
@@ -44,7 +44,12 @@ jobs:
           GITHUB_TOKEN: ${{ steps.app.outputs.token }}
 
   release-plz-release:
-    if: ${{ github.repository_owner == 'Unleash' && startsWith(github.event.head_commit.message, 'chore(release):') }}
+    if: >-
+      ${{
+        github.repository_owner == 'Unleash' &&
+        github.event_name == 'push' &&
+        startsWith(github.event.commits[0].message, 'chore(release):')
+      }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
