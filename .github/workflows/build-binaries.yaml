@@ -4,11 +4,11 @@ name: Build Release Binaries
 on:
   push:
     tags:
-      - unleash-yggdrasil-*
+      - yggdrasil-ffi-*
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "The tag name for the release to upload binaries to, e.g. unleash-yggdrasil-v0.13.3"
+        description: "The tag name for the release to upload binaries to, e.g. yggdrasil-ffi-v0.13.3"
         required: true
 
 jobs:

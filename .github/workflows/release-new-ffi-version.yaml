@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "New semver tag (e.g. v0.2.0)"
+        description: "New semver version (e.g. 0.2.0)"
         required: true
         type: string
 
@@ -26,22 +26,34 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Get latest tag
+      - name: Set full tag name
+        id: tag
+        run: |
+          FULL_TAG="yggdrasilffi-v${{ inputs.tag }}"
+          echo "full_tag=$FULL_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Get latest matching tag
         id: latest_tag
         run: |
-          TAG=$(git describe --tags --abbrev=0 || echo "")
-          echo "latest_tag=$TAG" >> "$GITHUB_OUTPUT"
+          LATEST_TAG=$(git tag --list 'yggdrasilffi-v*' --sort=-creatordate | grep -v "^${{ steps.tag.outputs.full_tag }}$" | head -n 1 || echo "")
+          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
 
       - name: Create annotated tag
         run: |
-          git tag -a "${{ inputs.tag }}" -m "Release ${{ inputs.tag }}"
-          git push origin "${{ inputs.tag }}"
+          git tag -a "${{ steps.tag.outputs.full_tag }}" -m "Release ${{ steps.tag.outputs.full_tag }}"
+          git push origin "${{ steps.tag.outputs.full_tag }}"
 
       - name: Generate changelog with git-cliff
         id: changelog
         run: |
           cargo install git-cliff
-          CHANGELOG=$(git cliff --latest --strip all)
+
+          if [[ "${{ steps.latest_tag.outputs.latest_tag }}" != "" ]]; then
+            CHANGELOG=$(git cliff --tag "${{ steps.tag.outputs.full_tag }}" --range "${{ steps.latest_tag.outputs.latest_tag }}..HEAD" --strip all)
+          else
+            CHANGELOG=$(git cliff --tag "${{ steps.tag.outputs.full_tag }}" --strip all)
+          fi
+
           echo 'changelog<<EOF' >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo 'EOF' >> $GITHUB_OUTPUT
@@ -49,6 +61,6 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.tag }}
-          name: Release ${{ inputs.tag }}
+          tag_name: ${{ steps.tag.outputs.full_tag }}
+          name: Release ${{ steps.tag.outputs.full_tag }}
           body: ${{ steps.changelog.outputs.changelog }}
