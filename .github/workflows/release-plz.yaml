@@ -3,6 +3,11 @@ name: Release-plz (Bindings)
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'yggdrasilffi/**'
+      - 'release-plz.toml'
+      - 'CHANGELOG.md'
+      - '.github/workflows/release-plz.yaml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
