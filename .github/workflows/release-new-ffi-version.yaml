@@ -1,0 +1,57 @@
+name: Release FFI Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "New semver tag (e.g. v0.2.0)"
+        required: true
+        type: string
+
+jobs:
+  create-release:
+    name: Tag and Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Get latest tag
+        id: latest_tag
+        run: |
+          TAG=$(git describe --tags --abbrev=0 || echo "")
+          echo "latest_tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Create annotated tag
+        run: |
+          git tag -a "${{ inputs.tag }}" -m "Release ${{ inputs.tag }}"
+          git push origin "${{ inputs.tag }}"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          if [ -z "${{ steps.latest_tag.outputs.latest_tag }}" ]; then
+            git log --oneline > full_changelog.txt
+          else
+            git log --oneline "${{ steps.latest_tag.outputs.latest_tag }}"..HEAD > full_changelog.txt
+          fi
+          echo 'changelog<<EOF' >> $GITHUB_OUTPUT
+          cat full_changelog.txt >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: Release ${{ inputs.tag }}
+          body: ${{ steps.changelog.outputs.changelog }}
