@@ -11,7 +11,6 @@ crate-type = ["cdylib"]
 name = "yggdrasilffi"
 
 [dependencies]
-libc = "0.2"
 chrono = "0.4.40"
 serde_json = "1.0.135"
 serde = { version = "1.0.217", features = ["derive"] }

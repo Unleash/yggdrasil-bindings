@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    ffi::{c_char, CStr, CString},
+    ffi::{c_char, c_void, CStr, CString},
     fmt::{self, Display, Formatter},
     mem::forget,
     str::Utf8Error,
@@ -8,7 +8,6 @@ use std::{
 };
 
 use chrono::Utc;
-use libc::c_void;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::MetricBucket;
