@@ -82,5 +82,5 @@ jobs:
         if: startsWith(matrix.os, 'macos')
         run: cargo build -p yggdrasilffi --release --target ${{ matrix.target }};
       - name: Build Rust Library (ZigBuild)
-        if: !(startsWith(matrix.os, 'macos'))
+        if: startsWith(matrix.os, 'windows') || startsWith(matrix.os, 'ubuntu')
         run: cargo zigbuild -p yggdrasilffi --release --target ${{ matrix.target }};
