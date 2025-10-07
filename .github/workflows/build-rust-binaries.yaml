@@ -62,6 +62,7 @@ jobs:
         run: |
           rustup set auto-self-update disable
           rustup toolchain install stable --profile default
+          rustup target add ${{ matrix.target }}
           rustup show
 
       - name: Install zigbuild
