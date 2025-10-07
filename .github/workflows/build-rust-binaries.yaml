@@ -65,9 +65,6 @@ jobs:
           rustup target add ${{ matrix.target }}
           rustup show
 
-      - name: Install zigbuild
-        run: cargo install cargo-zigbuild
-
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
 
@@ -81,6 +78,3 @@ jobs:
       - name: Build Rust Library (Cargo)
         if: startsWith(matrix.os, 'macos')
         run: cargo build -p yggdrasilffi --release --target ${{ matrix.target }};
-      - name: Build Rust Library (ZigBuild)
-        if: startsWith(matrix.os, 'windows') || startsWith(matrix.os, 'ubuntu')
-        run: cargo zigbuild -p yggdrasilffi --release --target ${{ matrix.target }};
