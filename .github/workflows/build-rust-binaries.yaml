@@ -55,9 +55,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
-
-      - name: Install zig
-        uses: mlugg/setup-zig@v2
       - name: Install rust
         run: |
           rustup set auto-self-update disable

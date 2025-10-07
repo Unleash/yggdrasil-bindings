@@ -83,37 +83,30 @@ jobs:
             target: x86_64-unknown-linux-gnu
             output: libyggdrasilffi.so
             name: libyggdrasilffi_x86_64.so
-            cross: true
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             output: libyggdrasilffi.so
             name: libyggdrasilffi_arm64.so
-            cross: true
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
             output: libyggdrasilffi.so
             name: libyggdrasilffi_x86_64-musl.so
-            cross: true
           - os: ubuntu-latest
             target: aarch64-unknown-linux-musl
             output: libyggdrasilffi.so
             name: libyggdrasilffi_arm64-musl.so
-            cross: true
           - os: windows-latest
             target: x86_64-pc-windows-gnu
             output: yggdrasilffi.dll
             name: yggdrasilffi_x86_64.dll
-            cross: false
           - os: windows-latest
             target: aarch64-pc-windows-msvc
             output: yggdrasilffi.dll
             name: yggdrasilffi_arm64.dll
-            cross: true
           - os: windows-latest
             target: i686-pc-windows-msvc
             output: yggdrasilffi.dll
             name: yggdrasilffi_i686.dll
-            cross: true
           - os: macos-13
             target: x86_64-apple-darwin
             output: libyggdrasilffi.dylib
@@ -122,32 +115,27 @@ jobs:
             target: aarch64-apple-darwin
             output: libyggdrasilffi.dylib
             name: libyggdrasilffi_arm64.dylib
-            cross: true
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install cross (if needed)
-        if: ${{ matrix.cross == true }}
-        run: cargo install cross
-
+      - uses: actions/checkout@v5
       - name: Install rust
         run: |
           rustup set auto-self-update disable
           rustup toolchain install stable --profile default
+          rustup target add ${{ matrix.target }}
           rustup show
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Build Rust Library (Cross)
-        if: ${{ matrix.cross == true }}
+      # Linux MUSL toolchain (native, not cross)
+      - name: Install musl tools (Linux)
+        if: startsWith(matrix.target, 'x86_64-unknown-linux-musl') || startsWith(matrix.target, 'aarch64-unknown-linux-musl')
         run: |
-          rustup target add ${{ matrix.target }}
-          cross build -p yggdrasilffi --release --target ${{ matrix.target }};
+          sudo apt-get update
+          sudo apt-get install -y musl-tools pkg-config build-essential
 
       - name: Build Rust Library (Cargo)
-        if: ${{ matrix.cross == false }}
         run: cargo build -p yggdrasilffi --release --target ${{ matrix.target }};
 
       - name: Rename Output Binary
