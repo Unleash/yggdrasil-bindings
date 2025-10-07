@@ -6,9 +6,6 @@ on:
       - main
     paths:
       - 'yggdrasilwasm/**'
-      # Build in main if anything changes in yggdrasil or the ffi layer
-      - 'unleash-yggdrasil/src/**.rs'
-      - 'yggdrasilffi/src/**.rs'
     tags:
       - '*'
   pull_request:
