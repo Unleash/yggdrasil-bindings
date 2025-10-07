@@ -79,4 +79,8 @@ jobs:
           sudo apt-get install -y musl-tools pkg-config build-essential
 
       - name: Build Rust Library (Cargo)
+        if: startsWith(matrix.os, 'macos')
+        run: cargo build -p yggdrasilffi --release --target ${{ matrix.target }};
+      - name: Build Rust Library (ZigBuild)
+        if: !(startsWith(matrix.os, 'macos'))
         run: cargo zigbuild -p yggdrasilffi --release --target ${{ matrix.target }};
