@@ -16,6 +16,8 @@ use unleash_yggdrasil::{
     ToggleDefinition, UpdateMessage, CORE_VERSION, KNOWN_STRATEGIES,
 };
 
+pub mod flat;
+
 static CORE_VERSION_CSTRING: std::sync::LazyLock<CString> =
     std::sync::LazyLock::new(|| CString::new(CORE_VERSION).expect("CString::new failed"));
 
