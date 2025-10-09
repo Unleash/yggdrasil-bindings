@@ -2,18 +2,18 @@ use chrono::DateTime;
 use core::str;
 use flatbuffers::root;
 
-use serialisation::{ResponseMessage, FlatError, FlatMessage};
 use messaging::messaging::{
     BuiltInStrategies, ContextMessage, CoreVersion, FeatureDefs, MetricsResponse, Response, Variant,
 };
+use serialisation::{FlatError, FlatMessage, ResponseMessage};
 
-use unleash_yggdrasil::{
-    EngineState, ExtendedVariantDef, KNOWN_STRATEGIES, UpdateMessage, state::EnrichedContext,
-};
 use std::alloc::{alloc, dealloc};
 use std::mem::forget;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::{alloc::Layout, collections::HashMap, slice};
+use unleash_yggdrasil::{
+    state::EnrichedContext, EngineState, ExtendedVariantDef, UpdateMessage, KNOWN_STRATEGIES,
+};
 
 mod serialisation;
 
@@ -32,9 +32,7 @@ impl TryFrom<ContextMessage<'_>> for EnrichedContext {
     type Error = FlatError;
 
     fn try_from(value: ContextMessage) -> Result<Self, Self::Error> {
-        let toggle_name = value
-            .toggle_name()
-            .ok_or(FlatError::MissingFlagName)?;
+        let toggle_name = value.toggle_name().ok_or(FlatError::MissingFlagName)?;
 
         let context = EnrichedContext {
             toggle_name: toggle_name.to_string(),
