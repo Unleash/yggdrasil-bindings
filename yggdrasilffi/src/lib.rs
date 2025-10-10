@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     ffi::{c_char, c_void, CStr, CString},
     fmt::{self, Display, Formatter},
     mem::forget,
@@ -28,7 +29,7 @@ struct Response<T> {
 
 type RawPointerDataType = Mutex<EngineState>;
 type ManagedEngine = Arc<RawPointerDataType>;
-type CustomStrategyResults = std::collections::HashMap<String, bool>;
+type CustomStrategyResults = HashMap<String, bool>;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
 enum ResponseCode {
