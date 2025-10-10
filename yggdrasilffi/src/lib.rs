@@ -3,6 +3,7 @@ use std::{
     ffi::{c_char, c_void, CStr, CString},
     fmt::{self, Display, Formatter},
     mem::forget,
+    panic::{self, AssertUnwindSafe},
     str::Utf8Error,
     sync::{Arc, Mutex, MutexGuard},
 };
@@ -64,6 +65,7 @@ enum FFIError {
     Utf8Error,
     NullError,
     InvalidJson(String),
+    Panic,
     PartialUpdate(Vec<EvalWarning>),
 }
 
@@ -77,6 +79,10 @@ impl Display for FFIError {
                 f,
                 "Engine state was updated but warnings were reported, this may result in some flags evaluating in unexpected ways, please report this: {:?}",
                 messages
+            ),
+            FFIError::Panic => write!(
+                f,
+                "Engine panicked while processing the request. Please report this as a bug with the accompanying stack trace if available."
             ),
         }
     }
@@ -111,6 +117,16 @@ fn result_to_json_ptr<T: Serialize>(result: Result<Option<T>, FFIError>) -> *mut
     let response: Response<T> = result.into();
     let json_string = serde_json::to_string(&response).unwrap();
     CString::new(json_string).unwrap().into_raw()
+}
+
+fn guard_result<T, F>(action: F) -> Result<Option<T>, FFIError>
+where
+    F: FnOnce() -> Result<Option<T>, FFIError>,
+{
+    match panic::catch_unwind(AssertUnwindSafe(action)) {
+        Ok(result) => result,
+        Err(_) => Err(FFIError::Panic),
+    }
 }
 
 unsafe fn get_engine(engine_ptr: *mut c_void) -> Result<ManagedEngine, FFIError> {
@@ -178,7 +194,7 @@ pub unsafe extern "C" fn take_state(
     engine_ptr: *mut c_void,
     json_ptr: *const c_char,
 ) -> *const c_char {
-    let result: Result<Option<()>, FFIError> = (|| {
+    let result = guard_result::<(), _>(|| {
         let guard = get_engine(engine_ptr)?;
         let mut engine = recover_lock(&guard);
 
@@ -189,7 +205,7 @@ pub unsafe extern "C" fn take_state(
         } else {
             Ok(Some(()))
         }
-    })();
+    });
 
     result_to_json_ptr(result)
 }
@@ -202,11 +218,11 @@ pub unsafe extern "C" fn take_state(
 /// be called with a null pointer.
 #[no_mangle]
 pub unsafe extern "C" fn get_state(engine_ptr: *mut c_void) -> *const c_char {
-    let result: Result<Option<ClientFeatures>, FFIError> = (|| {
+    let result = guard_result::<ClientFeatures, _>(|| {
         let guard = get_engine(engine_ptr)?;
         let engine = recover_lock(&guard);
         Ok(Some(engine.get_state()))
-    })();
+    });
 
     result_to_json_ptr(result)
 }
@@ -229,7 +245,7 @@ pub unsafe extern "C" fn check_enabled(
     context_ptr: *const c_char,
     custom_strategy_results_ptr: *const c_char,
 ) -> *const c_char {
-    let result: Result<Option<bool>, FFIError> = (|| {
+    let result = guard_result::<bool, _>(|| {
         let guard = get_engine(engine_ptr)?;
         let engine = recover_lock(&guard);
 
@@ -241,7 +257,7 @@ pub unsafe extern "C" fn check_enabled(
             EnrichedContext::from(context, toggle_name.into(), Some(custom_strategy_results));
 
         Ok(engine.check_enabled(&enriched_context))
-    })();
+    });
 
     result_to_json_ptr(result)
 }
@@ -264,7 +280,7 @@ pub unsafe extern "C" fn check_variant(
     context_ptr: *const c_char,
     custom_strategy_results_ptr: *const c_char,
 ) -> *const c_char {
-    let result: Result<Option<ExtendedVariantDef>, FFIError> = (|| {
+    let result = guard_result::<ExtendedVariantDef, _>(|| {
         let guard = get_engine(engine_ptr)?;
         let engine = recover_lock(&guard);
 
@@ -278,7 +294,7 @@ pub unsafe extern "C" fn check_variant(
         let base_variant = engine.check_variant(&enriched_context);
         let toggle_enabled = engine.check_enabled(&enriched_context).unwrap_or_default();
         Ok(base_variant.map(|variant| variant.to_enriched_response(toggle_enabled)))
-    })();
+    });
 
     result_to_json_ptr(result)
 }
@@ -347,7 +363,7 @@ pub unsafe extern "C" fn count_toggle(
 
     let enabled = enabled & 1 == 1;
 
-    let result: Result<Option<()>, FFIError> = (|| {
+    let result = guard_result::<(), _>(|| {
         let guard = get_engine(engine_ptr)?;
         let engine = recover_lock(&guard);
 
@@ -355,7 +371,7 @@ pub unsafe extern "C" fn count_toggle(
 
         engine.count_toggle(toggle_name, enabled);
         Ok(Some(()))
-    })();
+    });
 
     result_to_json_ptr(result)
 }
@@ -378,7 +394,7 @@ pub unsafe extern "C" fn count_variant(
     toggle_name_ptr: *const c_char,
     variant_name_ptr: *const c_char,
 ) -> *const c_char {
-    let result: Result<Option<()>, FFIError> = (|| {
+    let result = guard_result::<(), _>(|| {
         let guard = get_engine(engine_ptr)?;
         let engine = recover_lock(&guard);
 
@@ -387,7 +403,7 @@ pub unsafe extern "C" fn count_variant(
 
         engine.count_variant(toggle_name, variant_name);
         Ok(Some(()))
-    })();
+    });
 
     result_to_json_ptr(result)
 }
@@ -406,12 +422,12 @@ pub unsafe extern "C" fn count_variant(
 /// `free_response` and passing in the pointer returned by this method. Failure to do so will result in a leak.
 #[no_mangle]
 pub unsafe extern "C" fn get_metrics(engine_ptr: *mut c_void) -> *mut c_char {
-    let result: Result<Option<MetricBucket>, FFIError> = (|| {
+    let result = guard_result::<MetricBucket, _>(|| {
         let guard = get_engine(engine_ptr)?;
         let mut engine = recover_lock(&guard);
 
         Ok(engine.get_metrics(Utc::now()))
-    })();
+    });
 
     result_to_json_ptr(result)
 }
@@ -428,14 +444,14 @@ pub unsafe extern "C" fn should_emit_impression_event(
     engine_ptr: *mut c_void,
     toggle_name_ptr: *const c_char,
 ) -> *mut c_char {
-    let result: Result<Option<bool>, FFIError> = (|| {
+    let result = guard_result::<bool, _>(|| {
         let guard = get_engine(engine_ptr)?;
         let engine = recover_lock(&guard);
 
         let toggle_name = get_str(toggle_name_ptr)?;
 
         Ok(Some(engine.should_emit_impression_event(toggle_name)))
-    })();
+    });
 
     result_to_json_ptr(result)
 }
@@ -453,12 +469,12 @@ pub unsafe extern "C" fn should_emit_impression_event(
 /// `free_response` and passing in the pointer returned by this method. Failure to do so will result in a leak.
 #[no_mangle]
 pub unsafe extern "C" fn list_known_toggles(engine_ptr: *mut c_void) -> *mut c_char {
-    let result: Result<Option<Vec<ToggleDefinition>>, FFIError> = (|| {
+    let result = guard_result::<Vec<ToggleDefinition>, _>(|| {
         let guard = get_engine(engine_ptr)?;
         let engine = recover_lock(&guard);
 
         Ok(Some(engine.list_known_toggles()))
-    })();
+    });
 
     result_to_json_ptr(result)
 }
