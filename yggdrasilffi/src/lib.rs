@@ -129,6 +129,18 @@ where
     }
 }
 
+fn parse_custom_results(
+    results_ptr: *const c_char,
+) -> Result<Option<CustomStrategyResults>, FFIError> {
+    if results_ptr.is_null() {
+        return Ok(None);
+    }
+
+    let results = unsafe { get_json::<CustomStrategyResults>(results_ptr)? };
+
+    Ok(Some(results))
+}
+
 unsafe fn get_engine(engine_ptr: *mut c_void) -> Result<ManagedEngine, FFIError> {
     if engine_ptr.is_null() {
         return Err(FFIError::NullError);
@@ -251,10 +263,9 @@ pub unsafe extern "C" fn check_enabled(
 
         let toggle_name = get_str(toggle_name_ptr)?;
         let context: Context = get_json(context_ptr)?;
-        let custom_strategy_results =
-            get_json::<CustomStrategyResults>(custom_strategy_results_ptr)?;
+        let custom_strategy_results = parse_custom_results(custom_strategy_results_ptr)?;
         let enriched_context =
-            EnrichedContext::from(context, toggle_name.into(), Some(custom_strategy_results));
+            EnrichedContext::from(context, toggle_name.into(), custom_strategy_results);
 
         Ok(engine.check_enabled(&enriched_context))
     });
@@ -286,10 +297,9 @@ pub unsafe extern "C" fn check_variant(
 
         let toggle_name = get_str(toggle_name_ptr)?;
         let context: Context = get_json(context_ptr)?;
-        let custom_strategy_results =
-            get_json::<CustomStrategyResults>(custom_strategy_results_ptr)?;
+        let custom_strategy_results = parse_custom_results(custom_strategy_results_ptr)?;
         let enriched_context =
-            EnrichedContext::from(context, toggle_name.into(), Some(custom_strategy_results));
+            EnrichedContext::from(context, toggle_name.into(), custom_strategy_results);
 
         let base_variant = engine.check_variant(&enriched_context);
         let toggle_enabled = engine.check_enabled(&enriched_context).unwrap_or_default();
