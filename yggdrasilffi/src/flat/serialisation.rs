@@ -230,8 +230,8 @@ impl FlatMessage<Vec<ToggleDefinition>> for FeatureDefs<'static> {
                 feature_def_builder.add_name(toggle_name_offset);
                 feature_def_builder.add_project(project_offset);
                 feature_def_builder.add_enabled(toggle.enabled);
-                if feature_type_offset.is_some() {
-                    feature_def_builder.add_type_(feature_type_offset.unwrap());
+                if let Some(offset) = feature_type_offset {
+                    feature_def_builder.add_type_(offset);
                 }
                 feature_def_builder.finish()
             })

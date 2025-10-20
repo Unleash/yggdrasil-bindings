@@ -127,7 +127,7 @@ unsafe fn get_engine(engine_ptr: *mut c_void) -> Result<ManagedEngine, FFIError>
     Ok(cloned_arc)
 }
 
-fn recover_lock<T>(lock: &Mutex<T>) -> MutexGuard<T> {
+fn recover_lock<T>(lock: &Mutex<T>) -> MutexGuard<'_, T> {
     match lock.lock() {
         Ok(guard) => guard,
         Err(poisoned) => poisoned.into_inner(),

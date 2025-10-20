@@ -81,8 +81,9 @@ pub extern "C" fn flat_get_state(engine_ptr: u32) -> u32 {
     0 // Return null pointer only if serialization failed (shouldn't happen)
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn flat_check_enabled(
+#[no_mangle]
+/// safety: should only be called from the same thread that created the engine
+pub unsafe extern "C" fn flat_check_enabled(
     engine_ptr: *mut c_void,
     message_ptr: u64,
     message_len: u64,
@@ -97,7 +98,7 @@ pub extern "C" fn flat_check_enabled(
             .try_into()
             .map_err(|e: FlatError| FlatError::InvalidContext(e.to_string()))?;
 
-        let lock = unsafe { get_engine(engine_ptr as *mut c_void).unwrap() };
+        let lock = get_engine(engine_ptr).unwrap();
         let engine = recover_lock(&lock);
 
         let enabled = engine.check_enabled(&context);
