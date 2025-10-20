@@ -29,29 +29,35 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class UnleashEngine {
+  private static final String EMPTY_STRATEGY_RESULTS = "{}";
   private static final Logger log = LoggerFactory.getLogger(UnleashEngine.class);
   private static final Cleaner cleaner = Cleaner.create();
-  private final NativeInterface nativeInterface;
-  private final int enginePointer;
+  private final UnleashFFI yggdrasil;
+  private final Pointer enginePtr;
+  private final ObjectMapper mapper;
   private final CustomStrategiesEvaluator customStrategiesEvaluator;
 
   public UnleashEngine() {
-    this(null, null, null);
+    this(UnleashFFI.getInstance(), null, null);
   }
 
   public UnleashEngine(List<IStrategy> customStrategies) {
-    this(customStrategies, null, null);
+    this(UnleashFFI.getInstance(), customStrategies, null);
   }
 
   public UnleashEngine(List<IStrategy> customStrategies, IStrategy fallbackStrategy) {
-    this(customStrategies, fallbackStrategy, null);
+    this(UnleashFFI.getInstance(), customStrategies, fallbackStrategy);
   }
 
   // Only visible for testing
-  UnleashEngine(
+  UnleashEngine(UnleashFFI ffi,
       List<IStrategy> customStrategies,
-      IStrategy fallbackStrategy,
-      NativeInterface nativeInterface) {
+      IStrategy fallbackStrategy) {
+    yggdrasil = ffi;
+    this.enginePtr = yggdrasil.newEngine();
+    this.mapper = new ObjectMapper();
+    this.mapper.registerModule(new JavaTimeModule());
+    this.mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     if (customStrategies != null && !customStrategies.isEmpty()) {
       List<String> builtInStrategies = getBuiltInStrategies();
       this.customStrategiesEvaluator =
@@ -65,19 +71,12 @@ public class UnleashEngine {
     if (nativeInterface != null) {
       this.nativeInterface = nativeInterface;
     } else {
-      this.nativeInterface = new WasmInterface();
+      this.nativeInterface = new FlatInterface();
     }
 
     Instant now = Instant.now();
-    final int enginePtr = this.nativeInterface.newEngine(now.toEpochMilli());
-    if (enginePtr <= 0) {
-      throw new IllegalStateException(
-          "Failed to create Unleash engine (invalid pointer): " + enginePtr);
-    }
-    this.enginePointer = enginePtr;
 
-    final NativeInterface wasmHook = this.nativeInterface;
-    cleaner.register(this, () -> wasmHook.freeEngine(enginePtr));
+    cleaner.register(this, () -> yggdrasil.freeEngine(enginePtr));
   }
 
   private static String getRuntimeHostname() {
@@ -317,15 +316,15 @@ public class UnleashEngine {
   }
 
   // The following two methods break our abstraction a little by calling the
-  // WasmInterface directly. rather than through the nativeInterface. However,
+  // FlatInterface directly. rather than through the nativeInterface. However,
   // we really, really want them to be accessible without having to instantiate
   // an UnleashEngine and our interface abstraction here is primarily for testing
   public static String getCoreVersion() {
-    return WasmInterface.getCoreVersion();
+    return FlatInterface.getCoreVersion();
   }
 
   public static List<String> getBuiltInStrategies() {
-    BuiltInStrategies builtInStrategiesMessage = WasmInterface.getBuiltInStrategies();
+    BuiltInStrategies builtInStrategiesMessage = NativeInterface.getBuiltInStrategies();
     List<String> builtInStrategies = new ArrayList<>(builtInStrategiesMessage.valuesLength());
     for (int i = 0; i < builtInStrategiesMessage.valuesLength(); i++) {
       String strategyName = builtInStrategiesMessage.values(i);
