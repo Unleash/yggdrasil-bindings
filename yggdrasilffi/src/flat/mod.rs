@@ -1,19 +1,15 @@
-use chrono::DateTime;
-use core::str;
 use flatbuffers::root;
+use std::ffi::c_void;
 
 use messaging::messaging::{
-    BuiltInStrategies, ContextMessage, CoreVersion, FeatureDefs, MetricsResponse, Response, Variant,
+    ContextMessage, Response,
 };
 use serialisation::{FlatError, FlatMessage, ResponseMessage};
 
-use std::alloc::{alloc, dealloc};
-use std::mem::forget;
-use std::sync::{Arc, Mutex, MutexGuard};
-use std::{alloc::Layout, collections::HashMap, slice};
-use unleash_yggdrasil::{
-    state::EnrichedContext, EngineState, ExtendedVariantDef, UpdateMessage, KNOWN_STRATEGIES,
-};
+use crate::flat::serialisation::Buf;
+use crate::{get_engine, recover_lock};
+use std::collections::HashMap;
+use unleash_yggdrasil::state::EnrichedContext;
 
 mod serialisation;
 
@@ -24,9 +20,6 @@ mod messaging {
     #![allow(warnings)]
     include!("enabled-message_generated.rs");
 }
-
-type RawPointerDataType = Mutex<EngineState>;
-type ManagedEngine = Arc<RawPointerDataType>;
 
 impl TryFrom<ContextMessage<'_>> for EnrichedContext {
     type Error = FlatError;
@@ -61,101 +54,21 @@ impl TryFrom<ContextMessage<'_>> for EnrichedContext {
     }
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn flat_new_engine(start_time: i64) -> u32 {
-    let start_time = DateTime::from_timestamp_millis(start_time).unwrap();
-    let engine = EngineState::initial_state(start_time);
-    let engine_ref = Arc::new(Mutex::new(engine));
-    Arc::into_raw(engine_ref) as u32
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn flat_free_engine(engine_ptr: *const u32) {
-    if engine_ptr.is_null() {
+#[no_mangle]
+pub extern "C" fn free_buf(buf: Buf) {
+    if buf.ptr.is_null() {
         return;
     }
-    // the stack pop here drops the last reference to the Arc,
-    // which will in turn drop the Mutex and the EngineState
-    unsafe { Arc::from_raw(engine_ptr as *const RawPointerDataType) };
-}
-
-unsafe fn get_engine(engine_ptr: *const u32) -> Result<ManagedEngine, FlatError> {
-    if engine_ptr.is_null() {
-        return Err(FlatError::InvalidPointer);
-    }
-    let arc_instance = unsafe { Arc::from_raw(engine_ptr as *const RawPointerDataType) };
-
-    let cloned_arc = arc_instance.clone();
-    forget(arc_instance);
-
-    Ok(cloned_arc)
-}
-
-fn recover_lock<T>(lock: &Mutex<T>) -> MutexGuard<T> {
-    match lock.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn local_alloc(len: usize) -> i32 {
-    let layout = Layout::from_size_align(len, 1).unwrap();
-    let ptr = unsafe { alloc(layout) };
-    ptr as i32
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn local_dealloc(ptr: *mut u8, len: usize) {
-    if !ptr.is_null() && len > 0 {
-        let layout = Layout::from_size_align(len, 1).unwrap();
-        unsafe { dealloc(ptr as *mut u8, layout) };
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn dealloc_response_buffer(ptr: *mut u8, len: usize) {
-    if !ptr.is_null() && len > 0 {
-        unsafe {
-            let _ = Vec::from_raw_parts(ptr, len, len);
-        }
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn free_cstring(ptr: u32) {
-    if ptr == 0 {
-        return;
-    }
-
     unsafe {
-        use std::ffi::CString;
-        let _ = CString::from_raw(ptr as *mut i8);
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn flat_take_state(engine_ptr: u32, json_ptr: u32, json_len: u32) {
-    let lock = unsafe { get_engine(engine_ptr as *const u32).unwrap() };
-    let mut engine = recover_lock(&lock);
-
-    let json_str = unsafe {
-        let json_bytes = slice::from_raw_parts(json_ptr as *const u8, json_len as usize);
-        str::from_utf8(json_bytes)
-    };
-
-    let Ok(json_str) = json_str else {
-        return;
-    };
-
-    if let Ok(client_features) = serde_json::from_str::<UpdateMessage>(json_str) {
-        engine.take_state(client_features);
+        // We assume capacity == len. If that's not guaranteed, include `cap` in Buf.
+        let _ = Vec::from_raw_parts(buf.ptr, buf.len as usize, buf.len as usize);
+        // Dropping the Vec frees the memory with Rust's allocator.
     }
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn flat_get_state(engine_ptr: u32) -> u32 {
-    let lock = unsafe { get_engine(engine_ptr as *const u32).unwrap() };
+    let lock = unsafe { get_engine(engine_ptr as *mut c_void).unwrap() };
     let engine = recover_lock(&lock);
 
     let state = engine.get_state();
@@ -169,7 +82,11 @@ pub extern "C" fn flat_get_state(engine_ptr: u32) -> u32 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn flat_check_enabled(engine_ptr: i32, message_ptr: i32, message_len: i32) -> u64 {
+pub extern "C" fn flat_check_enabled(
+    engine_ptr: *mut c_void,
+    message_ptr: u64,
+    message_len: u64,
+) -> Buf {
     let enabled: Result<ResponseMessage<bool>, FlatError> = (|| {
         let bytes =
             unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
@@ -180,7 +97,7 @@ pub extern "C" fn flat_check_enabled(engine_ptr: i32, message_ptr: i32, message_
             .try_into()
             .map_err(|e: FlatError| FlatError::InvalidContext(e.to_string()))?;
 
-        let lock = unsafe { get_engine(engine_ptr as *const u32).unwrap() };
+        let lock = unsafe { get_engine(engine_ptr as *mut c_void).unwrap() };
         let engine = recover_lock(&lock);
 
         let enabled = engine.check_enabled(&context);
@@ -196,73 +113,74 @@ pub extern "C" fn flat_check_enabled(engine_ptr: i32, message_ptr: i32, message_
     Response::build_response(enabled)
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn flat_check_variant(engine_ptr: i32, message_ptr: i32, message_len: i32) -> u64 {
-    let extended_variant: Result<ResponseMessage<ExtendedVariantDef>, FlatError> = (|| {
-        let bytes =
-            unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
-        let ctx: ContextMessage =
-            root::<ContextMessage>(bytes).map_err(|e| FlatError::InvalidContext(e.to_string()))?;
+#[cfg(test)]
+mod tests {
+    use std::ffi::CString;
 
-        let context: EnrichedContext = ctx
-            .try_into()
-            .map_err(|e: FlatError| FlatError::InvalidContext(e.to_string()))?;
+    use super::*;
+    use crate::flat::messaging::messaging::ContextMessageBuilder;
+    use crate::flat::serialisation::allocate;
+    use crate::{free_response, new_engine, take_state};
+    use flatbuffers::{FlatBufferBuilder, WIPOffset};
+    use unleash_types::client_features::{ClientFeature, ClientFeatures, Strategy};
+    extern crate flatbuffers;
 
-        let lock = unsafe { get_engine(engine_ptr as *const u32).unwrap() };
-        let engine = recover_lock(&lock);
+    #[test]
+    fn it_taketh_the_state() {
+        let engine_ptr = new_engine();
+        let toggle_under_test = "some-toggle";
+        let appname_test = "the-app";
 
-        let variant = engine.check_variant(&context);
-        let enabled = engine.check_enabled(&context).unwrap_or_default();
+        let client_features = ClientFeatures {
+            features: vec![ClientFeature {
+                name: toggle_under_test.into(),
+                enabled: true,
+                impression_data: Some(true),
+                strategies: Some(vec![Strategy {
+                    name: "default".into(),
+                    constraints: None,
+                    parameters: None,
+                    segments: None,
+                    sort_order: None,
+                    variants: None,
+                }]),
+                ..Default::default()
+            }],
+            query: None,
+            segments: None,
+            version: 2,
+            meta: None,
+        };
+        let serialised = serde_json::to_string(&client_features).unwrap();
+        let c_serialised = CString::new(serialised).unwrap();
+        let json_ptr = c_serialised.as_ptr();
 
-        engine.count_toggle(&context.toggle_name, enabled);
+        unsafe {
+            let response_ptr = take_state(engine_ptr, json_ptr) as *mut i8;
+            free_response(response_ptr);
+            let mut builder = FlatBufferBuilder::with_capacity(128);
+            let toggle_name: WIPOffset<&str> = builder.create_string(&toggle_under_test).into();
+            let app_name: WIPOffset<&str> = builder.create_string(&appname_test).into();
 
-        if let Some(variant) = &variant {
-            engine.count_variant(&context.toggle_name, &variant.name);
+            let mut context_builder = ContextMessageBuilder::new(&mut builder);
+            context_builder.add_toggle_name(toggle_name);
+            context_builder.add_app_name(app_name);
+            let offset = context_builder.finish();
+            builder.finish(offset, None);
+            let finished_data = builder.finished_data().to_vec();
+
+            let context_len = finished_data.len();
+            let context_ptr = allocate(context_len);
+
+            std::ptr::copy_nonoverlapping(finished_data.as_ptr(), context_ptr, context_len);
+
+            let flat_response_buf: Buf =
+                flat_check_enabled(engine_ptr, context_ptr as u64, context_len as u64);
+            let slice: &[u8] =
+                std::slice::from_raw_parts(flat_response_buf.ptr, flat_response_buf.len as usize);
+            let resp: Response = root::<Response>(slice).unwrap();
+            assert!(resp.enabled());
+            free_buf(flat_response_buf);
         }
-
-        let impression_data = engine.should_emit_impression_event(&context.toggle_name);
-        let variant_def = variant.map(|variant| ExtendedVariantDef {
-            enabled: variant.enabled,
-            feature_enabled: enabled,
-            name: variant.name,
-            payload: variant.payload.clone(),
-        });
-
-        Ok(ResponseMessage {
-            message: variant_def,
-            impression_data,
-        })
-    })();
-
-    Variant::build_response(extended_variant)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn flat_get_metrics(engine_ptr: i32, close_time: i64) -> u64 {
-    let lock = unsafe { get_engine(engine_ptr as *const u32).unwrap() };
-    let mut engine = recover_lock(&lock);
-
-    let metrics = engine.get_metrics(DateTime::from_timestamp_millis(close_time).unwrap());
-
-    MetricsResponse::build_response(metrics)
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn flat_list_known_toggles(engine_ptr: i32) -> u64 {
-    let lock = unsafe { get_engine(engine_ptr as *const u32).unwrap() };
-    let engine = recover_lock(&lock);
-
-    let known_toggles = engine.list_known_toggles();
-
-    FeatureDefs::build_response(known_toggles)
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn flat_get_core_version() -> u64 {
-    CoreVersion::build_response(env!("CARGO_PKG_VERSION"))
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn flat_get_built_in_strategies() -> u64 {
-    BuiltInStrategies::build_response(KNOWN_STRATEGIES)
+    }
 }
