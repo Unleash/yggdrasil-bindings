@@ -2,7 +2,6 @@ package io.getunleash.engine;
 
 import com.sun.jna.Library;
 import com.sun.jna.Native;
-
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -93,7 +92,7 @@ class NativeLoader {
   private static Path extractLibraryFromJar(String libName) throws IOException {
     Path tempFile = Files.createTempFile("lib", libName);
     try (InputStream in = UnleashFFI.class.getResourceAsStream("/native/" + libName);
-         OutputStream out = Files.newOutputStream(tempFile)) {
+        OutputStream out = Files.newOutputStream(tempFile)) {
       if (in == null) {
         throw new FileNotFoundException("File " + libName + " was not found inside JAR.");
       }

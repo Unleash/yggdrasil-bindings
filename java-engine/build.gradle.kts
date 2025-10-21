@@ -25,7 +25,11 @@ repositories {
 dependencies {
     jmh(libs.jmh.core)
     jmhAnnotationProcessor(libs.jmh.annprocess)
-    testImplementation(libs.junit.jupiter)
+    testImplementation(platform(libs.junit.bom))
+    testImplementation("org.junit.jupiter:junit-jupiter-api")
+    testImplementation("org.junit.platform:junit-platform-launcher")
+    testImplementation("org.junit.jupiter:junit-jupiter-engine")
+    testImplementation("org.junit.jupiter:junit-jupiter-params")
     testImplementation(libs.mockito.core)
     testImplementation(libs.slf4j.simple)
     implementation(libs.slf4j.api)

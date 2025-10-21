@@ -1,68 +1,41 @@
 package io.getunleash.engine;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.flatbuffers.FlatBufferBuilder;
 import java.lang.ref.Cleaner;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Stream;
-
-import com.sun.jna.Memory;
-import com.sun.jna.Pointer;
-import messaging.BuiltInStrategies;
-import messaging.ContextMessage;
-import messaging.FeatureDefs;
-import messaging.MetricsResponse;
-import messaging.PropertyEntry;
-import messaging.Response;
-import messaging.ToggleEntry;
-import messaging.ToggleStats;
-import messaging.Variant;
-import messaging.VariantEntry;
-import messaging.VariantPayload;
+import messaging.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class UnleashEngine {
-  private static final String EMPTY_STRATEGY_RESULTS = "{}";
   private static final Logger log = LoggerFactory.getLogger(UnleashEngine.class);
   private static final Cleaner cleaner = Cleaner.create();
-  private final UnleashFFI yggdrasil;
-  private final Pointer enginePointer;
-  private final ObjectMapper mapper;
+  private final NativeInterface nativeEngine;
   private final CustomStrategiesEvaluator customStrategiesEvaluator;
 
   public UnleashEngine() {
-    this(UnleashFFI.getInstance(), null, null);
+    this(new FlatInterface(UnleashFFI.getInstance()), null, null);
   }
 
   public UnleashEngine(List<IStrategy> customStrategies) {
-    this(UnleashFFI.getInstance(), customStrategies, null);
+    this(new FlatInterface(UnleashFFI.getInstance()), customStrategies, null);
   }
 
   public UnleashEngine(List<IStrategy> customStrategies, IStrategy fallbackStrategy) {
-    this(UnleashFFI.getInstance(), customStrategies, fallbackStrategy);
+    this(new FlatInterface(UnleashFFI.getInstance()), customStrategies, fallbackStrategy);
   }
 
   // Only visible for testing
-  UnleashEngine(UnleashFFI ffi, List<IStrategy> customStrategies, IStrategy fallbackStrategy) {
-    yggdrasil = ffi;
-    this.enginePointer = yggdrasil.newEngine();
-    this.mapper = new ObjectMapper();
-    this.mapper.registerModule(new JavaTimeModule());
-    this.mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+  UnleashEngine(
+      NativeInterface nativeInterface,
+      List<IStrategy> customStrategies,
+      IStrategy fallbackStrategy) {
+    this.nativeEngine = nativeInterface;
     if (customStrategies != null && !customStrategies.isEmpty()) {
       List<String> builtInStrategies = getBuiltInStrategies();
       this.customStrategiesEvaluator =
@@ -73,9 +46,7 @@ public class UnleashEngine {
           new CustomStrategiesEvaluator(Stream.empty(), fallbackStrategy, new HashSet<String>());
     }
 
-    Instant now = Instant.now();
-
-    cleaner.register(this, () -> yggdrasil.freeEngine(enginePointer));
+    cleaner.register(this, nativeEngine::freeEngine);
   }
 
   private static String getRuntimeHostname() {
@@ -188,46 +159,19 @@ public class UnleashEngine {
 
   public void takeState(String clientFeatures) throws YggdrasilInvalidInputException {
     try {
-      yggdrasil.takeState(this.enginePointer, toUtf8Pointer(clientFeatures));
+      this.nativeEngine.takeState(clientFeatures);
       customStrategiesEvaluator.loadStrategiesFor(clientFeatures);
     } catch (RuntimeException e) {
       throw new YggdrasilInvalidInputException("Failed to take state:", e);
     }
   }
 
-  public String getState() {
-    return yggdrasil.getState(this.enginePointer);
-  }
-
-  public List<FeatureDef> listKnownToggles() {
-    try {
-      Pointer featureDefsPointer = yggdrasil.listKnownToggles(this.enginePointer);
-        ByteBuffer featureDefsBuffer = ByteBuffer
-      List<FeatureDef> defs = new ArrayList<>(featureDefs.itemsLength());
-      for (int i = 0; i < featureDefs.itemsLength(); i++) {
-        FeatureDef featureDef =
-            new FeatureDef(
-                featureDefs.items(i).name(),
-                featureDefs.items(i).type(),
-                featureDefs.items(i).project(),
-                featureDefs.items(i).enabled());
-        defs.add(featureDef);
-      }
-
-      return defs;
-    } catch (RuntimeException e) {
-      log.warn("Unable to list known toggles, will return empty list", e);
-      return new ArrayList<>();
-    }
-  }
-
-  public WasmResponse<Boolean> isEnabled(String toggleName, Context context)
+  public FlatResponse<Boolean> isEnabled(String toggleName, Context context)
       throws YggdrasilInvalidInputException {
     try {
       Map<String, Boolean> strategyResults = customStrategiesEvaluator.eval(toggleName, context);
       byte[] contextBytes = buildMessage(toggleName, context, strategyResults);
-
-      Response response = nativeInterface.checkEnabled(enginePointer, contextBytes);
+      Response response = this.nativeEngine.checkEnabled(contextBytes);
 
       if (response.error() != null) {
         String error = response.error();
@@ -235,23 +179,23 @@ public class UnleashEngine {
       }
 
       if (response.hasEnabled()) {
-        return new WasmResponse<Boolean>(response.impressionData(), response.enabled());
+        return new FlatResponse<>(response.impressionData(), response.enabled());
       } else {
-        return new WasmResponse<Boolean>(response.impressionData(), null);
+        return new FlatResponse<>(response.impressionData(), null);
       }
     } catch (RuntimeException e) {
       log.warn("Could not check if toggle is enabled: {}", e.getMessage(), e);
-      return new WasmResponse<Boolean>(false, null);
+      return new FlatResponse<>(false, null);
     }
   }
 
-  public WasmResponse<VariantDef> getVariant(String toggleName, Context context)
+  public FlatResponse<VariantDef> getVariant(String toggleName, Context context)
       throws YggdrasilInvalidInputException {
     try {
       Map<String, Boolean> strategyResults = customStrategiesEvaluator.eval(toggleName, context);
       byte[] contextBytes = buildMessage(toggleName, context, strategyResults);
 
-      Variant variant = nativeInterface.checkVariant(enginePointer, contextBytes);
+      Variant variant = this.nativeEngine.checkVariant(contextBytes);
       if (variant.name() != null) {
         Payload payload = null;
 
@@ -268,76 +212,61 @@ public class UnleashEngine {
           throw new YggdrasilInvalidInputException(error);
         }
 
-        return new WasmResponse<VariantDef>(
+        return new FlatResponse<>(
             variant.impressionData(),
             new VariantDef(variant.name(), payload, variant.enabled(), variant.featureEnabled()));
       } else {
-        return new WasmResponse<VariantDef>(false, null);
+        return new FlatResponse<>(false, null);
       }
     } catch (RuntimeException e) {
       log.warn("Could not get variant for toggle '{}': {}", toggleName, e.getMessage(), e);
-      return new WasmResponse<VariantDef>(false, null);
+      return new FlatResponse<>(false, null);
     }
+  }
+
+  public List<String> getBuiltInStrategies() {
+    BuiltInStrategies builtInStrategies = this.nativeEngine.getBuiltInStrategies();
+    List<String> builtInStrategiesNames = new ArrayList<>(builtInStrategies.valuesLength());
+    for (int i = 0; i < builtInStrategies.valuesLength(); i++) {
+      builtInStrategiesNames.add(builtInStrategies.values(i));
+    }
+    return builtInStrategiesNames;
+  }
+
+  public String getCoreVersion() {
+    return this.nativeEngine.getCoreVersion();
+  }
+
+  public String getState() {
+    return this.nativeEngine.getState();
+  }
+
+  public List<FeatureDef> listKnownToggles() {
+    var knownToggles = this.nativeEngine.listKnownToggles();
+    var toggleList = new ArrayList<FeatureDef>(knownToggles.itemsLength());
+    for (int i = 0; i < knownToggles.itemsLength(); i++) {
+      toggleList.add(knownToggles.items(i));
+    }
+    return toggleList;
   }
 
   public MetricsBucket getMetrics() {
-    try {
-      ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
-      MetricsResponse response = UnleashFFI.getMetrics(this.enginePointer, now);
-      if (response.togglesVector() == null) {
-        return null;
+    var metrics = this.nativeEngine.getMetrics(ZonedDateTime.now());
+    Map<String, FeatureCount> toggles = new HashMap<>();
+    for (int i = 0; i < metrics.togglesLength(); i++) {
+      ToggleEntry toggleEntry = metrics.toggles(i);
+      ToggleStats stats = toggleEntry.value();
+
+      Map<String, Long> variants = new HashMap<>();
+      for (int j = 0; j < stats.variantsLength(); j++) {
+        VariantEntry variant = stats.variants(j);
+        variants.put(variant.key(), variant.value());
       }
+      FeatureCount featureCount = new FeatureCount(stats.yes(), stats.no(), variants);
 
-      Map<String, FeatureCount> toggles = new HashMap<>();
-      for (int i = 0; i < response.togglesLength(); i++) {
-        ToggleEntry toggleEntry = response.toggles(i);
-        ToggleStats stats = toggleEntry.value();
-
-        Map<String, Long> variants = new HashMap<>();
-        for (int j = 0; j < stats.variantsLength(); j++) {
-          VariantEntry variant = stats.variants(j);
-          variants.put(variant.key(), variant.value());
-        }
-        FeatureCount featureCount = new FeatureCount(stats.yes(), stats.no(), variants);
-
-        toggles.put(toggleEntry.key(), featureCount);
-      }
-
-      Instant startInstant = Instant.ofEpochMilli(response.start());
-      Instant stopInstant = Instant.ofEpochMilli(response.stop());
-
-      return new MetricsBucket(startInstant, stopInstant, toggles);
-    } catch (RuntimeException e) {
-      log.warn("Error retrieving metrics: {}", e.getMessage(), e);
-      return null;
+      toggles.put(toggleEntry.key(), featureCount);
     }
-  }
-
-  static Pointer toUtf8Pointer(String str) {
-    byte[] utf8Bytes = str.getBytes(StandardCharsets.UTF_8);
-    Pointer pointer = new Memory(utf8Bytes.length + 1);
-    pointer.write(0, utf8Bytes, 0, utf8Bytes.length);
-    pointer.setByte(utf8Bytes.length, (byte) 0);
-    return pointer;
-  }
-
-  // The following two methods break our abstraction a little by calling the
-  // UnleashFFI directly. rather than through the nativeInterface. However,
-  // we really, really want them to be accessible without having to instantiate
-  // an UnleashEngine and our interface abstraction here is primarily for testing
-  public static String getCoreVersion() {
-    Pointer versionPointer = UnleashFFI.getCoreVersion();
-    return versionPointer.getString(0);
-  }
-
-  public static List<String> getBuiltInStrategies() {
-    BuiltInStrategies builtInStrategiesMessage = UnleashFFI.getBuiltInStrategies();
-    List<String> builtInStrategies = new ArrayList<>(builtInStrategiesMessage.valuesLength());
-    for (int i = 0; i < builtInStrategiesMessage.valuesLength(); i++) {
-      String strategyName = builtInStrategiesMessage.values(i);
-      builtInStrategies.add(strategyName);
-    }
-
-    return builtInStrategies;
+    return new MetricsBucket(
+        Instant.ofEpochMilli(metrics.start()), Instant.ofEpochMilli(metrics.stop()), toggles);
   }
 }

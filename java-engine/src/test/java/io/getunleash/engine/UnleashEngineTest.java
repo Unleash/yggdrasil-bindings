@@ -11,25 +11,18 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.of;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.dylibso.chicory.wasm.ChicoryException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
 import java.io.IOException;
 import java.lang.ref.PhantomReference;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
-import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -44,6 +37,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Stream;
+import messaging.FeatureDef;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -63,30 +57,10 @@ class UnleashEngineTest {
 
   // Assume this is set up to be your feature JSON
   private final String simpleFeatures =
-      loadFeaturesFromFile("../client-specification/specifications/01-simple-examples.json");
+      ResourceReader.readResourceAsString("01-simple-examples.json");
   private UnleashEngine engine;
 
-  public static String loadFeaturesFromFile(String filePath) {
-    ObjectMapper mapper = new ObjectMapper();
-    try {
-      JsonNode jsonNode = mapper.readTree(Paths.get(filePath).toFile());
-      JsonNode state = jsonNode.get("state");
-      return state.toString();
-    } catch (IOException e) {
-      e.printStackTrace();
-      return null;
-    }
-  }
-
-  public static String readResource(String resource) throws IOException, URISyntaxException {
-    return new String(
-        Files.readAllBytes(
-            Paths.get(
-                Objects.requireNonNull(
-                        UnleashEngineTest.class.getClassLoader().getResource(resource))
-                    .toURI())),
-        StandardCharsets.UTF_8);
-  }
+  UnleashEngineTest() throws IOException {}
 
   @BeforeEach
   void createEngine() {
@@ -157,7 +131,7 @@ class UnleashEngineTest {
         "{\"version\":1,\"features\":[{\"name\":\"Feature.D\",\"description\":\"Has a custom strategy\",\"enabled\":true,\"strategies\":[{\"name\":\"custom\",\"constraints\":[],\"parameters\":{\"foo\":\"bar\"}}]}]}");
 
     Context context = new Context();
-    WasmResponse<VariantDef> variant = engine.getVariant("Feature.D", context);
+    FlatResponse<VariantDef> variant = engine.getVariant("Feature.D", context);
 
     assertEquals(true, variant.value.isFeatureEnabled());
     assertFalse(variant.value.isEnabled());
@@ -171,13 +145,13 @@ class UnleashEngineTest {
     assertEquals(1, features.size());
 
     Optional<FeatureDef> featureA =
-        features.stream().filter(f -> f.getName().equals("Feature.A")).findFirst();
+        features.stream().filter(f -> Objects.equals(f.name(), "Feature.A")).findFirst();
     assertTrue(featureA.isPresent());
-    assertEquals("Feature.A", featureA.get().getName());
-    assertEquals("test", featureA.get().getProject());
-    assertTrue(featureA.get().getType().isPresent());
-    assertTrue(featureA.get().isEnabled());
-    assertEquals("experiment", featureA.get().getType().get());
+    assertEquals("Feature.A", featureA.get().name());
+    assertEquals("test", featureA.get().project());
+    assertNotNull(featureA.get().type());
+    assertTrue(featureA.get().enabled());
+    assertEquals("experiment", featureA.get().type());
   }
 
   @Test
@@ -300,7 +274,7 @@ class UnleashEngineTest {
       throws Exception {
 
     takeFeaturesFromResource(engine, "impression-data-tests.json");
-    WasmResponse<Boolean> result = engine.isEnabled(featureName, new Context());
+    FlatResponse<Boolean> result = engine.isEnabled(featureName, new Context());
     assertNotNull(result);
     assertEquals(expectedImpressionData, result.impressionData);
   }
@@ -325,13 +299,11 @@ class UnleashEngineTest {
   void testResourceCleanup() throws InterruptedException {
     int mockPointer = 1;
 
-    NativeInterface wasmInterface = mock(NativeInterface.class);
-
-    when(wasmInterface.newEngine(anyLong())).thenReturn(mockPointer);
+    NativeInterface nativeInterface = mock(NativeInterface.class);
 
     ReferenceQueue<UnleashEngine> queue = new ReferenceQueue<>();
 
-    UnleashEngine library = new UnleashEngine(null, null, wasmInterface);
+    UnleashEngine library = new UnleashEngine(nativeInterface, null, null);
     PhantomReference<UnleashEngine> reference = new PhantomReference<>(library, queue);
 
     // Make the object eligible for garbage collection
@@ -348,12 +320,13 @@ class UnleashEngineTest {
     }
 
     assertNotNull(polledReference, "Cleaner did not trigger");
-    Mockito.verify(wasmInterface).freeEngine(mockPointer);
+    Mockito.verify(nativeInterface).freeEngine();
   }
 
   @Test
   void testBuiltInStrategiesAreRetrieved() {
-    List<String> strategies = UnleashEngine.getBuiltInStrategies();
+    UnleashEngine engine = new UnleashEngine();
+    List<String> strategies = engine.getBuiltInStrategies();
 
     assertNotNull(strategies);
     assertFalse(strategies.isEmpty());
@@ -369,7 +342,8 @@ class UnleashEngineTest {
 
   @Test
   void testCoreVersionIsRetrieved() {
-    String coreVersion = UnleashEngine.getCoreVersion();
+    UnleashEngine engine = new UnleashEngine();
+    String coreVersion = engine.getCoreVersion();
     assertNotNull(coreVersion);
     // check that it contains two dots, close enough for a quick and dirty but
     // stable semver check
@@ -481,7 +455,7 @@ class UnleashEngineTest {
     // memory issues like double frees or segfaults
     // that's fixed now but it'd be cool if it didn't come back
 
-    String features = readResource("impression-data-tests.json");
+    String features = ResourceReader.readResourceAsString("impression-data-tests.json");
     UnleashEngine ygg = new UnleashEngine();
     int threadCount = 2;
     CountDownLatch latch = new CountDownLatch(threadCount);
@@ -509,7 +483,7 @@ class UnleashEngineTest {
 
   private void takeFeaturesFromResource(UnleashEngine engine, String resource) {
     try {
-      String features = readResource(resource);
+      String features = ResourceReader.readResourceAsString(resource);
       engine.takeState(features);
     } catch (Exception e) {
       throw new RuntimeException("Something went wrong here", e);
@@ -519,11 +493,10 @@ class UnleashEngineTest {
   @Test
   public void testIsEnabledHandlesNativeException() throws Exception {
     NativeInterface mockNativeInterface = mock(NativeInterface.class);
-    when(mockNativeInterface.newEngine(anyLong())).thenReturn(1);
-    when(mockNativeInterface.checkEnabled(anyInt(), any(byte[].class)))
-        .thenThrow(new ChicoryException("Native exception occurred"));
+    when(mockNativeInterface.checkEnabled(any(byte[].class)))
+        .thenThrow(new YggdrasilError("Native exception occurred"));
 
-    UnleashEngine engine = new UnleashEngine(null, null, mockNativeInterface);
+    UnleashEngine engine = new UnleashEngine(mockNativeInterface, null, null);
 
     Context context = new Context();
     context.setUserId("test-user");
@@ -534,11 +507,10 @@ class UnleashEngineTest {
   @Test
   public void testGetVariantHandlesNativeException() throws Exception {
     NativeInterface mockNativeInterface = mock(NativeInterface.class);
-    when(mockNativeInterface.newEngine(anyLong())).thenReturn(1);
-    when(mockNativeInterface.checkVariant(anyInt(), any(byte[].class)))
-        .thenThrow(new ChicoryException("Native exception occurred"));
+    when(mockNativeInterface.checkVariant(any(byte[].class)))
+        .thenThrow(new YggdrasilError("Native exception occurred"));
 
-    UnleashEngine engine = new UnleashEngine(null, null, mockNativeInterface);
+    UnleashEngine engine = new UnleashEngine(mockNativeInterface, null, null);
 
     Context context = new Context();
     context.setUserId("test-user");
@@ -549,12 +521,11 @@ class UnleashEngineTest {
   @Test
   public void testTakeStateWrapsNativeExceptionIntoCheckedException() throws Exception {
     NativeInterface mockNativeInterface = mock(NativeInterface.class);
-    when(mockNativeInterface.newEngine(anyLong())).thenReturn(1);
-    doThrow(new ChicoryException("Native exception occurred"))
+    doThrow(new YggdrasilError("Native exception occurred"))
         .when(mockNativeInterface)
-        .takeState(anyInt(), any(byte[].class));
+        .takeState(any(String.class));
 
-    UnleashEngine engine = new UnleashEngine(null, null, mockNativeInterface);
+    UnleashEngine engine = new UnleashEngine(mockNativeInterface, null, null);
 
     assertThrows(YggdrasilInvalidInputException.class, () -> engine.takeState("test-state"));
   }
@@ -562,11 +533,10 @@ class UnleashEngineTest {
   @Test
   public void testListKnownTogglesHandlesNativeException() {
     NativeInterface mockNativeInterface = mock(NativeInterface.class);
-    when(mockNativeInterface.newEngine(anyLong())).thenReturn(1);
-    when(mockNativeInterface.listKnownToggles(anyInt()))
-        .thenThrow(new ChicoryException("Native exception occurred"));
+    when(mockNativeInterface.listKnownToggles())
+        .thenThrow(new YggdrasilError("Native exception occurred"));
 
-    UnleashEngine engine = new UnleashEngine(null, null, mockNativeInterface);
+    UnleashEngine engine = new UnleashEngine(mockNativeInterface, null, null);
 
     engine.listKnownToggles();
   }
@@ -574,11 +544,10 @@ class UnleashEngineTest {
   @Test
   public void testGetMetricsHandlesNativeException() {
     NativeInterface mockNativeInterface = mock(NativeInterface.class);
-    when(mockNativeInterface.newEngine(anyLong())).thenReturn(1);
-    when(mockNativeInterface.getMetrics(anyInt(), any()))
-        .thenThrow(new ChicoryException("Native exception occurred"));
+    when(mockNativeInterface.getMetrics(any()))
+        .thenThrow(new YggdrasilError("Native exception occurred"));
 
-    UnleashEngine engine = new UnleashEngine(null, null, mockNativeInterface);
+    UnleashEngine engine = new UnleashEngine(mockNativeInterface, null, null);
 
     engine.getMetrics();
   }

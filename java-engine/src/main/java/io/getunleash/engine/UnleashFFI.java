@@ -4,59 +4,47 @@ import com.sun.jna.Library;
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
 import com.sun.jna.Structure;
-
 import java.util.List;
 
 public interface UnleashFFI extends Library {
 
-  Pointer newEngine();
+  Pointer newEngine(long timestamp);
 
-  void freeEngine(Pointer ptr);
+  void freeEngine(Pointer enginePointer);
 
-  Pointer takeState(Pointer ptr, Pointer toggles);
+  void takeState(Pointer enginePointer, Pointer toggles);
 
-  Pointer checkEnabled(Pointer ptr, Pointer name, Pointer context, Pointer customStrategyResults);
+  UnleashFFI.Buf.ByValue getState(Pointer enginePointer);
 
-  Pointer checkVariant(Pointer ptr, Pointer name, Pointer context, Pointer customStrategyResults);
+  UnleashFFI.Buf.ByValue checkEnabled(Pointer enginePointer, Pointer contextMessage);
 
-  Pointer countToggle(Pointer ptr, Pointer name, boolean enabled);
+  UnleashFFI.Buf.ByValue checkVariant(Pointer enginePointer, Pointer contextMessage);
 
-  Pointer countVariant(Pointer ptr, Pointer name, Pointer variantName);
+  UnleashFFI.Buf.ByValue getMetrics(Pointer enginePointer, long timestamp);
 
-  Pointer getMetrics(Pointer ptr);
+  UnleashFFI.Buf.ByValue listKnownToggles(Pointer enginePointer);
 
-  Pointer shouldEmitImpressionEvent(Pointer ptr, Pointer name);
+  UnleashFFI.Buf.ByValue getBuiltInStrategies(Pointer enginePointer);
 
-  Pointer builtInStrategies();
-
-  void freeResponse(Pointer pointer);
-
-  Pointer listKnownToggles(Pointer ptr);
+  UnleashFFI.Buf.ByValue getCoreVersion(Pointer enginePointer);
 
   static UnleashFFI getInstance() {
     return NativeLoader.NATIVE_INTERFACE;
   }
 
-  static Pointer getYggdrasilCoreVersion() {
-    return NativeLoader.NATIVE_INTERFACE.getCoreVersion();
-  }
+  // struct by value
+  class Buf extends Structure {
+    public Pointer ptr;
+    public NativeLong len;
+    public NativeLong cap;
 
-  Pointer getState(Pointer enginePointer);
-
-    // struct by value
-    class Buf extends Structure {
-        public Pointer ptr;
-        public NativeLong len;
-        public NativeLong cap;
-
-        @Override
-        protected List<String> getFieldOrder() {
-            return java.util.List.of("ptr", "len", "cap");
-        }
-
-        public static class ByValue extends Buf implements Structure.ByValue {}
+    @Override
+    protected List<String> getFieldOrder() {
+      return java.util.List.of("ptr", "len", "cap");
     }
 
-    Buf.ByValue get_buf();
-    void free_buf(Buf.ByValue buf);
+    public static class ByValue extends Buf implements Structure.ByValue {}
+  }
+
+  void free_buf(Buf.ByValue buf);
 }

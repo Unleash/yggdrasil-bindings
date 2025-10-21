@@ -2,27 +2,26 @@ package io.getunleash.engine;
 
 import com.sun.jna.Pointer;
 import java.time.ZonedDateTime;
-import messaging.FeatureDefs;
-import messaging.MetricsResponse;
-import messaging.Response;
-import messaging.Variant;
+import messaging.*;
 
 public interface NativeInterface {
-  Pointer newEngine(long timestamp);
+  void freeEngine();
 
-  void freeEngine(Pointer pointer);
+  void takeState(String toggles);
 
-  void takeState(Pointer pointer, byte[] messageBytes);
+  String getState();
 
-  String getState(Pointer pointer);
+  Response checkEnabled(byte[] contextMessage);
 
-  Response checkEnabled(Pointer enginePointer, byte[] contextBytes);
+  Variant checkVariant(byte[] contextMessage);
 
-  Variant checkVariant(Pointer enginePointer, byte[] contextBytes);
-
-  MetricsResponse getMetrics(Pointer enginePointer, ZonedDateTime timestamp);
+  MetricsResponse getMetrics(ZonedDateTime timestamp);
 
   Pointer getLogBufferPointer();
 
-  FeatureDefs listKnownToggles(Pointer enginePointer);
+  FeatureDefs listKnownToggles();
+
+  BuiltInStrategies getBuiltInStrategies();
+
+  String getCoreVersion();
 }

@@ -3,7 +3,6 @@ package io.getunleash.engine;
 import static io.getunleash.engine.CustomStrategiesEvaluator.EMPTY_STRATEGY_RESULTS;
 import static io.getunleash.engine.TestStrategies.alwaysFails;
 import static io.getunleash.engine.TestStrategies.alwaysTrue;
-import static io.getunleash.engine.UnleashEngineTest.readResource;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.params.provider.Arguments.of;
 
@@ -96,7 +95,8 @@ class CustomStrategiesEvaluatorTest {
       throws IOException, URISyntaxException {
     CustomStrategiesEvaluator customStrategiesEvaluator =
         new CustomStrategiesEvaluator(Stream.of(alwaysTrue(strategyName)), new HashSet<>());
-    customStrategiesEvaluator.loadStrategiesFor(readResource("custom-strategy-tests.json"));
+    customStrategiesEvaluator.loadStrategiesFor(
+        ResourceReader.readResourceAsString("custom-strategy-tests.json"));
     assertEquals(
         expected, customStrategiesEvaluator.eval("Feature.Custom.Strategies", new Context()));
   }
@@ -108,7 +108,8 @@ class CustomStrategiesEvaluatorTest {
       throws IOException, URISyntaxException {
     CustomStrategiesEvaluator customStrategiesEvaluator =
         new CustomStrategiesEvaluator(Stream.of(one, two), new HashSet<>());
-    customStrategiesEvaluator.loadStrategiesFor(readResource("custom-strategy-tests.json"));
+    customStrategiesEvaluator.loadStrategiesFor(
+        ResourceReader.readResourceAsString("custom-strategy-tests.json"));
     assertEquals(
         expected, customStrategiesEvaluator.eval("Feature.Custom.Strategies", new Context()));
   }
@@ -117,7 +118,8 @@ class CustomStrategiesEvaluatorTest {
   void faultyStrategy_shouldEvalToEmpty() throws IOException, URISyntaxException {
     CustomStrategiesEvaluator customStrategiesEvaluator =
         new CustomStrategiesEvaluator(Stream.of(alwaysFails("custom")), new HashSet<>());
-    customStrategiesEvaluator.loadStrategiesFor(readResource("custom-strategy-tests.json"));
+    customStrategiesEvaluator.loadStrategiesFor(
+        ResourceReader.readResourceAsString("custom-strategy-tests.json"));
     assertEquals(
         mapOf("customStrategy1", false, "customStrategy2", false),
         customStrategiesEvaluator.eval("Feature.Custom.Strategies", new Context()));
