@@ -89,6 +89,8 @@ val copyTestBinary by tasks.register<Copy>("copyTestBinary") {
     outputs.upToDateWhen { false }
 }
 
+copyTestBinary.dependsOn(buildFfi)
+
 tasks.named<Test>("test") {
     dependsOn(copyTestBinary)
     useJUnitPlatform()

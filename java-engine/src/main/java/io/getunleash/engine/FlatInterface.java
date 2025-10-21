@@ -29,7 +29,8 @@ public class FlatInterface implements NativeInterface {
 
   @Override
   public String getState() {
-    return "";
+    Pointer p = this.unleashFFI.getState(enginePointer);
+    return p.getString(0);
   }
 
   @Override

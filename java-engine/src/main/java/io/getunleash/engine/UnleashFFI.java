@@ -14,7 +14,7 @@ public interface UnleashFFI extends Library {
 
   void takeState(Pointer enginePointer, Pointer toggles);
 
-  UnleashFFI.Buf.ByValue getState(Pointer enginePointer);
+  Pointer getState(Pointer enginePointer);
 
   UnleashFFI.Buf.ByValue checkEnabled(Pointer enginePointer, Pointer contextMessage);
 
