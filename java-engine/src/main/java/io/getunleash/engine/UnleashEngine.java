@@ -1,9 +1,13 @@
 package io.getunleash.engine;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.flatbuffers.FlatBufferBuilder;
 import java.lang.ref.Cleaner;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -14,6 +18,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+
+import com.sun.jna.Memory;
+import com.sun.jna.Pointer;
 import messaging.BuiltInStrategies;
 import messaging.ContextMessage;
 import messaging.FeatureDefs;
@@ -29,29 +36,33 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class UnleashEngine {
+  private static final String EMPTY_STRATEGY_RESULTS = "{}";
   private static final Logger log = LoggerFactory.getLogger(UnleashEngine.class);
   private static final Cleaner cleaner = Cleaner.create();
-  private final NativeInterface nativeInterface;
-  private final int enginePointer;
+  private final UnleashFFI yggdrasil;
+  private final Pointer enginePointer;
+  private final ObjectMapper mapper;
   private final CustomStrategiesEvaluator customStrategiesEvaluator;
 
   public UnleashEngine() {
-    this(null, null, null);
+    this(UnleashFFI.getInstance(), null, null);
   }
 
   public UnleashEngine(List<IStrategy> customStrategies) {
-    this(customStrategies, null, null);
+    this(UnleashFFI.getInstance(), customStrategies, null);
   }
 
   public UnleashEngine(List<IStrategy> customStrategies, IStrategy fallbackStrategy) {
-    this(customStrategies, fallbackStrategy, null);
+    this(UnleashFFI.getInstance(), customStrategies, fallbackStrategy);
   }
 
   // Only visible for testing
-  UnleashEngine(
-      List<IStrategy> customStrategies,
-      IStrategy fallbackStrategy,
-      NativeInterface nativeInterface) {
+  UnleashEngine(UnleashFFI ffi, List<IStrategy> customStrategies, IStrategy fallbackStrategy) {
+    yggdrasil = ffi;
+    this.enginePointer = yggdrasil.newEngine();
+    this.mapper = new ObjectMapper();
+    this.mapper.registerModule(new JavaTimeModule());
+    this.mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     if (customStrategies != null && !customStrategies.isEmpty()) {
       List<String> builtInStrategies = getBuiltInStrategies();
       this.customStrategiesEvaluator =
@@ -62,22 +73,9 @@ public class UnleashEngine {
           new CustomStrategiesEvaluator(Stream.empty(), fallbackStrategy, new HashSet<String>());
     }
 
-    if (nativeInterface != null) {
-      this.nativeInterface = nativeInterface;
-    } else {
-      this.nativeInterface = new WasmInterface();
-    }
-
     Instant now = Instant.now();
-    final int enginePtr = this.nativeInterface.newEngine(now.toEpochMilli());
-    if (enginePtr <= 0) {
-      throw new IllegalStateException(
-          "Failed to create Unleash engine (invalid pointer): " + enginePtr);
-    }
-    this.enginePointer = enginePtr;
 
-    final NativeInterface wasmHook = this.nativeInterface;
-    cleaner.register(this, () -> wasmHook.freeEngine(enginePtr));
+    cleaner.register(this, () -> yggdrasil.freeEngine(enginePointer));
   }
 
   private static String getRuntimeHostname() {
@@ -190,22 +188,21 @@ public class UnleashEngine {
 
   public void takeState(String clientFeatures) throws YggdrasilInvalidInputException {
     try {
+      yggdrasil.takeState(this.enginePointer, toUtf8Pointer(clientFeatures));
       customStrategiesEvaluator.loadStrategiesFor(clientFeatures);
-      byte[] messageBytes = clientFeatures.getBytes(StandardCharsets.UTF_8);
-      nativeInterface.takeState(this.enginePointer, messageBytes);
     } catch (RuntimeException e) {
       throw new YggdrasilInvalidInputException("Failed to take state:", e);
     }
   }
 
   public String getState() {
-    return nativeInterface.getState(this.enginePointer);
+    return yggdrasil.getState(this.enginePointer);
   }
 
   public List<FeatureDef> listKnownToggles() {
     try {
-      FeatureDefs featureDefs = nativeInterface.listKnownToggles(this.enginePointer);
-
+      Pointer featureDefsPointer = yggdrasil.listKnownToggles(this.enginePointer);
+        ByteBuffer featureDefsBuffer = ByteBuffer
       List<FeatureDef> defs = new ArrayList<>(featureDefs.itemsLength());
       for (int i = 0; i < featureDefs.itemsLength(); i++) {
         FeatureDef featureDef =
@@ -286,7 +283,7 @@ public class UnleashEngine {
   public MetricsBucket getMetrics() {
     try {
       ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
-      MetricsResponse response = nativeInterface.getMetrics(this.enginePointer, now);
+      MetricsResponse response = UnleashFFI.getMetrics(this.enginePointer, now);
       if (response.togglesVector() == null) {
         return null;
       }
@@ -316,16 +313,25 @@ public class UnleashEngine {
     }
   }
 
+  static Pointer toUtf8Pointer(String str) {
+    byte[] utf8Bytes = str.getBytes(StandardCharsets.UTF_8);
+    Pointer pointer = new Memory(utf8Bytes.length + 1);
+    pointer.write(0, utf8Bytes, 0, utf8Bytes.length);
+    pointer.setByte(utf8Bytes.length, (byte) 0);
+    return pointer;
+  }
+
   // The following two methods break our abstraction a little by calling the
-  // WasmInterface directly. rather than through the nativeInterface. However,
+  // UnleashFFI directly. rather than through the nativeInterface. However,
   // we really, really want them to be accessible without having to instantiate
   // an UnleashEngine and our interface abstraction here is primarily for testing
   public static String getCoreVersion() {
-    return WasmInterface.getCoreVersion();
+    Pointer versionPointer = UnleashFFI.getCoreVersion();
+    return versionPointer.getString(0);
   }
 
   public static List<String> getBuiltInStrategies() {
-    BuiltInStrategies builtInStrategiesMessage = WasmInterface.getBuiltInStrategies();
+    BuiltInStrategies builtInStrategiesMessage = UnleashFFI.getBuiltInStrategies();
     List<String> builtInStrategies = new ArrayList<>(builtInStrategiesMessage.valuesLength());
     for (int i = 0; i < builtInStrategiesMessage.valuesLength(); i++) {
       String strategyName = builtInStrategiesMessage.values(i);
