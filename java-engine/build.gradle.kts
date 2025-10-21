@@ -78,7 +78,7 @@ val copyTestBinary by tasks.register<Copy>("copyTestBinary") {
         os.contains("mac") && platform.contains("arm") -> "libyggdrasilffi_arm64.dylib"
         os.contains("mac") -> "libyggdrasilffi_x86_64.dylib"
         os.contains("win") -> "yggdrasilffi_x86_64.dll"
-        os.contains("linux") -> "libyggdrasil_x86_64.so"
+        os.contains("linux") -> "libyggdrasilffi_x86_64.so"
         else -> throw GradleException("Unsupported OS")
     }
 
