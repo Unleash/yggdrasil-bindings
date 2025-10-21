@@ -32,29 +32,6 @@ pub struct ResponseMessage<T> {
     pub impression_data: bool,
 }
 
-impl<TInput> FlatMessage<TInput> for SomeType
-where
-    Self: Follow<'static> + Sized,
-{
-    fn build_response(input: TInput) -> Buf {
-        let bytes: Vec<u8> = BUILDER.with(|cell| {
-            let mut builder = cell.borrow_mut();
-            builder.reset();
-            let off = Self::as_flat_buffer(&mut builder, input);
-            builder.finish(off, None);
-            builder.finished_data().to_vec()
-        });
-        let mut v = bytes;
-        let buf = Buf {
-            ptr: v.as_mut_ptr(),
-            len: v.len(),
-            cap: v.capacity(),
-        };
-        std::mem::forget(v);
-        buf
-    }
-}
-
 #[repr(C)]
 pub struct Buf {
     pub ptr: *mut u8, // points to heap memory owned by Rust
