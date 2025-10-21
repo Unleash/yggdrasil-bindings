@@ -55,17 +55,12 @@ impl TryFrom<ContextMessage<'_>> for EnrichedContext {
 }
 
 #[no_mangle]
-pub extern "C" fn free_buf(buf: Buf) {
-    if buf.ptr.is_null() {
-        return;
-    }
+pub extern "C" fn flat_buf_free(buf: Buf) {
+    if buf.ptr.is_null() { return; }
     unsafe {
-        // We assume capacity == len. If that's not guaranteed, include `cap` in Buf.
-        let _ = Vec::from_raw_parts(buf.ptr, buf.len as usize, buf.len as usize);
-        // Dropping the Vec frees the memory with Rust's allocator.
+        drop(Vec::from_raw_parts(buf.ptr, buf.len, buf.cap))
     }
 }
-
 #[unsafe(no_mangle)]
 pub extern "C" fn flat_get_state(engine_ptr: u32) -> u32 {
     let lock = unsafe { get_engine(engine_ptr as *mut c_void).unwrap() };
@@ -181,7 +176,7 @@ mod tests {
                 std::slice::from_raw_parts(flat_response_buf.ptr, flat_response_buf.len as usize);
             let resp: Response = root::<Response>(slice).unwrap();
             assert!(resp.enabled());
-            free_buf(flat_response_buf);
+            flat_buf_free(flat_response_buf);
         }
     }
 }

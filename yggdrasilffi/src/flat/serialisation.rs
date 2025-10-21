@@ -32,10 +32,34 @@ pub struct ResponseMessage<T> {
     pub impression_data: bool,
 }
 
+impl<TInput> FlatMessage<TInput> for SomeType
+where
+    Self: Follow<'static> + Sized,
+{
+    fn build_response(input: TInput) -> Buf {
+        let bytes: Vec<u8> = BUILDER.with(|cell| {
+            let mut builder = cell.borrow_mut();
+            builder.reset();
+            let off = Self::as_flat_buffer(&mut builder, input);
+            builder.finish(off, None);
+            builder.finished_data().to_vec()
+        });
+        let mut v = bytes;
+        let buf = Buf {
+            ptr: v.as_mut_ptr(),
+            len: v.len(),
+            cap: v.capacity(),
+        };
+        std::mem::forget(v);
+        buf
+    }
+}
+
 #[repr(C)]
 pub struct Buf {
     pub ptr: *mut u8, // points to heap memory owned by Rust
-    pub len: u64,     // length in bytes
+    pub len: usize,     // length in bytes
+    pub cap: usize,
 }
 
 impl Display for FlatError {
@@ -61,26 +85,22 @@ pub extern "C" fn allocate(size: usize) -> *mut u8 {
 pub trait FlatMessage<TInput>: Follow<'static> + Sized {
     fn as_flat_buffer(builder: &mut FlatBufferBuilder<'static>, input: TInput) -> WIPOffset<Self>;
 
-    fn build_response(input: TInput) -> Buf {
-        let response_buffer = BUILDER.with(|cell| {
+fn build_response(input: TInput) -> Buf {
+        let bytes: Vec<u8> = BUILDER.with(|cell| {
             let mut builder = cell.borrow_mut();
             builder.reset();
-
-            let offset = Self::as_flat_buffer(&mut builder, input);
-
-            builder.finish(offset, None);
+            let off = Self::as_flat_buffer(&mut builder, input);
+            builder.finish(off, None);
             builder.finished_data().to_vec()
         });
-
-        let result_len = response_buffer.len();
-        let result_ptr = allocate(result_len);
-
-        unsafe { std::ptr::copy_nonoverlapping(response_buffer.as_ptr(), result_ptr, result_len) };
-
-        Buf {
-            len: result_len as u64,
-            ptr: result_ptr,
-        }
+        let mut v = bytes;
+        let buf = Buf {
+            ptr: v.as_mut_ptr(),
+            len: v.len(),
+            cap: v.capacity(),
+        };
+        std::mem::forget(v);
+        buf
     }
 }
 
