@@ -36,19 +36,19 @@ public class FlatInterface implements NativeInterface {
   @Override
   public Response checkEnabled(byte[] contextMessage) {
     UnleashFFI.Buf.ByValue buf =
-        this.unleashFFI.checkEnabled(this.enginePointer, toPointer(contextMessage));
+        this.unleashFFI.flatCheckEnabled(this.enginePointer, toPointer(contextMessage));
     long len = buf.len.longValue();
     byte[] out = buf.ptr.getByteArray(0, (int) len);
-    this.unleashFFI.free_buf(buf);
+    this.unleashFFI.flatBufFree(buf);
     return Response.getRootAsResponse(ByteBuffer.wrap(out));
   }
 
   @Override
   public Variant checkVariant(byte[] contextMessage) {
-    var buf = this.unleashFFI.checkVariant(this.enginePointer, toPointer(contextMessage));
+    var buf = this.unleashFFI.flatCheckVariant(this.enginePointer, toPointer(contextMessage));
     long len = buf.len.longValue();
     byte[] out = buf.ptr.getByteArray(0, (int) len);
-    this.unleashFFI.free_buf(buf);
+    this.unleashFFI.flatBufFree(buf);
     return Variant.getRootAsVariant(ByteBuffer.wrap(out));
   }
 
@@ -57,7 +57,7 @@ public class FlatInterface implements NativeInterface {
     var buf = this.unleashFFI.getMetrics(this.enginePointer, timestamp.toInstant().toEpochMilli());
     long len = buf.len.longValue();
     byte[] out = buf.ptr.getByteArray(0, (int) len);
-    this.unleashFFI.free_buf(buf);
+    this.unleashFFI.flatBufFree(buf);
     return MetricsResponse.getRootAsMetricsResponse(ByteBuffer.wrap(out));
   }
 
@@ -68,29 +68,22 @@ public class FlatInterface implements NativeInterface {
 
   @Override
   public FeatureDefs listKnownToggles() {
-    var buf = this.unleashFFI.listKnownToggles(this.enginePointer);
+    var buf = this.unleashFFI.flatListKnownToggles(this.enginePointer);
     long len = buf.len.longValue();
     byte[] out = buf.ptr.getByteArray(0, (int) len);
-    this.unleashFFI.free_buf(buf);
+    this.unleashFFI.flatBufFree(buf);
     return FeatureDefs.getRootAsFeatureDefs(ByteBuffer.wrap(out));
   }
 
-  @Override
-  public String getCoreVersion() {
-    UnleashFFI.Buf.ByValue coreVersion = this.unleashFFI.getCoreVersion(enginePointer);
-    long len = coreVersion.len.longValue();
-    byte[] out = coreVersion.ptr.getByteArray(0, (int) len);
-    this.unleashFFI.free_buf(coreVersion);
-    return CoreVersion.getRootAsCoreVersion(ByteBuffer.wrap(out)).version();
-  }
 
   @Override
   public BuiltInStrategies getBuiltInStrategies() {
-    UnleashFFI.Buf.ByValue buf = this.unleashFFI.getBuiltInStrategies(this.enginePointer);
+    /*UnleashFFI.Buf.ByValue buf = this.unleashFFI.getBuiltInStrategies(this.enginePointer);
     long len = buf.len.longValue();
     byte[] out = buf.ptr.getByteArray(0, (int) len);
-    this.unleashFFI.free_buf(buf);
-    return BuiltInStrategies.getRootAsBuiltInStrategies(ByteBuffer.wrap(out));
+    this.unleashFFI.flatBufFree(buf);
+    return BuiltInStrategies.getRootAsBuiltInStrategies(ByteBuffer.wrap(out));*/
+      return null;
   }
 
   static Pointer toUtf8Pointer(String str) {

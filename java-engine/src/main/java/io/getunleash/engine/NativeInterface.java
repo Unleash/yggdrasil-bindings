@@ -23,5 +23,4 @@ public interface NativeInterface {
 
   BuiltInStrategies getBuiltInStrategies();
 
-  String getCoreVersion();
 }

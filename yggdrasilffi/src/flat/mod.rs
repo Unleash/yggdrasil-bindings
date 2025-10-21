@@ -10,6 +10,8 @@ use crate::flat::serialisation::Buf;
 use crate::{get_engine, recover_lock};
 use std::collections::HashMap;
 use unleash_yggdrasil::state::EnrichedContext;
+use unleash_yggdrasil::{ExtendedVariantDef, ToggleDefinition};
+use crate::flat::messaging::messaging::{FeatureDefs, Variant};
 
 mod serialisation;
 
@@ -108,6 +110,50 @@ pub unsafe extern "C" fn flat_check_enabled(
 
     Response::build_response(enabled)
 }
+
+#[no_mangle]
+pub unsafe extern "C" fn flat_check_variant(engine_ptr: *mut c_void, message_ptr: u64, message_len: u64) -> Buf {
+
+    let variant: Result<ResponseMessage<ExtendedVariantDef>, FlatError> = (|| {
+        let bytes =
+            unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
+        let ctx =
+            root::<ContextMessage>(bytes).map_err(|e| FlatError::InvalidContext(e.to_string()))?;
+        let context: EnrichedContext = ctx
+            .try_into()
+            .map_err(|e: FlatError| FlatError::InvalidContext(e.to_string()))?;
+        let lock = get_engine(engine_ptr).unwrap();
+        let engine = recover_lock(&lock);
+        let base_variant = engine.check_variant(&context);
+        let toggle_enabled = engine.check_enabled(&context).unwrap_or_default();
+        let impression_data = engine.should_emit_impression_event(&context.toggle_name);
+        if let Some(v) = base_variant.clone() {
+            engine.count_variant(&context.toggle_name, &v.name);
+        }
+        let extended = base_variant.map(|variant| variant.to_enriched_response(toggle_enabled));
+        Ok(ResponseMessage {
+            message: extended,
+            impression_data,
+        })
+    })();
+    Variant::build_response(variant)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn flat_list_known_toggles(engine_ptr: *mut c_void) -> Buf {
+    let toggles : Result<Vec<ToggleDefinition>, FlatError> = (|| {
+        let guard = get_engine(engine_ptr).unwrap();
+        let engine = recover_lock(&guard);
+        Ok(engine.list_known_toggles())
+    })();
+    if let Ok(toggles) = toggles {
+        FeatureDefs::build_response(toggles)
+    } else {
+        FeatureDefs::build_response(vec![])
+    }
+}
+
+
 
 #[cfg(test)]
 mod tests {

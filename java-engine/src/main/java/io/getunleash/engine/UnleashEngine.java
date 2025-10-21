@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.stream.Stream;
+
 import messaging.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -226,26 +227,36 @@ public class UnleashEngine {
 
   public List<String> getBuiltInStrategies() {
     BuiltInStrategies builtInStrategies = this.nativeEngine.getBuiltInStrategies();
-    List<String> builtInStrategiesNames = new ArrayList<>(builtInStrategies.valuesLength());
-    for (int i = 0; i < builtInStrategies.valuesLength(); i++) {
-      builtInStrategiesNames.add(builtInStrategies.values(i));
+    if (builtInStrategies != null) {
+      List<String> builtInStrategiesNames = new ArrayList<>(builtInStrategies.valuesLength());
+      for (int i = 0; i < builtInStrategies.valuesLength(); i++) {
+        builtInStrategiesNames.add(builtInStrategies.values(i));
+      }
+      return builtInStrategiesNames;
+    } else {
+      return List.of();
     }
-    return builtInStrategiesNames;
   }
 
-  public String getCoreVersion() {
-    return this.nativeEngine.getCoreVersion();
+  public static String getCoreVersion() {
+    return UnleashFFI.getInstance().getCoreVersion().getString(0);
   }
 
   public String getState() {
     return this.nativeEngine.getState();
   }
 
-  public List<FeatureDef> listKnownToggles() {
+  public List<io.getunleash.engine.FeatureDef> listKnownToggles() {
     var knownToggles = this.nativeEngine.listKnownToggles();
     var toggleList = new ArrayList<FeatureDef>(knownToggles.itemsLength());
     for (int i = 0; i < knownToggles.itemsLength(); i++) {
-      toggleList.add(knownToggles.items(i));
+      var tempFeature = knownToggles.items(i);
+      toggleList.add(
+          new FeatureDef(
+              tempFeature.name(),
+              tempFeature.type(),
+              tempFeature.project(),
+              tempFeature.enabled()));
     }
     return toggleList;
   }

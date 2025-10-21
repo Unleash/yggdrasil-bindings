@@ -16,17 +16,17 @@ public interface UnleashFFI extends Library {
 
   Pointer getState(Pointer enginePointer);
 
-  UnleashFFI.Buf.ByValue checkEnabled(Pointer enginePointer, Pointer contextMessage);
+  UnleashFFI.Buf.ByValue flatCheckEnabled(Pointer enginePointer, Pointer contextMessage);
 
-  UnleashFFI.Buf.ByValue checkVariant(Pointer enginePointer, Pointer contextMessage);
+  UnleashFFI.Buf.ByValue flatCheckVariant(Pointer enginePointer, Pointer contextMessage);
 
   UnleashFFI.Buf.ByValue getMetrics(Pointer enginePointer, long timestamp);
 
-  UnleashFFI.Buf.ByValue listKnownToggles(Pointer enginePointer);
+  UnleashFFI.Buf.ByValue flatListKnownToggles(Pointer enginePointer);
 
   UnleashFFI.Buf.ByValue getBuiltInStrategies(Pointer enginePointer);
 
-  UnleashFFI.Buf.ByValue getCoreVersion(Pointer enginePointer);
+  Pointer getCoreVersion();
 
   static UnleashFFI getInstance() {
     return NativeLoader.NATIVE_INTERFACE;
@@ -46,5 +46,5 @@ public interface UnleashFFI extends Library {
     public static class ByValue extends Buf implements Structure.ByValue {}
   }
 
-  void free_buf(Buf.ByValue buf);
+  void flatBufFree(Buf.ByValue buf);
 }
