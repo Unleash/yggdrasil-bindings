@@ -1,3 +1,5 @@
+package io.getunleash.engine;
+
 class NativeLoader {
     static final UnleashFFI NATIVE_INTERFACE;
     static {

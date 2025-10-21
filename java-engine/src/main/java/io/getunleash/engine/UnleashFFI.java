@@ -1,4 +1,9 @@
-interface UnleashFFI extends Library {
+package io.getunleash.engine;
+
+import com.sun.jna.Library;
+import com.sun.jna.Pointer;
+
+public interface UnleashFFI extends Library {
 
     Pointer newEngine();
 
@@ -24,8 +29,6 @@ interface UnleashFFI extends Library {
 
     Pointer listKnownToggles(Pointer ptr);
 
-    Pointer getCoreVersion();
-
     static UnleashFFI getInstance() {
         return NativeLoader.NATIVE_INTERFACE;
     }
@@ -33,4 +36,6 @@ interface UnleashFFI extends Library {
     static Pointer getYggdrasilCoreVersion() {
         return NativeLoader.NATIVE_INTERFACE.getCoreVersion();
     }
+
+    Pointer getState(Pointer enginePointer);
 }
