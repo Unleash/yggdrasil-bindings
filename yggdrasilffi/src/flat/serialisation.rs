@@ -2,17 +2,13 @@ use std::{
     cell::RefCell,
     fmt::{Display, Formatter},
 };
-
+use std::collections::HashMap;
+use std::iter::Map;
 use flatbuffers::{FlatBufferBuilder, Follow, WIPOffset};
 use unleash_types::client_metrics::MetricBucket;
 use unleash_yggdrasil::{EvalWarning, ExtendedVariantDef, ToggleDefinition};
 
-use crate::flat::messaging::messaging::{
-    BuiltInStrategies, BuiltInStrategiesBuilder, CoreVersion, CoreVersionBuilder,
-    FeatureDefBuilder, FeatureDefs, FeatureDefsBuilder, MetricsResponse, MetricsResponseBuilder,
-    Response, ResponseBuilder, TakeStateResponse, TakeStateResponseBuilder, ToggleEntryBuilder,
-    ToggleStatsBuilder, Variant, VariantBuilder, VariantEntryBuilder, VariantPayloadBuilder,
-};
+use crate::flat::messaging::messaging::{BuiltInStrategies, BuiltInStrategiesBuilder, CoreVersion, CoreVersionBuilder, FeatureDefBuilder, FeatureDefs, FeatureDefsBuilder, MetricsResponse, MetricsResponseBuilder, Response, ResponseBuilder, StrategyDefinition, StrategyDefinitionArgs, StrategyFeature, StrategyFeatureArgs, StrategyParameter, StrategyParameterArgs, TakeStateResponse, TakeStateResponseArgs, TakeStateResponseBuilder, ToggleEntryBuilder, ToggleStatsBuilder, Variant, VariantBuilder, VariantEntryBuilder, VariantPayloadBuilder};
 
 thread_local! {
     static BUILDER: RefCell<FlatBufferBuilder<'static>> =
@@ -25,11 +21,19 @@ pub enum FlatError {
     InvalidState(String),
     InvalidPointer,
     MissingFlagName,
+    Panic,
+    NullError,
 }
 
 pub struct ResponseMessage<T> {
     pub message: Option<T>,
     pub impression_data: bool,
+}
+
+pub struct TakeStateResult {
+    pub warnings: Vec<EvalWarning>,
+    pub error: Option<String>,
+    pub feature_strategies_map: HashMap<String, HashMap<String, HashMap<String, String>>>
 }
 
 #[repr(C)]
@@ -48,6 +52,8 @@ impl Display for FlatError {
             FlatError::MissingFlagName => {
                 write!(f, "Flag name was missing when building extended context")
             }
+            FlatError::Panic => write!(f, "Engine panicked while processing the request. Please report this as a bug with the accompanying stack trace if available."),
+            FlatError::NullError => write!(f, "Null error detected, this is a serious issue and you should report this as a bug.")
         }
     }
 }
@@ -81,13 +87,13 @@ fn build_response(input: TInput) -> Buf {
     }
 }
 
-impl FlatMessage<Result<ResponseMessage<bool>, FlatError>> for Response<'static> {
+impl FlatMessage<Result<Option<ResponseMessage<bool>>, FlatError>> for Response<'static> {
     fn as_flat_buffer(
         builder: &mut FlatBufferBuilder<'static>,
-        from: Result<ResponseMessage<bool>, FlatError>,
+        from: Result<Option<ResponseMessage<bool>>, FlatError>,
     ) -> WIPOffset<Response<'static>> {
         match from {
-            Ok(response) => match response.message {
+            Ok(Some(response)) => match response.message {
                 Some(flag) => {
                     let mut response_builder = ResponseBuilder::new(builder);
                     response_builder.add_impression_data(response.impression_data);
@@ -101,6 +107,11 @@ impl FlatMessage<Result<ResponseMessage<bool>, FlatError>> for Response<'static>
                     response_builder.finish()
                 }
             },
+            Ok(None) => {
+                let mut response_builder = ResponseBuilder::new(builder);
+                response_builder.add_has_enabled(false);
+                response_builder.finish()
+            }
             Err(err) => {
                 let error_offset = builder.create_string(&err.to_string());
                 let mut response_builder = ResponseBuilder::new(builder);
@@ -112,13 +123,124 @@ impl FlatMessage<Result<ResponseMessage<bool>, FlatError>> for Response<'static>
     }
 }
 
-impl FlatMessage<Result<ResponseMessage<ExtendedVariantDef>, FlatError>> for Variant<'static> {
+impl FlatMessage<Result<Option<TakeStateResult>, FlatError>> for TakeStateResponse<'static> {
+    fn as_flat_buffer(builder: &mut FlatBufferBuilder<'static>, from: Result<Option<TakeStateResult>, FlatError>) -> WIPOffset<Self> {
+        let mut features_vec = None;
+        let mut warnings_vec = None;
+        let mut error_str = None;
+
+        match from {
+            Ok(Some(res)) => {
+                if !res.warnings.is_empty() {
+                    let warning_strings: Vec<_> = res
+                        .warnings
+                        .iter()
+                        .map(|w| builder.create_string(&format!("toggle: {} warned {}", w.toggle_name, w.message)))
+                        .collect();
+                    warnings_vec = Some(builder.create_vector(&warning_strings));
+                }
+
+                // error: string (optional)
+                if let Some(err) = res.error {
+                    error_str = Some(builder.create_string(&err));
+                }
+                // features: [StrategyFeature]
+                if !res.feature_strategies_map.is_empty() {
+                    let features: Vec<WIPOffset<StrategyFeature>> = res
+                        .feature_strategies_map
+                        .into_iter()
+                        .map(|(feature_name, strategy_map)| {
+                            // Build [StrategyDefinition] for this feature
+                            let defs: Vec<WIPOffset<StrategyDefinition>> = strategy_map
+                                .into_iter()
+                                .map(|(strategy_name, params)| {
+                                    // Build [StrategyParameter] for this definition
+                                    let params_vec: Vec<WIPOffset<StrategyParameter>> = params
+                                        .into_iter()
+                                        .map(|(k, v)| {
+                                            let key = builder.create_string(&k);
+                                            let val = builder.create_string(&v);
+                                            StrategyParameter::create(
+                                                builder,
+                                                &StrategyParameterArgs {
+                                                    key: Some(key),
+                                                    value: Some(val),
+                                                },
+                                            )
+                                        })
+                                        .collect();
+
+                                    let params_off = builder.create_vector(&params_vec);
+                                    let name_off = builder.create_string(&strategy_name);
+
+                                    StrategyDefinition::create(
+                                        builder,
+                                        &StrategyDefinitionArgs {
+                                            name: Some(name_off),
+                                            parameters: Some(params_off),
+                                        },
+                                    )
+                                })
+                                .collect();
+
+                            let defs_off = builder.create_vector(&defs);
+                            let fname_off = builder.create_string(&feature_name);
+
+                            StrategyFeature::create(
+                                builder,
+                                &StrategyFeatureArgs {
+                                    feature_name: Some(fname_off),
+                                    strategies: Some(defs_off),
+                                },
+                            )
+                        })
+                        .collect();
+
+                    features_vec = Some(builder.create_vector(&features));
+                }
+                TakeStateResponse::create(
+                    builder,
+                    &TakeStateResponseArgs {
+                        features: features_vec,
+                        warnings: warnings_vec,
+                        error: error_str,
+                    },
+                )
+            }
+            Ok(None) => {
+                TakeStateResponse::create(
+                    builder,
+                    &TakeStateResponseArgs {
+                        features: features_vec,
+                        warnings: warnings_vec,
+                        error: error_str,
+                    }
+                )
+            }
+            Err(e) => {
+                let err = builder.create_string(&e.to_string());
+                TakeStateResponse::create(
+                    builder,
+                    &TakeStateResponseArgs {
+                        features: None,
+                        warnings: None,
+                        error: Some(err),
+                    },
+                )
+            }
+        }
+    }
+}
+
+
+
+impl FlatMessage<Result<Option<ResponseMessage<ExtendedVariantDef>>, FlatError>> for Variant<'static> {
     fn as_flat_buffer(
         builder: &mut FlatBufferBuilder<'static>,
-        from: Result<ResponseMessage<ExtendedVariantDef>, FlatError>,
+        from: Result<Option<ResponseMessage<ExtendedVariantDef>>, FlatError>,
     ) -> WIPOffset<Self> {
         match from {
-            Ok(response) => match response.message {
+            Ok(Some(response)) => match response.message {
                 Some(variant) => {
                     let payload_offset = variant.payload.as_ref().map(|payload| {
                         let payload_type_offset = builder.create_string(&payload.payload_type);
@@ -149,6 +271,10 @@ impl FlatMessage<Result<ResponseMessage<ExtendedVariantDef>, FlatError>> for Var
                     resp_builder.finish()
                 }
             },
+            Ok(None) => {
+                let resp_builder = VariantBuilder::new(builder);
+                resp_builder.finish()
+            }
             Err(err) => {
                 let error_offset = builder.create_string(&err.to_string());
                 let mut response_builder = VariantBuilder::new(builder);

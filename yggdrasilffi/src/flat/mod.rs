@@ -1,17 +1,23 @@
 use flatbuffers::root;
-use std::ffi::c_void;
+use std::ffi::{c_char, c_void};
 
 use messaging::messaging::{
     ContextMessage, Response,
 };
 use serialisation::{FlatError, FlatMessage, ResponseMessage};
 
-use crate::flat::serialisation::Buf;
-use crate::{get_engine, recover_lock};
+use crate::flat::messaging::messaging::{BuiltInStrategies, FeatureDefs, MetricsResponse, TakeStateResponse, Variant};
+use crate::flat::serialisation::{Buf, TakeStateResult};
+use crate::{get_json, ManagedEngine, RawPointerDataType};
+use chrono::Utc;
 use std::collections::HashMap;
+use std::mem::forget;
+use std::panic;
+use std::panic::AssertUnwindSafe;
+use std::sync::{Arc, Mutex, MutexGuard};
+use unleash_types::client_metrics::MetricBucket;
 use unleash_yggdrasil::state::EnrichedContext;
-use unleash_yggdrasil::{ExtendedVariantDef, ToggleDefinition};
-use crate::flat::messaging::messaging::{FeatureDefs, Variant};
+use unleash_yggdrasil::{ExtendedVariantDef, ToggleDefinition, UpdateMessage, KNOWN_STRATEGIES};
 
 mod serialisation;
 
@@ -22,6 +28,24 @@ mod messaging {
     #![allow(warnings)]
     include!("enabled-message_generated.rs");
 }
+
+unsafe fn get_engine(engine_ptr: *mut c_void) -> Result<ManagedEngine, FlatError> {
+    if engine_ptr.is_null() {
+        return Err(FlatError::NullError);
+    }
+    let arc_instance = Arc::from_raw(engine_ptr as *const RawPointerDataType);
+
+    let cloned_arc = arc_instance.clone();
+    forget(arc_instance);
+
+    Ok(cloned_arc)
+}
+
+fn recover_lock<T>(lock: &Mutex<T>) -> MutexGuard<'_, T> {
+    lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+
 
 impl TryFrom<ContextMessage<'_>> for EnrichedContext {
     type Error = FlatError;
@@ -63,19 +87,35 @@ pub extern "C" fn flat_buf_free(buf: Buf) {
         drop(Vec::from_raw_parts(buf.ptr, buf.len, buf.cap))
     }
 }
-#[unsafe(no_mangle)]
-pub extern "C" fn flat_get_state(engine_ptr: u32) -> u32 {
-    let lock = unsafe { get_engine(engine_ptr as *mut c_void).unwrap() };
-    let engine = recover_lock(&lock);
 
-    let state = engine.get_state();
-    if let Ok(json_str) = serde_json::to_string(&state) {
-        use std::ffi::CString;
-        let c_string = CString::new(json_str).unwrap();
-        return c_string.into_raw() as u32;
-    }
 
-    0 // Return null pointer only if serialization failed (shouldn't happen)
+
+#[no_mangle]
+unsafe fn flat_take_state(engine_pointer: *mut c_void, toggles_pointer: *const c_char) -> Buf {
+    let result = guard_result::<TakeStateResult, _>(|| {
+        let guard = get_engine(engine_pointer)?;
+        let mut engine = recover_lock(&guard);
+        let toggles: UpdateMessage = get_json(toggles_pointer).map_err(|_| FlatError::InvalidState("Your features does not parse".to_string()))?;
+        let feature_strategies_map = engine.get_state().features.iter().map(|f| {
+            let name = f.name.clone();
+            (name, f.strategies.clone().unwrap_or_default().iter().map(|strategy| (strategy.name.clone(), strategy.parameters.clone().unwrap_or_default())).collect())
+        }).collect::<HashMap<_, _>>();
+        if let Some(warnings) = engine.take_state(toggles) {
+            Ok(Some(TakeStateResult {
+                warnings,
+                error: None,
+                feature_strategies_map
+            }))
+        } else {
+            Ok(Some(TakeStateResult {
+                warnings: vec![],
+                error: None,
+                feature_strategies_map,
+            }))
+        }
+    });
+
+    TakeStateResponse::build_response(result)
 }
 
 #[no_mangle]
@@ -85,12 +125,11 @@ pub unsafe extern "C" fn flat_check_enabled(
     message_ptr: u64,
     message_len: u64,
 ) -> Buf {
-    let enabled: Result<ResponseMessage<bool>, FlatError> = (|| {
+    let enabled = guard_result::<ResponseMessage<bool>, _>(|| {
         let bytes =
             unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
         let ctx =
             root::<ContextMessage>(bytes).map_err(|e| FlatError::InvalidContext(e.to_string()))?;
-
         let context: EnrichedContext = ctx
             .try_into()
             .map_err(|e: FlatError| FlatError::InvalidContext(e.to_string()))?;
@@ -102,11 +141,11 @@ pub unsafe extern "C" fn flat_check_enabled(
         let impression_data = engine.should_emit_impression_event(&context.toggle_name);
         engine.count_toggle(&context.toggle_name, enabled.unwrap_or(false));
 
-        Ok(ResponseMessage {
+        Ok(Some(ResponseMessage {
             message: enabled,
             impression_data,
-        })
-    })();
+        }))
+    });
 
     Response::build_response(enabled)
 }
@@ -114,7 +153,7 @@ pub unsafe extern "C" fn flat_check_enabled(
 #[no_mangle]
 pub unsafe extern "C" fn flat_check_variant(engine_ptr: *mut c_void, message_ptr: u64, message_len: u64) -> Buf {
 
-    let variant: Result<ResponseMessage<ExtendedVariantDef>, FlatError> = (|| {
+    let variant = guard_result::<ResponseMessage<ExtendedVariantDef>, _>(|| {
         let bytes =
             unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
         let ctx =
@@ -130,30 +169,51 @@ pub unsafe extern "C" fn flat_check_variant(engine_ptr: *mut c_void, message_ptr
         if let Some(v) = base_variant.clone() {
             engine.count_variant(&context.toggle_name, &v.name);
         }
-        let extended = base_variant.map(|variant| variant.to_enriched_response(toggle_enabled));
-        Ok(ResponseMessage {
-            message: extended,
+        let message = base_variant.map(|variant| variant.to_enriched_response(toggle_enabled));
+        Ok(Some(ResponseMessage {
+            message,
             impression_data,
-        })
-    })();
+        }))
+    });
     Variant::build_response(variant)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn flat_list_known_toggles(engine_ptr: *mut c_void) -> Buf {
-    let toggles : Result<Vec<ToggleDefinition>, FlatError> = (|| {
+    let toggles = guard_result::<Vec<ToggleDefinition>, _>(|| {
         let guard = get_engine(engine_ptr).unwrap();
         let engine = recover_lock(&guard);
-        Ok(engine.list_known_toggles())
-    })();
+        Ok(Some(engine.list_known_toggles()))
+    });
     if let Ok(toggles) = toggles {
-        FeatureDefs::build_response(toggles)
+        FeatureDefs::build_response(toggles.unwrap_or_default())
     } else {
         FeatureDefs::build_response(vec![])
     }
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn flat_built_in_strategies() -> Buf {
+    BuiltInStrategies::build_response(KNOWN_STRATEGIES)
+}
 
+#[no_mangle]
+pub unsafe extern "C" fn flat_get_metrics(engine_pointer: *mut c_void) -> Buf {
+    let result = guard_result::<MetricBucket, _>(|| {
+        let guard = get_engine(engine_pointer).unwrap();
+        let mut engine = recover_lock(&guard);
+        Ok(engine.get_metrics(Utc::now()))
+    });
+    MetricsResponse::build_response(result.unwrap())
+}
+
+
+fn guard_result<T, F>(action: F) -> Result<Option<T>, FlatError>
+where
+    F: FnOnce() -> Result<Option<T>, FlatError>,
+{
+    panic::catch_unwind(AssertUnwindSafe(action)).unwrap_or_else(|_| Err(FlatError::Panic))
+}
 
 #[cfg(test)]
 mod tests {
@@ -162,10 +222,10 @@ mod tests {
     use super::*;
     use crate::flat::messaging::messaging::ContextMessageBuilder;
     use crate::flat::serialisation::allocate;
-    use crate::{free_response, new_engine, take_state};
+    use crate::{free_engine, free_response, get_state, new_engine, take_state};
     use flatbuffers::{FlatBufferBuilder, WIPOffset};
+    use serde_json::Value;
     use unleash_types::client_features::{ClientFeature, ClientFeatures, Strategy};
-    extern crate flatbuffers;
 
     #[test]
     fn it_taketh_the_state() {
@@ -223,6 +283,45 @@ mod tests {
             let resp: Response = root::<Response>(slice).unwrap();
             assert!(resp.enabled());
             flat_buf_free(flat_response_buf);
+        }
+    }
+
+    #[test]
+    fn take_state_updates_get_state() {
+        let engine_ptr = new_engine();
+        let toggle_under_test = "some-toggle";
+        let client_features = ClientFeatures {
+            features: vec![ClientFeature {
+                name: toggle_under_test.into(),
+                enabled: true,
+                impression_data: Some(true),
+                strategies: Some(vec![Strategy {
+                    name: "default".into(),
+                    constraints: None,
+                    parameters: None,
+                    segments: None,
+                    sort_order: None,
+                    variants: None,
+                }]),
+                ..Default::default()
+            }],
+            query: None,
+            segments: None,
+            version: 2,
+            meta: None,
+        };
+        let serialised = serde_json::to_string(&client_features).unwrap();
+        let c_serialised = CString::new(serialised.clone()).unwrap();
+        let json_ptr = c_serialised.as_ptr();
+        unsafe {
+            let state_pointer = take_state(engine_ptr, json_ptr);
+            let state = get_state(engine_ptr);
+            let state_from_engine = CString::from_raw(state as *mut _);
+            let state_as_json: Value = serde_json::from_str(state_from_engine.to_str().unwrap()).unwrap();
+            let value = state_as_json.as_object().unwrap().get("value").unwrap();
+            let features: ClientFeatures = serde_json::from_value(value.clone()).unwrap();
+            assert_eq!(features, client_features);
+            free_engine(engine_ptr);
         }
     }
 }

@@ -3,12 +3,6 @@ package io.getunleash.engine;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -22,7 +16,6 @@ class CustomStrategiesEvaluator {
   private final Set<String> builtinStrategies;
 
   private final IStrategy fallbackStrategy;
-  private final ObjectMapper mapper;
 
   private Map<String, List<MappedStrategy>> featureStrategies = new HashMap<>();
 
@@ -36,8 +29,6 @@ class CustomStrategiesEvaluator {
       IStrategy fallbackStrategy,
       Set<String> builtinStrategies) {
     this.builtinStrategies = builtinStrategies;
-    this.mapper = new ObjectMapper();
-    this.mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     this.registeredStrategies =
         customStrategies.collect(toMap(IStrategy::getName, identity(), (a, b) -> a));
     this.fallbackStrategy = fallbackStrategy;

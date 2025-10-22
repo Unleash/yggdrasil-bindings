@@ -1,7 +1,5 @@
 package io.getunleash.engine;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Optional;
 
 public class VariantDef {
@@ -10,12 +8,11 @@ public class VariantDef {
   private final Boolean enabled;
   private final Boolean featureEnabled;
 
-  @JsonCreator
   VariantDef(
-      @JsonProperty("name") String name,
-      @JsonProperty("payload") Payload payload,
-      @JsonProperty("enabled") Boolean enabled,
-      @JsonProperty("feature_enabled") Boolean featureEnabled) {
+       String name,
+       Payload payload,
+       Boolean enabled,
+       Boolean featureEnabled) {
     this.name = name;
     this.payload = payload;
     this.enabled = enabled;

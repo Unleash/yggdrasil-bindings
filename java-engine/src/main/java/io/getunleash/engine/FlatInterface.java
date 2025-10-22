@@ -5,8 +5,9 @@ import com.sun.jna.Pointer;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.time.ZonedDateTime;
-import messaging.*;
+import java.util.Map;
+
+import io.getunleash.messaging.*;
 
 public class FlatInterface implements NativeInterface {
   private final UnleashFFI unleashFFI;
@@ -23,8 +24,11 @@ public class FlatInterface implements NativeInterface {
   }
 
   @Override
-  public void takeState(String toggles) {
-    this.unleashFFI.takeState(enginePointer, toUtf8Pointer(toggles));
+  public TakeStateResponse takeState(String toggles) {
+    UnleashFFI.Buf.ByValue buf = this.unleashFFI.takeState(enginePointer, toUtf8Pointer(toggles));
+      long len = buf.len.longValue();
+      byte[] out = buf.ptr.getByteArray(0, (int) len);
+    TakeStateResponse
   }
 
   @Override
@@ -34,9 +38,10 @@ public class FlatInterface implements NativeInterface {
   }
 
   @Override
-  public Response checkEnabled(byte[] contextMessage) {
+  public Response checkEnabled(ByteBuffer contextMessage) {
     UnleashFFI.Buf.ByValue buf =
-        this.unleashFFI.flatCheckEnabled(this.enginePointer, toPointer(contextMessage));
+        this.unleashFFI.flatCheckEnabled(
+            this.enginePointer, contextMessage, contextMessage.remaining());
     long len = buf.len.longValue();
     byte[] out = buf.ptr.getByteArray(0, (int) len);
     this.unleashFFI.flatBufFree(buf);
@@ -44,8 +49,10 @@ public class FlatInterface implements NativeInterface {
   }
 
   @Override
-  public Variant checkVariant(byte[] contextMessage) {
-    var buf = this.unleashFFI.flatCheckVariant(this.enginePointer, toPointer(contextMessage));
+  public Variant checkVariant(ByteBuffer contextMessage) {
+    var buf =
+        this.unleashFFI.flatCheckVariant(
+            this.enginePointer, contextMessage, contextMessage.remaining());
     long len = buf.len.longValue();
     byte[] out = buf.ptr.getByteArray(0, (int) len);
     this.unleashFFI.flatBufFree(buf);
@@ -53,8 +60,8 @@ public class FlatInterface implements NativeInterface {
   }
 
   @Override
-  public MetricsResponse getMetrics(ZonedDateTime timestamp) {
-    var buf = this.unleashFFI.getMetrics(this.enginePointer, timestamp.toInstant().toEpochMilli());
+  public MetricsResponse getMetrics() {
+    var buf = this.unleashFFI.flatGetMetrics(this.enginePointer);
     long len = buf.len.longValue();
     byte[] out = buf.ptr.getByteArray(0, (int) len);
     this.unleashFFI.flatBufFree(buf);
@@ -75,26 +82,19 @@ public class FlatInterface implements NativeInterface {
     return FeatureDefs.getRootAsFeatureDefs(ByteBuffer.wrap(out));
   }
 
-
-  @Override
-  public BuiltInStrategies getBuiltInStrategies() {
-    /*UnleashFFI.Buf.ByValue buf = this.unleashFFI.getBuiltInStrategies(this.enginePointer);
+  public static BuiltInStrategies getBuiltInStrategies() {
+    UnleashFFI.Buf.ByValue buf = UnleashFFI.getInstance().flatBuiltInStrategies();
     long len = buf.len.longValue();
     byte[] out = buf.ptr.getByteArray(0, (int) len);
-    this.unleashFFI.flatBufFree(buf);
-    return BuiltInStrategies.getRootAsBuiltInStrategies(ByteBuffer.wrap(out));*/
-      return null;
+    UnleashFFI.getInstance().flatBufFree(buf);
+    return BuiltInStrategies.getRootAsBuiltInStrategies(ByteBuffer.wrap(out));
   }
 
   static Pointer toUtf8Pointer(String str) {
     byte[] utf8Bytes = str.getBytes(StandardCharsets.UTF_8);
-    return toPointer(utf8Bytes);
-  }
-
-  static Pointer toPointer(byte[] bytes) {
-    Pointer pointer = new Memory(bytes.length + 1);
-    pointer.write(0, bytes, 0, bytes.length);
-    pointer.setByte(bytes.length, (byte) 0);
+    Pointer pointer = new Memory(utf8Bytes.length + 1);
+    pointer.write(0, utf8Bytes, 0, utf8Bytes.length);
+    pointer.setByte(utf8Bytes.length, (byte) 0);
     return pointer;
   }
 }

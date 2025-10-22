@@ -77,8 +77,24 @@ table MetricsResponse {
 }
 
 table TakeStateResponse {
+  features: [StrategyFeature];
   warnings: [string];
   error: string;
+}
+
+table StrategyFeature {
+   feature_name: string;
+   strategies: [StrategyDefinition];
+}
+
+table StrategyDefinition {
+    name: string;
+    parameters: [StrategyParameter];
+}
+
+table StrategyParameter {
+    key: string;
+    value: string;
 }
 
 table FeatureDef {

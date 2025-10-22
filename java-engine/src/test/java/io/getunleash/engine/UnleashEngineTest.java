@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.lang.ref.PhantomReference;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
+import java.nio.ByteBuffer;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -141,17 +142,17 @@ class UnleashEngineTest {
   void testListKnownTogglesReturnsAllFeatures() throws Exception {
     engine.takeState(
         "{\"version\":1,\"features\":[{\"name\":\"Feature.A\",\"type\":\"experiment\",\"description\":\"Enabled toggle\",\"project\":\"test\",\"enabled\":true,\"strategies\":[{\"name\":\"default\"}]}]}");
-    List<FeatureDef> features = engine.listKnownToggles();
+    List<io.getunleash.engine.FeatureDef> features = engine.listKnownToggles();
     assertEquals(1, features.size());
 
-    Optional<FeatureDef> featureA =
-        features.stream().filter(f -> Objects.equals(f.name(), "Feature.A")).findFirst();
+    Optional<io.getunleash.engine.FeatureDef> featureA =
+        features.stream().filter(f -> f.getName().equals("Feature.A")).findFirst();
     assertTrue(featureA.isPresent());
-    assertEquals("Feature.A", featureA.get().name());
-    assertEquals("test", featureA.get().project());
-    assertNotNull(featureA.get().type());
-    assertTrue(featureA.get().enabled());
-    assertEquals("experiment", featureA.get().type());
+    assertEquals("Feature.A", featureA.get().getName());
+    assertEquals("test", featureA.get().getProject());
+    assertNotNull(featureA.get().getType());
+    assertTrue(featureA.get().isEnabled());
+    assertEquals("experiment", featureA.get().getType().get());
   }
 
   @Test
@@ -445,7 +446,7 @@ class UnleashEngineTest {
     String json = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(path)));
     engine.takeState(json);
     MetricsBucket bucket = engine.getMetrics();
-    assert (bucket == null);
+    assertThat(bucket.getToggles()).isEmpty();
   }
 
   @Test
@@ -493,7 +494,7 @@ class UnleashEngineTest {
   @Test
   public void testIsEnabledHandlesNativeException() throws Exception {
     NativeInterface mockNativeInterface = mock(NativeInterface.class);
-    when(mockNativeInterface.checkEnabled(any(byte[].class)))
+    when(mockNativeInterface.checkEnabled(any(ByteBuffer.class)))
         .thenThrow(new YggdrasilError("Native exception occurred"));
 
     UnleashEngine engine = new UnleashEngine(mockNativeInterface, null, null);
@@ -507,7 +508,7 @@ class UnleashEngineTest {
   @Test
   public void testGetVariantHandlesNativeException() throws Exception {
     NativeInterface mockNativeInterface = mock(NativeInterface.class);
-    when(mockNativeInterface.checkVariant(any(byte[].class)))
+    when(mockNativeInterface.checkVariant(any(ByteBuffer.class)))
         .thenThrow(new YggdrasilError("Native exception occurred"));
 
     UnleashEngine engine = new UnleashEngine(mockNativeInterface, null, null);
@@ -544,7 +545,7 @@ class UnleashEngineTest {
   @Test
   public void testGetMetricsHandlesNativeException() {
     NativeInterface mockNativeInterface = mock(NativeInterface.class);
-    when(mockNativeInterface.getMetrics(any()))
+    when(mockNativeInterface.getMetrics())
         .thenThrow(new YggdrasilError("Native exception occurred"));
 
     UnleashEngine engine = new UnleashEngine(mockNativeInterface, null, null);

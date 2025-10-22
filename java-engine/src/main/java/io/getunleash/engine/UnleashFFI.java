@@ -4,6 +4,8 @@ import com.sun.jna.Library;
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
 import com.sun.jna.Structure;
+
+import java.nio.ByteBuffer;
 import java.util.List;
 
 public interface UnleashFFI extends Library {
@@ -12,19 +14,19 @@ public interface UnleashFFI extends Library {
 
   void freeEngine(Pointer enginePointer);
 
-  void takeState(Pointer enginePointer, Pointer toggles);
+  UnleashFFI.Buf.ByValue takeState(Pointer enginePointer, Pointer toggles);
 
   Pointer getState(Pointer enginePointer);
 
-  UnleashFFI.Buf.ByValue flatCheckEnabled(Pointer enginePointer, Pointer contextMessage);
+  UnleashFFI.Buf.ByValue flatCheckEnabled(Pointer enginePointer, ByteBuffer contextMessage, long bufferLength);
 
-  UnleashFFI.Buf.ByValue flatCheckVariant(Pointer enginePointer, Pointer contextMessage);
-
-  UnleashFFI.Buf.ByValue getMetrics(Pointer enginePointer, long timestamp);
+  UnleashFFI.Buf.ByValue flatCheckVariant(Pointer enginePointer, ByteBuffer contextMessage, long bufferLength);
 
   UnleashFFI.Buf.ByValue flatListKnownToggles(Pointer enginePointer);
 
-  UnleashFFI.Buf.ByValue getBuiltInStrategies(Pointer enginePointer);
+  UnleashFFI.Buf.ByValue flatBuiltInStrategies();
+
+  UnleashFFI.Buf.ByValue flatGetMetrics(Pointer enginePointer);
 
   Pointer getCoreVersion();
 

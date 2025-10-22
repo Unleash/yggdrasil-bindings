@@ -4,12 +4,12 @@ import com.google.flatbuffers.FlatBufferBuilder;
 import java.lang.ref.Cleaner;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
 import java.time.Instant;
-import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.stream.Stream;
 
-import messaging.*;
+import io.getunleash.messaging.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -93,9 +93,10 @@ public class UnleashEngine {
     return offsets.stream().mapToInt(Integer::intValue).toArray();
   }
 
-  private static byte[] buildMessage(
+  private static ByteBuffer buildMessage(
       String toggleName, Context context, Map<String, Boolean> customStrategyResults) {
-    FlatBufferBuilder builder = new FlatBufferBuilder(1024);
+    ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
+    FlatBufferBuilder builder = new FlatBufferBuilder(buffer);
 
     int toggleNameOffset = builder.createString(toggleName);
 
@@ -155,13 +156,13 @@ public class UnleashEngine {
 
     int ctx = ContextMessage.endContextMessage(builder);
     builder.finish(ctx);
-    return builder.sizedByteArray();
+    return builder.dataBuffer();
   }
 
   public void takeState(String clientFeatures) throws YggdrasilInvalidInputException {
     try {
-      this.nativeEngine.takeState(clientFeatures);
       customStrategiesEvaluator.loadStrategiesFor(clientFeatures);
+      this.nativeEngine.takeState(clientFeatures);
     } catch (RuntimeException e) {
       throw new YggdrasilInvalidInputException("Failed to take state:", e);
     }
@@ -171,7 +172,7 @@ public class UnleashEngine {
       throws YggdrasilInvalidInputException {
     try {
       Map<String, Boolean> strategyResults = customStrategiesEvaluator.eval(toggleName, context);
-      byte[] contextBytes = buildMessage(toggleName, context, strategyResults);
+      ByteBuffer contextBytes = buildMessage(toggleName, context, strategyResults);
       Response response = this.nativeEngine.checkEnabled(contextBytes);
 
       if (response.error() != null) {
@@ -194,7 +195,7 @@ public class UnleashEngine {
       throws YggdrasilInvalidInputException {
     try {
       Map<String, Boolean> strategyResults = customStrategiesEvaluator.eval(toggleName, context);
-      byte[] contextBytes = buildMessage(toggleName, context, strategyResults);
+      ByteBuffer contextBytes = buildMessage(toggleName, context, strategyResults);
 
       Variant variant = this.nativeEngine.checkVariant(contextBytes);
       if (variant.name() != null) {
@@ -226,7 +227,7 @@ public class UnleashEngine {
   }
 
   public List<String> getBuiltInStrategies() {
-    BuiltInStrategies builtInStrategies = this.nativeEngine.getBuiltInStrategies();
+    BuiltInStrategies builtInStrategies = FlatInterface.getBuiltInStrategies();
     if (builtInStrategies != null) {
       List<String> builtInStrategiesNames = new ArrayList<>(builtInStrategies.valuesLength());
       for (int i = 0; i < builtInStrategies.valuesLength(); i++) {
@@ -262,7 +263,7 @@ public class UnleashEngine {
   }
 
   public MetricsBucket getMetrics() {
-    var metrics = this.nativeEngine.getMetrics(ZonedDateTime.now());
+    var metrics = this.nativeEngine.getMetrics();
     Map<String, FeatureCount> toggles = new HashMap<>();
     for (int i = 0; i < metrics.togglesLength(); i++) {
       ToggleEntry toggleEntry = metrics.toggles(i);
