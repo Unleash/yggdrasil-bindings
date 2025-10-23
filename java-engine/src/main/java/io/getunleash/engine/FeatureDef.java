@@ -1,7 +1,5 @@
 package io.getunleash.engine;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Optional;
 
 public class FeatureDef {
@@ -10,12 +8,7 @@ public class FeatureDef {
   private final String project;
   private final boolean enabled;
 
-  @JsonCreator
-  FeatureDef(
-      @JsonProperty("name") String name,
-      @JsonProperty("type") String featureType,
-      @JsonProperty("project") String project,
-      @JsonProperty("enabled") boolean enabled) {
+  FeatureDef(String name, String featureType, String project, boolean enabled) {
     this.name = name;
     this.project = project;
     this.type = Optional.ofNullable(featureType);

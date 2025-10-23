@@ -1,7 +1,5 @@
 package io.getunleash.engine;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
 import java.util.Map;
 
@@ -10,11 +8,7 @@ public class MetricsBucket {
   private final Instant stop;
   private final Map<String, FeatureCount> toggles;
 
-  @JsonCreator
-  public MetricsBucket(
-      @JsonProperty("start") Instant start,
-      @JsonProperty("stop") Instant stop,
-      @JsonProperty("toggles") Map<String, FeatureCount> toggles) {
+  public MetricsBucket(Instant start, Instant stop, Map<String, FeatureCount> toggles) {
     this.start = start;
     this.stop = stop;
     this.toggles = toggles;

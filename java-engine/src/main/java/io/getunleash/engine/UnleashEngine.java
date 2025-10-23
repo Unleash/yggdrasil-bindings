@@ -1,83 +1,52 @@
 package io.getunleash.engine;
 
 import com.google.flatbuffers.FlatBufferBuilder;
+import io.getunleash.messaging.*;
 import java.lang.ref.Cleaner;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.nio.charset.StandardCharsets;
+import java.nio.ByteBuffer;
 import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Stream;
-import messaging.BuiltInStrategies;
-import messaging.ContextMessage;
-import messaging.FeatureDefs;
-import messaging.MetricsResponse;
-import messaging.PropertyEntry;
-import messaging.Response;
-import messaging.ToggleEntry;
-import messaging.ToggleStats;
-import messaging.Variant;
-import messaging.VariantEntry;
-import messaging.VariantPayload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class UnleashEngine {
-  private static final Logger log = LoggerFactory.getLogger(UnleashEngine.class);
-  private static final Cleaner cleaner = Cleaner.create();
-  private final NativeInterface nativeInterface;
-  private final int enginePointer;
+  private static final Logger LOGGER = LoggerFactory.getLogger(UnleashEngine.class);
+  private static final Cleaner CLEANER = Cleaner.create();
+  private final NativeInterface nativeEngine;
   private final CustomStrategiesEvaluator customStrategiesEvaluator;
 
   public UnleashEngine() {
-    this(null, null, null);
+    this(new FlatInterface(UnleashFFI.getInstance()), null, null);
   }
 
   public UnleashEngine(List<IStrategy> customStrategies) {
-    this(customStrategies, null, null);
+    this(new FlatInterface(UnleashFFI.getInstance()), customStrategies, null);
   }
 
   public UnleashEngine(List<IStrategy> customStrategies, IStrategy fallbackStrategy) {
-    this(customStrategies, fallbackStrategy, null);
+    this(new FlatInterface(UnleashFFI.getInstance()), customStrategies, fallbackStrategy);
   }
 
   // Only visible for testing
   UnleashEngine(
+      NativeInterface nativeInterface,
       List<IStrategy> customStrategies,
-      IStrategy fallbackStrategy,
-      NativeInterface nativeInterface) {
+      IStrategy fallbackStrategy) {
+    this.nativeEngine = nativeInterface;
     if (customStrategies != null && !customStrategies.isEmpty()) {
       List<String> builtInStrategies = getBuiltInStrategies();
       this.customStrategiesEvaluator =
           new CustomStrategiesEvaluator(
-              customStrategies.stream(), fallbackStrategy, new HashSet<String>(builtInStrategies));
+              customStrategies.stream(), fallbackStrategy, new HashSet<>(builtInStrategies));
     } else {
       this.customStrategiesEvaluator =
-          new CustomStrategiesEvaluator(Stream.empty(), fallbackStrategy, new HashSet<String>());
+          new CustomStrategiesEvaluator(Stream.empty(), fallbackStrategy, new HashSet<>());
     }
 
-    if (nativeInterface != null) {
-      this.nativeInterface = nativeInterface;
-    } else {
-      this.nativeInterface = new WasmInterface();
-    }
-
-    Instant now = Instant.now();
-    final int enginePtr = this.nativeInterface.newEngine(now.toEpochMilli());
-    if (enginePtr <= 0) {
-      throw new IllegalStateException(
-          "Failed to create Unleash engine (invalid pointer): " + enginePtr);
-    }
-    this.enginePointer = enginePtr;
-
-    final NativeInterface wasmHook = this.nativeInterface;
-    cleaner.register(this, () -> wasmHook.freeEngine(enginePtr));
+    CLEANER.register(this, nativeEngine::freeEngine);
   }
 
   private static String getRuntimeHostname() {
@@ -123,9 +92,10 @@ public class UnleashEngine {
     return offsets.stream().mapToInt(Integer::intValue).toArray();
   }
 
-  private static byte[] buildMessage(
+  private static ByteBuffer buildMessage(
       String toggleName, Context context, Map<String, Boolean> customStrategyResults) {
-    FlatBufferBuilder builder = new FlatBufferBuilder(1024);
+    ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
+    FlatBufferBuilder builder = new FlatBufferBuilder(buffer);
 
     int toggleNameOffset = builder.createString(toggleName);
 
@@ -185,52 +155,27 @@ public class UnleashEngine {
 
     int ctx = ContextMessage.endContextMessage(builder);
     builder.finish(ctx);
-    return builder.sizedByteArray();
+    return builder.dataBuffer();
   }
 
   public void takeState(String clientFeatures) throws YggdrasilInvalidInputException {
+    if (clientFeatures == null) {
+      return;
+    }
     try {
-      customStrategiesEvaluator.loadStrategiesFor(clientFeatures);
-      byte[] messageBytes = clientFeatures.getBytes(StandardCharsets.UTF_8);
-      nativeInterface.takeState(this.enginePointer, messageBytes);
+      TakeStateResponse takeStateResponse = this.nativeEngine.takeState(clientFeatures);
+      customStrategiesEvaluator.loadStrategiesFor(takeStateResponse);
     } catch (RuntimeException e) {
       throw new YggdrasilInvalidInputException("Failed to take state:", e);
     }
   }
 
-  public String getState() {
-    return nativeInterface.getState(this.enginePointer);
-  }
-
-  public List<FeatureDef> listKnownToggles() {
-    try {
-      FeatureDefs featureDefs = nativeInterface.listKnownToggles(this.enginePointer);
-
-      List<FeatureDef> defs = new ArrayList<>(featureDefs.itemsLength());
-      for (int i = 0; i < featureDefs.itemsLength(); i++) {
-        FeatureDef featureDef =
-            new FeatureDef(
-                featureDefs.items(i).name(),
-                featureDefs.items(i).type(),
-                featureDefs.items(i).project(),
-                featureDefs.items(i).enabled());
-        defs.add(featureDef);
-      }
-
-      return defs;
-    } catch (RuntimeException e) {
-      log.warn("Unable to list known toggles, will return empty list", e);
-      return new ArrayList<>();
-    }
-  }
-
-  public WasmResponse<Boolean> isEnabled(String toggleName, Context context)
+  public FlatResponse<Boolean> isEnabled(String toggleName, Context context)
       throws YggdrasilInvalidInputException {
     try {
       Map<String, Boolean> strategyResults = customStrategiesEvaluator.eval(toggleName, context);
-      byte[] contextBytes = buildMessage(toggleName, context, strategyResults);
-
-      Response response = nativeInterface.checkEnabled(enginePointer, contextBytes);
+      ByteBuffer contextBytes = buildMessage(toggleName, context, strategyResults);
+      Response response = this.nativeEngine.checkEnabled(contextBytes);
 
       if (response.error() != null) {
         String error = response.error();
@@ -238,23 +183,23 @@ public class UnleashEngine {
       }
 
       if (response.hasEnabled()) {
-        return new WasmResponse<Boolean>(response.impressionData(), response.enabled());
+        return new FlatResponse<>(response.impressionData(), response.enabled());
       } else {
-        return new WasmResponse<Boolean>(response.impressionData(), null);
+        return new FlatResponse<>(response.impressionData(), null);
       }
     } catch (RuntimeException e) {
-      log.warn("Could not check if toggle is enabled: {}", e.getMessage(), e);
-      return new WasmResponse<Boolean>(false, null);
+      LOGGER.warn("Could not check if toggle is enabled: {}", e.getMessage(), e);
+      return new FlatResponse<>(false, null);
     }
   }
 
-  public WasmResponse<VariantDef> getVariant(String toggleName, Context context)
+  public FlatResponse<VariantDef> getVariant(String toggleName, Context context)
       throws YggdrasilInvalidInputException {
     try {
       Map<String, Boolean> strategyResults = customStrategiesEvaluator.eval(toggleName, context);
-      byte[] contextBytes = buildMessage(toggleName, context, strategyResults);
+      ByteBuffer contextBytes = buildMessage(toggleName, context, strategyResults);
 
-      Variant variant = nativeInterface.checkVariant(enginePointer, contextBytes);
+      Variant variant = this.nativeEngine.checkVariant(contextBytes);
       if (variant.name() != null) {
         Payload payload = null;
 
@@ -271,67 +216,87 @@ public class UnleashEngine {
           throw new YggdrasilInvalidInputException(error);
         }
 
-        return new WasmResponse<VariantDef>(
+        return new FlatResponse<>(
             variant.impressionData(),
             new VariantDef(variant.name(), payload, variant.enabled(), variant.featureEnabled()));
       } else {
-        return new WasmResponse<VariantDef>(false, null);
+        return new FlatResponse<>(false, null);
       }
     } catch (RuntimeException e) {
-      log.warn("Could not get variant for toggle '{}': {}", toggleName, e.getMessage(), e);
-      return new WasmResponse<VariantDef>(false, null);
+      LOGGER.warn("Could not get variant for toggle '{}': {}", toggleName, e.getMessage(), e);
+      return new FlatResponse<>(false, null);
+    }
+  }
+
+  public List<String> getBuiltInStrategies() {
+    BuiltInStrategies builtInStrategies = FlatInterface.getBuiltInStrategies();
+    if (builtInStrategies != null) {
+      List<String> builtInStrategiesNames = new ArrayList<>(builtInStrategies.valuesLength());
+      for (int i = 0; i < builtInStrategies.valuesLength(); i++) {
+        builtInStrategiesNames.add(builtInStrategies.values(i));
+      }
+      return builtInStrategiesNames;
+    } else {
+      return Collections.emptyList();
+    }
+  }
+
+  public static String getCoreVersion() {
+    return UnleashFFI.getInstance().getCoreVersion().getString(0);
+  }
+
+  public String getState() {
+    return this.nativeEngine.getState();
+  }
+
+  public List<io.getunleash.engine.FeatureDef> listKnownToggles() {
+    try {
+      var knownToggles = this.nativeEngine.listKnownToggles();
+      var toggleList = new ArrayList<FeatureDef>(knownToggles.itemsLength());
+      for (int i = 0; i < knownToggles.itemsLength(); i++) {
+        var tempFeature = knownToggles.items(i);
+        toggleList.add(
+            new FeatureDef(
+                tempFeature.name(),
+                tempFeature.type(),
+                tempFeature.project(),
+                tempFeature.enabled()));
+      }
+      return toggleList;
+    } catch (RuntimeException e) {
+      LOGGER.warn("Could not list known toggles: {}", e.getMessage(), e);
+      return Collections.emptyList();
     }
   }
 
   public MetricsBucket getMetrics() {
-    try {
-      ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
-      MetricsResponse response = nativeInterface.getMetrics(this.enginePointer, now);
-      if (response.togglesVector() == null) {
-        return null;
+    var metrics = this.nativeEngine.getMetrics();
+    Map<String, FeatureCount> toggles = new HashMap<>();
+    for (int i = 0; i < metrics.togglesLength(); i++) {
+      ToggleEntry toggleEntry = metrics.toggles(i);
+      ToggleStats stats = toggleEntry.value();
+
+      Map<String, Long> variants = new HashMap<>();
+      for (int j = 0; j < stats.variantsLength(); j++) {
+        VariantEntry variant = stats.variants(j);
+        variants.put(variant.key(), variant.value());
       }
+      FeatureCount featureCount = new FeatureCount(stats.yes(), stats.no(), variants);
 
-      Map<String, FeatureCount> toggles = new HashMap<>();
-      for (int i = 0; i < response.togglesLength(); i++) {
-        ToggleEntry toggleEntry = response.toggles(i);
-        ToggleStats stats = toggleEntry.value();
-
-        Map<String, Long> variants = new HashMap<>();
-        for (int j = 0; j < stats.variantsLength(); j++) {
-          VariantEntry variant = stats.variants(j);
-          variants.put(variant.key(), variant.value());
-        }
-        FeatureCount featureCount = new FeatureCount(stats.yes(), stats.no(), variants);
-
-        toggles.put(toggleEntry.key(), featureCount);
-      }
-
-      Instant startInstant = Instant.ofEpochMilli(response.start());
-      Instant stopInstant = Instant.ofEpochMilli(response.stop());
-
-      return new MetricsBucket(startInstant, stopInstant, toggles);
-    } catch (RuntimeException e) {
-      log.warn("Error retrieving metrics: {}", e.getMessage(), e);
-      return null;
+      toggles.put(toggleEntry.key(), featureCount);
     }
+    return new MetricsBucket(
+        Instant.ofEpochMilli(metrics.start()), Instant.ofEpochMilli(metrics.stop()), toggles);
   }
 
-  // The following two methods break our abstraction a little by calling the
-  // WasmInterface directly. rather than through the nativeInterface. However,
-  // we really, really want them to be accessible without having to instantiate
-  // an UnleashEngine and our interface abstraction here is primarily for testing
-  public static String getCoreVersion() {
-    return WasmInterface.getCoreVersion();
+  // Only visible for testing.
+  Map<String, Boolean> customStrategiesEvaluatorEval(String featureName, Context context) {
+    return this.customStrategiesEvaluator.eval(featureName, context);
   }
 
-  public static List<String> getBuiltInStrategies() {
-    BuiltInStrategies builtInStrategiesMessage = WasmInterface.getBuiltInStrategies();
-    List<String> builtInStrategies = new ArrayList<>(builtInStrategiesMessage.valuesLength());
-    for (int i = 0; i < builtInStrategiesMessage.valuesLength(); i++) {
-      String strategyName = builtInStrategiesMessage.values(i);
-      builtInStrategies.add(strategyName);
-    }
-
-    return builtInStrategies;
+  List<CustomStrategiesEvaluator.MappedStrategy> customStrategiesForFeature(String featureName) {
+    return this.customStrategiesEvaluator
+        .getFeatureStrategies()
+        .getOrDefault(featureName, Collections.emptyList());
   }
 }

@@ -1,0 +1,23 @@
+[versions]
+assertj = "3.27.6"
+flatbuffers = "25.2.10"
+jackson = "2.20.0"
+jmh = "1.37"
+jna = "5.13.0"
+junit = "5.14.0"
+mockito = "5.20.0"
+slf4j = "2.0.17"
+
+[libraries]
+flatbuffers = { group = "com.google.flatbuffers", name = "flatbuffers-java", version.ref = "flatbuffers" }
+jackson-core = { group = "com.fasterxml.jackson.core", name = "jackson-core", version.ref = "jackson"}
+jackson-databind = { group = "com.fasterxml.jackson.core", name = "jackson-databind", version.ref = "jackson"}
+jackson-jsr310 = { group = "com.fasterxml.jackson.datatype", name = "jackson-datatype-jsr310", version.ref = "jackson"}
+jmh-core = { group = "org.openjdk.jmh", name = "jmh-core", version.ref = "jmh" }
+jmh-annprocess = { group = "org.openjdk.jmh", name = "jmh-annprocess", version.ref = "jmh" }
+jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna" }
+junit-bom = { group = "org.junit", name = "junit-bom", version.ref = "junit" }
+mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }
+slf4j-api = { group = "org.slf4j", name = "slf4j-api", version.ref = "slf4j" }
+slf4j-simple = { group = "org.slf4j", name = "slf4j-simple", version.ref = "slf4j" }
+assert4j-core = { group = "org.assertj", name = "assertj-core", version.ref = "assertj" }
