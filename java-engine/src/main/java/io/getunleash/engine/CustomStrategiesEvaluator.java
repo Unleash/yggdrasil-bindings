@@ -85,6 +85,13 @@ class CustomStrategiesEvaluator {
         mappedStrategies.add(new MappedStrategy("customStrategy" + (index++), impl, def));
       }
     }
+    if (fallbackStrategy != null) {
+      mappedStrategies.add(
+          new MappedStrategy(
+              "customStrategy" + index,
+              fallbackStrategy,
+              new StrategyDefinition("fallback", Collections.emptyMap())));
+    }
     return mappedStrategies;
   }
 
