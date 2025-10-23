@@ -14,8 +14,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class UnleashEngine {
-  private static final Logger log = LoggerFactory.getLogger(UnleashEngine.class);
-  private static final Cleaner cleaner = Cleaner.create();
+  private static final Logger LOGGER = LoggerFactory.getLogger(UnleashEngine.class);
+  private static final Cleaner CLEANER = Cleaner.create();
   private final NativeInterface nativeEngine;
   private final CustomStrategiesEvaluator customStrategiesEvaluator;
 
@@ -47,7 +47,7 @@ public class UnleashEngine {
           new CustomStrategiesEvaluator(Stream.empty(), fallbackStrategy, new HashSet<>());
     }
 
-    cleaner.register(this, nativeEngine::freeEngine);
+    CLEANER.register(this, nativeEngine::freeEngine);
   }
 
   private static String getRuntimeHostname() {
@@ -161,8 +161,8 @@ public class UnleashEngine {
 
   public void takeState(String clientFeatures) throws YggdrasilInvalidInputException {
     try {
-        TakeStateResponse takeStateResponse = this.nativeEngine.takeState(clientFeatures);
-        customStrategiesEvaluator.loadStrategiesFor(takeStateResponse);
+      TakeStateResponse takeStateResponse = this.nativeEngine.takeState(clientFeatures);
+      customStrategiesEvaluator.loadStrategiesFor(takeStateResponse);
     } catch (RuntimeException e) {
       throw new YggdrasilInvalidInputException("Failed to take state:", e);
     }
@@ -172,6 +172,7 @@ public class UnleashEngine {
       throws YggdrasilInvalidInputException {
     try {
       Map<String, Boolean> strategyResults = customStrategiesEvaluator.eval(toggleName, context);
+      LOGGER.info("Evaluated custom strategies {}", strategyResults);
       ByteBuffer contextBytes = buildMessage(toggleName, context, strategyResults);
       Response response = this.nativeEngine.checkEnabled(contextBytes);
 
@@ -186,7 +187,7 @@ public class UnleashEngine {
         return new FlatResponse<>(response.impressionData(), null);
       }
     } catch (RuntimeException e) {
-      log.warn("Could not check if toggle is enabled: {}", e.getMessage(), e);
+      LOGGER.warn("Could not check if toggle is enabled: {}", e.getMessage(), e);
       return new FlatResponse<>(false, null);
     }
   }
@@ -221,7 +222,7 @@ public class UnleashEngine {
         return new FlatResponse<>(false, null);
       }
     } catch (RuntimeException e) {
-      log.warn("Could not get variant for toggle '{}': {}", toggleName, e.getMessage(), e);
+      LOGGER.warn("Could not get variant for toggle '{}': {}", toggleName, e.getMessage(), e);
       return new FlatResponse<>(false, null);
     }
   }
