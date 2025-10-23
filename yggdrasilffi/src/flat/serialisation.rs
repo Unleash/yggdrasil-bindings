@@ -1,13 +1,20 @@
+use flatbuffers::{FlatBufferBuilder, Follow, WIPOffset};
+use std::collections::HashMap;
 use std::{
     cell::RefCell,
     fmt::{Display, Formatter},
 };
-use std::collections::HashMap;
-use flatbuffers::{FlatBufferBuilder, Follow, WIPOffset};
 use unleash_types::client_metrics::MetricBucket;
 use unleash_yggdrasil::{EvalWarning, ExtendedVariantDef, ToggleDefinition};
 
-use crate::flat::messaging::messaging::{BuiltInStrategies, BuiltInStrategiesBuilder, CoreVersion, CoreVersionBuilder, FeatureDefBuilder, FeatureDefs, FeatureDefsBuilder, MetricsResponse, MetricsResponseBuilder, Response, ResponseBuilder, StrategyDefinition, StrategyDefinitionArgs, StrategyFeature, StrategyFeatureArgs, StrategyParameter, StrategyParameterArgs, TakeStateResponse, TakeStateResponseArgs, TakeStateResponseBuilder, ToggleEntryBuilder, ToggleStatsBuilder, Variant, VariantBuilder, VariantEntryBuilder, VariantPayloadBuilder};
+use crate::flat::messaging::messaging::{
+    BuiltInStrategies, BuiltInStrategiesBuilder, CoreVersion, CoreVersionBuilder,
+    FeatureDefBuilder, FeatureDefs, FeatureDefsBuilder, MetricsResponse, MetricsResponseBuilder,
+    Response, ResponseBuilder, StrategyDefinition, StrategyDefinitionArgs, StrategyFeature,
+    StrategyFeatureArgs, StrategyParameter, StrategyParameterArgs, TakeStateResponse,
+    TakeStateResponseArgs, TakeStateResponseBuilder, ToggleEntryBuilder, ToggleStatsBuilder,
+    Variant, VariantBuilder, VariantEntryBuilder, VariantPayloadBuilder,
+};
 
 thread_local! {
     static BUILDER: RefCell<FlatBufferBuilder<'static>> =
@@ -32,13 +39,13 @@ pub struct ResponseMessage<T> {
 pub struct TakeStateResult {
     pub warnings: Vec<EvalWarning>,
     pub error: Option<String>,
-    pub feature_strategies_map: HashMap<String, HashMap<String, HashMap<String, String>>>
+    pub feature_strategies_map: HashMap<String, HashMap<String, HashMap<String, String>>>,
 }
 
 #[repr(C)]
 pub struct Buf {
     pub ptr: *mut u8, // points to heap memory owned by Rust
-    pub len: usize,     // length in bytes
+    pub len: usize,   // length in bytes
     pub cap: usize,
 }
 
@@ -67,7 +74,7 @@ pub extern "C" fn allocate(size: usize) -> *mut u8 {
 pub trait FlatMessage<TInput>: Follow<'static> + Sized {
     fn as_flat_buffer(builder: &mut FlatBufferBuilder<'static>, input: TInput) -> WIPOffset<Self>;
 
-fn build_response(input: TInput) -> Buf {
+    fn build_response(input: TInput) -> Buf {
         let bytes: Vec<u8> = BUILDER.with(|cell| {
             let mut builder = cell.borrow_mut();
             builder.reset();
@@ -123,7 +130,10 @@ impl FlatMessage<Result<Option<ResponseMessage<bool>>, FlatError>> for Response<
 }
 
 impl FlatMessage<Result<Option<TakeStateResult>, FlatError>> for TakeStateResponse<'static> {
-    fn as_flat_buffer(builder: &mut FlatBufferBuilder<'static>, from: Result<Option<TakeStateResult>, FlatError>) -> WIPOffset<Self> {
+    fn as_flat_buffer(
+        builder: &mut FlatBufferBuilder<'static>,
+        from: Result<Option<TakeStateResult>, FlatError>,
+    ) -> WIPOffset<Self> {
         let mut features_vec = None;
         let mut warnings_vec = None;
         let mut error_str = None;
@@ -134,7 +144,12 @@ impl FlatMessage<Result<Option<TakeStateResult>, FlatError>> for TakeStateRespon
                     let warning_strings: Vec<_> = res
                         .warnings
                         .iter()
-                        .map(|w| builder.create_string(&format!("toggle: {} warned {}", w.toggle_name, w.message)))
+                        .map(|w| {
+                            builder.create_string(&format!(
+                                "toggle: {} warned {}",
+                                w.toggle_name, w.message
+                            ))
+                        })
                         .collect();
                     warnings_vec = Some(builder.create_vector(&warning_strings));
                 }
@@ -206,16 +221,14 @@ impl FlatMessage<Result<Option<TakeStateResult>, FlatError>> for TakeStateRespon
                     },
                 )
             }
-            Ok(None) => {
-                TakeStateResponse::create(
-                    builder,
-                    &TakeStateResponseArgs {
-                        features: features_vec,
-                        warnings: warnings_vec,
-                        error: error_str,
-                    }
-                )
-            }
+            Ok(None) => TakeStateResponse::create(
+                builder,
+                &TakeStateResponseArgs {
+                    features: features_vec,
+                    warnings: warnings_vec,
+                    error: error_str,
+                },
+            ),
             Err(e) => {
                 let err = builder.create_string(&e.to_string());
                 TakeStateResponse::create(
@@ -231,9 +244,9 @@ impl FlatMessage<Result<Option<TakeStateResult>, FlatError>> for TakeStateRespon
     }
 }
 
-
-
-impl FlatMessage<Result<Option<ResponseMessage<ExtendedVariantDef>>, FlatError>> for Variant<'static> {
+impl FlatMessage<Result<Option<ResponseMessage<ExtendedVariantDef>>, FlatError>>
+    for Variant<'static>
+{
     fn as_flat_buffer(
         builder: &mut FlatBufferBuilder<'static>,
         from: Result<Option<ResponseMessage<ExtendedVariantDef>>, FlatError>,

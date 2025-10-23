@@ -166,6 +166,7 @@ pub unsafe extern "C" fn flat_check_variant(engine_ptr: *mut c_void, message_ptr
         let base_variant = engine.check_variant(&context);
         let toggle_enabled = engine.check_enabled(&context).unwrap_or_default();
         let impression_data = engine.should_emit_impression_event(&context.toggle_name);
+        engine.count_toggle(&context.toggle_name, toggle_enabled);
         if let Some(v) = base_variant.clone() {
             engine.count_variant(&context.toggle_name, &v.name);
         }

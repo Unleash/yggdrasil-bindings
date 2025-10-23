@@ -1,3 +1,8 @@
+import java.net.URL
+import java.nio.file.Files
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+
 plugins {
     java
     `java-library`
@@ -98,6 +103,7 @@ copyTestBinary.dependsOn(buildFfi)
 
 tasks.named<Test>("test") {
     dependsOn(copyTestBinary)
+    dependsOn(fetchClientSpecification)
     useJUnitPlatform()
     testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
 }
@@ -182,4 +188,122 @@ mavenCentral {
     authToken = mavenCentralToken
     publishingType = "AUTOMATIC"
     maxWait = 120
+}
+
+
+@CacheableTask
+abstract class FetchZip: DefaultTask() {
+    @get:Input
+    abstract val versionProp: Property<String>
+
+    /**
+     * Either provide a fully-resolved URL (e.g. via a `map` from version),
+     * or set this directly from a property.
+     */
+    @get:Input
+    abstract val downloadUrl: Property<String>
+
+    @get:OutputDirectory
+    abstract val destinationDir: DirectoryProperty
+
+    init {
+        // Up-to-date if destination/package.json exists AND its "version" equals versionProp
+        outputs.upToDateWhen {
+            val pkg = destinationDir.file("package.json").get().asFile
+            if (!pkg.exists()) return@upToDateWhen false
+            val text = pkg.readText()
+            // Minimal/robust-enough extraction of "version": "x.y.z"
+            val regex = """"version"\s*:\s*"([^"]+)"""".toRegex()
+            val found = regex.find(text)?.groupValues?.getOrNull(1)
+            found == versionProp.get()
+        }
+    }
+    @TaskAction
+    fun fetch() {
+        val dest = destinationDir.get().asFile
+        dest.mkdirs()
+
+        // If an old version is there (and package.json doesn't match), we overwrite the folder.
+        // We’ll unpack into a temp dir then atomically replace contents to avoid half-extracted states.
+        val tmpZip = Files.createTempFile("download-", ".zip").toFile()
+        val tmpExtractDir = Files.createTempDirectory("extract-").toFile()
+
+        try {
+            // --- Download ---
+            logger.lifecycle("Downloading ${downloadUrl.get()} (version=${versionProp.get()})")
+            URL(downloadUrl.get()).openStream().use { input ->
+                tmpZip.outputStream().use { output -> input.copyTo(output) }
+            }
+
+            // Unzip while STRIPPING the first path segment (top-level folder) from all entries
+            unzipStripTopLevel(tmpZip, tmpExtractDir)
+
+            dest.listFiles()?.forEach { it.deleteRecursively() }
+            tmpExtractDir.copyRecursively(dest, overwrite = true)
+
+            logger.lifecycle("Unpacked to: $dest")
+        } finally {
+            tmpZip.delete()
+            tmpExtractDir.deleteRecursively()
+        }
+    }
+
+    /**
+     * Unzips [zipFile] into [toDir], removing the first path segment from each entry.
+     * Example: client-specification-1.2.3/pkg/a.json -> pkg/a.json
+     * Also guards against Zip Slip attacks.
+     */
+    private fun unzipStripTopLevel(zipFile: java.io.File, toDir: java.io.File) {
+        val targetCanonical = toDir.canonicalFile.toPath()
+
+        fun stripFirstSegment(path: String): String {
+            val parts = path.split('/','\\')
+            return when {
+                parts.isEmpty() -> ""
+                parts.size == 1 -> parts[0] // single file at root (rare) — keep as is
+                else -> parts.drop(1).joinToString("/")
+            }
+        }
+
+        ZipInputStream(zipFile.inputStream()).use { zis ->
+            var entry: ZipEntry? = zis.nextEntry
+            while (entry != null) {
+                val stripped = stripFirstSegment(entry.name).trim().removePrefix("/").removePrefix("\\")
+                if (stripped.isNotEmpty()) {
+                    val outPath = File(toDir, stripped)
+                    // Zip Slip protection
+                    val outCanonical = outPath.canonicalFile.toPath()
+                    require(outCanonical.startsWith(targetCanonical)) {
+                        "Blocked suspicious zip entry: ${entry.name}"
+                    }
+
+                    if (entry.isDirectory || stripped.endsWith("/") || stripped.endsWith("\\")) {
+                        outPath.mkdirs()
+                    } else {
+                        outPath.parentFile?.mkdirs()
+                        outPath.outputStream().use { os -> zis.copyTo(os) }
+                    }
+                }
+                zis.closeEntry()
+                entry = zis.nextEntry
+            }
+        }
+    }
+}
+
+val clientSpecificationVersion = providers.gradleProperty("clientSpecificationVersion")
+val clientSpecificationUrlTemplate = providers.gradleProperty("clientSpecificationUrlTemplate")
+
+val clientSpecDir = layout.projectDirectory.dir("client-specification")
+
+val fetchClientSpecification = tasks.register<FetchZip>("fetchClientSpecification") {
+    group = "client-specification"
+    description = "Downloads and unpacks client-specification"
+
+    versionProp.set(clientSpecificationVersion)
+
+    downloadUrl.set(clientSpecificationVersion.zip(clientSpecificationUrlTemplate) { v, tmpl ->
+        String.format(tmpl, v)
+    })
+    destinationDir.set(clientSpecDir)
 }

@@ -20,6 +20,7 @@ import java.lang.ref.PhantomReference;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -153,7 +154,8 @@ class UnleashEngineTest {
   public void testClientSpec() throws Exception {
     ObjectMapper objectMapper = new ObjectMapper();
     objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-    File basePath = Paths.get("../client-specification/specifications").toFile();
+    objectMapper.addMixIn(VariantDef.class, VariantDefMixin.class);
+    File basePath = Paths.get("client-specification/specifications").toFile();
     File indexFile = new File(basePath, "index.json");
     List<String> testSuites = objectMapper.readValue(indexFile, new TypeReference<>() {});
 
