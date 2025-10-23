@@ -41,10 +41,10 @@ public class UnleashEngine {
       List<String> builtInStrategies = getBuiltInStrategies();
       this.customStrategiesEvaluator =
           new CustomStrategiesEvaluator(
-              customStrategies.stream(), fallbackStrategy, new HashSet<String>(builtInStrategies));
+              customStrategies.stream(), fallbackStrategy, new HashSet<>(builtInStrategies));
     } else {
       this.customStrategiesEvaluator =
-          new CustomStrategiesEvaluator(Stream.empty(), fallbackStrategy, new HashSet<String>());
+          new CustomStrategiesEvaluator(Stream.empty(), fallbackStrategy, new HashSet<>());
     }
 
     cleaner.register(this, nativeEngine::freeEngine);
@@ -161,8 +161,8 @@ public class UnleashEngine {
 
   public void takeState(String clientFeatures) throws YggdrasilInvalidInputException {
     try {
-      customStrategiesEvaluator.loadStrategiesFor(clientFeatures);
-      this.nativeEngine.takeState(clientFeatures);
+        TakeStateResponse takeStateResponse = this.nativeEngine.takeState(clientFeatures);
+        customStrategiesEvaluator.loadStrategiesFor(takeStateResponse);
     } catch (RuntimeException e) {
       throw new YggdrasilInvalidInputException("Failed to take state:", e);
     }
@@ -235,7 +235,7 @@ public class UnleashEngine {
       }
       return builtInStrategiesNames;
     } else {
-      return List.of();
+      return Collections.emptyList();
     }
   }
 

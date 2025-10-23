@@ -14,7 +14,7 @@ public interface UnleashFFI extends Library {
 
   void freeEngine(Pointer enginePointer);
 
-  UnleashFFI.Buf.ByValue takeState(Pointer enginePointer, Pointer toggles);
+  UnleashFFI.Buf.ByValue flatTakeState(Pointer enginePointer, Pointer toggles);
 
   Pointer getState(Pointer enginePointer);
 

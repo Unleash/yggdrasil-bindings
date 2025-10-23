@@ -1,4 +1,5 @@
 [versions]
+assertj = "3.27.6"
 flatbuffers = "25.2.10"
 jackson = "2.20.0"
 jmh = "1.37"
@@ -19,3 +20,4 @@ junit-bom = { group = "org.junit", name = "junit-bom", version.ref = "junit" }
 mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }
 slf4j-api = { group = "org.slf4j", name = "slf4j-api", version.ref = "slf4j" }
 slf4j-simple = { group = "org.slf4j", name = "slf4j-simple", version.ref = "slf4j" }
+assert4j-core = { group = "org.assertj", name = "assertj-core", version.ref = "assertj" }

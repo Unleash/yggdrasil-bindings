@@ -6,10 +6,16 @@ import static java.util.stream.Collectors.toMap;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import io.getunleash.messaging.StrategyDefinition;
+import io.getunleash.messaging.StrategyFeature;
+import io.getunleash.messaging.StrategyParameter;
+import io.getunleash.messaging.TakeStateResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 class CustomStrategiesEvaluator {
+
   private static final Logger log = LoggerFactory.getLogger(CustomStrategiesEvaluator.class);
   static final Map<String, Boolean> EMPTY_STRATEGY_RESULTS = new HashMap<>();
   private final Map<String, IStrategy> registeredStrategies;
@@ -34,51 +40,61 @@ class CustomStrategiesEvaluator {
     this.fallbackStrategy = fallbackStrategy;
   }
 
-  public void loadStrategiesFor(String toggles) {
+  public void loadStrategiesFor(TakeStateResponse response) {
     if (this.registeredStrategies.isEmpty() && this.fallbackStrategy == null) {
       return;
     }
 
-    if (toggles == null || toggles.isEmpty()) {
+    if (response.featuresVector() == null || response.featuresLength() == 0) {
       return;
     }
-
-    try {
-      VersionedFeatures wrapper =
-          mapper.readValue(toggles, new TypeReference<VersionedFeatures>() {});
-      if (wrapper.features != null) {
-        featureStrategies =
-            wrapper.features.stream()
-                .collect(toMap(feature -> feature.name, this::getFeatureStrategies));
+    Map<String, List<MappedStrategy>> featureStrategies = new HashMap<>();
+    for (int i = 0; i < response.featuresLength(); i++) {
+      StrategyFeature feature = response.features(i);
+      String featureName = feature.featureName();
+      if (feature.strategiesLength() == 0) {
+        List<MappedStrategy> mappedStrategies = new ArrayList<>();
+        for (int j = 0; j < feature.strategiesLength(); j++) {
+          var strategy = feature.strategies(j);
+          if (builtinStrategies.contains(strategy.name())) {
+            continue;
+          }
+          featureStrategies.put(featureName, getFeatureStrategies(feature));
+        }
       }
-    } catch (JsonProcessingException e) {
-      log.warn(
-          "Error processing features. This means custom strategies will return false every time they're used",
-          e);
     }
+    this.featureStrategies = featureStrategies;
   }
 
-  List<MappedStrategy> getFeatureStrategies(FeatureDefinition feature) {
+  List<MappedStrategy> getFeatureStrategies(StrategyFeature feature) {
     List<MappedStrategy> mappedStrategies = new ArrayList<>();
     int index = 1;
-    for (StrategyDefinition strategyDefinition : feature.strategies) {
-      if (builtinStrategies.contains(strategyDefinition.name)) {
-        continue;
+    if (feature.strategiesLength() > 0) {
+      for (int i = 0; i < feature.strategiesLength(); i++) {
+        io.getunleash.messaging.StrategyDefinition strategy = feature.strategies(i);
+        if (builtinStrategies.contains(strategy.name())) {
+          continue;
+        }
+        IStrategy impl =
+            Optional.ofNullable(registeredStrategies.get(strategy.name()))
+                .orElseGet(() -> alwaysFalseStrategy(strategy.name()));
+        StrategyDefinition def =
+            new StrategyDefinition(strategy.name(), getStrategyParameters(strategy));
+        mappedStrategies.add(new MappedStrategy("customStrategy" + (index++), impl, def));
       }
-      IStrategy impl =
-          Optional.ofNullable(registeredStrategies.get(strategyDefinition.name))
-              .orElseGet(() -> alwaysFalseStrategy(strategyDefinition.name));
-      mappedStrategies.add(
-          new MappedStrategy("customStrategy" + (index++), impl, strategyDefinition));
-    }
-    if (fallbackStrategy != null) {
-      mappedStrategies.add(
-          new MappedStrategy(
-              "customStrategy" + index,
-              fallbackStrategy,
-              new StrategyDefinition("fallback", Collections.emptyMap())));
     }
     return mappedStrategies;
+  }
+
+  Map<String, String> getStrategyParameters(io.getunleash.messaging.StrategyDefinition strategy) {
+    Map<String, String> parameters = new HashMap<>();
+    if (strategy.parametersLength() > 0) {
+      for (int i = 0; i < strategy.parametersLength(); i++) {
+        StrategyParameter parameter = strategy.parameters(i);
+        parameters.put(parameter.key(), parameter.value());
+      }
+    }
+    return parameters;
   }
 
   public Map<String, Boolean> eval(String name, Context context) {
@@ -88,14 +104,11 @@ class CustomStrategiesEvaluator {
       return Collections.emptyMap();
     }
 
-    Map<String, Boolean> results =
-        mappedStrategies.stream()
-            .collect(
-                Collectors.toMap(
-                    mappedStrategy -> mappedStrategy.resultName,
-                    mappedStrategy -> tryIsEnabled(context, mappedStrategy).orElse(false)));
-
-    return results;
+      return mappedStrategies.stream()
+          .collect(
+              Collectors.toMap(
+                  mappedStrategy -> mappedStrategy.resultName,
+                  mappedStrategy -> tryIsEnabled(context, mappedStrategy).orElse(false)));
   }
 
   private static Optional<Boolean> tryIsEnabled(Context context, MappedStrategy mappedStrategy) {
@@ -109,36 +122,11 @@ class CustomStrategiesEvaluator {
     }
   }
 
-  private static class VersionedFeatures {
-    private final List<FeatureDefinition> features;
-
-    @JsonCreator
-    private VersionedFeatures(@JsonProperty("features") List<FeatureDefinition> features) {
-      this.features = features;
-    }
-  }
-
-  static class FeatureDefinition {
-    private final String name;
-    private final List<StrategyDefinition> strategies;
-
-    @JsonCreator
-    FeatureDefinition(
-        @JsonProperty("name") String name,
-        @JsonProperty("strategies") List<StrategyDefinition> strategies) {
-      this.name = name;
-      this.strategies = strategies;
-    }
-  }
-
   static class StrategyDefinition {
     private final String name;
     private final Map<String, String> parameters;
 
-    @JsonCreator
-    StrategyDefinition(
-        @JsonProperty("name") String name,
-        @JsonProperty("parameters") Map<String, String> parameters) {
+    StrategyDefinition(String name, Map<String, String> parameters) {
       this.name = name;
       this.parameters = parameters;
     }

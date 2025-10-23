@@ -25,10 +25,11 @@ public class FlatInterface implements NativeInterface {
 
   @Override
   public TakeStateResponse takeState(String toggles) {
-    UnleashFFI.Buf.ByValue buf = this.unleashFFI.takeState(enginePointer, toUtf8Pointer(toggles));
+    UnleashFFI.Buf.ByValue buf = this.unleashFFI.flatTakeState(enginePointer, toUtf8Pointer(toggles));
       long len = buf.len.longValue();
       byte[] out = buf.ptr.getByteArray(0, (int) len);
-    TakeStateResponse
+      this.unleashFFI.flatBufFree(buf);
+      return TakeStateResponse.getRootAsTakeStateResponse(ByteBuffer.wrap(out));
   }
 
   @Override

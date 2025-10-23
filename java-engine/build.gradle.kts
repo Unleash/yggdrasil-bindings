@@ -1,4 +1,5 @@
 plugins {
+    java
     `java-library`
     `maven-publish`
     signing
@@ -30,16 +31,17 @@ dependencies {
     testImplementation("org.junit.platform:junit-platform-launcher")
     testImplementation("org.junit.jupiter:junit-jupiter-engine")
     testImplementation("org.junit.jupiter:junit-jupiter-params")
+    testImplementation(libs.assert4j.core)
     testImplementation(libs.mockito.core)
     testImplementation(libs.slf4j.simple)
     implementation(libs.slf4j.api)
     implementation(libs.jna)
-    implementation(libs.jackson.core)
-    implementation(libs.jackson.databind)
-    implementation(libs.jackson.jsr310)
     implementation(libs.flatbuffers)
 }
 
+tasks.withType<Javadoc> {
+    exclude("io/getunleash/messaging/**")
+}
 tasks.jar {
     manifest {
         attributes(

@@ -1,14 +1,11 @@
 package io.getunleash.engine;
 
-import static io.getunleash.engine.CustomStrategiesEvaluator.EMPTY_STRATEGY_RESULTS;
 import static io.getunleash.engine.TestStrategies.alwaysFails;
 import static io.getunleash.engine.TestStrategies.alwaysTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.params.provider.Arguments.of;
 
-import io.getunleash.engine.CustomStrategiesEvaluator.FeatureDefinition;
-import io.getunleash.engine.CustomStrategiesEvaluator.MappedStrategy;
-import io.getunleash.engine.CustomStrategiesEvaluator.StrategyDefinition;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -17,6 +14,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
+
+import io.getunleash.messaging.StrategyFeature;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.*;
@@ -77,17 +76,9 @@ class CustomStrategiesEvaluatorTest {
       Stream<IStrategy> strategies, String name, Context context) {
     CustomStrategiesEvaluator customStrategiesEvaluator =
         new CustomStrategiesEvaluator(strategies, new HashSet<>());
-    assertEquals(EMPTY_STRATEGY_RESULTS, customStrategiesEvaluator.eval(name, context));
+    assertThat(customStrategiesEvaluator.eval(name, context)).isEmpty();
   }
 
-  @ParameterizedTest
-  @ValueSource(strings = {"", "[]", "{}", "{\"version\": 2, \"features\": []}"})
-  @NullSource
-  void shouldBeAbleToTakeAnyStateWithoutFailing(String state) {
-    CustomStrategiesEvaluator customStrategiesEvaluator =
-        new CustomStrategiesEvaluator(Stream.of(alwaysTrue("test-strategy")), new HashSet<>());
-    assertDoesNotThrow(() -> customStrategiesEvaluator.loadStrategiesFor(state));
-  }
 
   @ParameterizedTest
   @MethodSource("singleStrategy")
@@ -130,10 +121,10 @@ class CustomStrategiesEvaluatorTest {
     CustomStrategiesEvaluator customStrategiesEvaluator =
         new CustomStrategiesEvaluator(Stream.of(alwaysFails("custom")), setOf("flexibleRollout"));
 
-    StrategyDefinition flexibleRollout = new StrategyDefinition("flexibleRollout", new HashMap<>());
+    CustomStrategiesEvaluator.StrategyDefinition flexibleRollout = new CustomStrategiesEvaluator.StrategyDefinition("flexibleRollout", new HashMap<>());
     FeatureDefinition feature = new FeatureDefinition("feature", listOf(flexibleRollout));
-
-    List<MappedStrategy> results = customStrategiesEvaluator.getFeatureStrategies(feature);
+      StrategyFeature strategyFeature = new StrategyFeature();
+    List<CustomStrategiesEvaluator.MappedStrategy> results = customStrategiesEvaluator.getFeatureStrategies(feature);
 
     assertTrue(results.isEmpty());
   }

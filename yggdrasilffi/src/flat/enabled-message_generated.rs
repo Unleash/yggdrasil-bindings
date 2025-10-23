@@ -29,7 +29,7 @@ impl<'a> flatbuffers::Follow<'a> for PropertyEntry<'a> {
   type Inner = PropertyEntry<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -154,7 +154,7 @@ impl<'a> flatbuffers::Follow<'a> for ContextMessage<'a> {
   type Inner = ContextMessage<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -404,7 +404,7 @@ impl<'a> flatbuffers::Follow<'a> for CustomStrategyResult<'a> {
   type Inner = CustomStrategyResult<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -529,7 +529,7 @@ impl<'a> flatbuffers::Follow<'a> for Response<'a> {
   type Inner = Response<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -677,7 +677,7 @@ impl<'a> flatbuffers::Follow<'a> for Variant<'a> {
   type Inner = Variant<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -859,7 +859,7 @@ impl<'a> flatbuffers::Follow<'a> for VariantPayload<'a> {
   type Inner = VariantPayload<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -973,7 +973,7 @@ impl<'a> flatbuffers::Follow<'a> for VariantEntry<'a> {
   type Inner = VariantEntry<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -1087,7 +1087,7 @@ impl<'a> flatbuffers::Follow<'a> for ToggleStats<'a> {
   type Inner = ToggleStats<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -1218,7 +1218,7 @@ impl<'a> flatbuffers::Follow<'a> for CoreVersion<'a> {
   type Inner = CoreVersion<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -1315,7 +1315,7 @@ impl<'a> flatbuffers::Follow<'a> for BuiltInStrategies<'a> {
   type Inner = BuiltInStrategies<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -1412,7 +1412,7 @@ impl<'a> flatbuffers::Follow<'a> for ToggleEntry<'a> {
   type Inner = ToggleEntry<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -1526,7 +1526,7 @@ impl<'a> flatbuffers::Follow<'a> for MetricsResponse<'a> {
   type Inner = MetricsResponse<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -1657,7 +1657,7 @@ impl<'a> flatbuffers::Follow<'a> for TakeStateResponse<'a> {
   type Inner = TakeStateResponse<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -1788,7 +1788,7 @@ impl<'a> flatbuffers::Follow<'a> for StrategyFeature<'a> {
   type Inner = StrategyFeature<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -1902,7 +1902,7 @@ impl<'a> flatbuffers::Follow<'a> for StrategyDefinition<'a> {
   type Inner = StrategyDefinition<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -2016,7 +2016,7 @@ impl<'a> flatbuffers::Follow<'a> for StrategyParameter<'a> {
   type Inner = StrategyParameter<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -2130,7 +2130,7 @@ impl<'a> flatbuffers::Follow<'a> for FeatureDef<'a> {
   type Inner = FeatureDef<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -2278,7 +2278,7 @@ impl<'a> flatbuffers::Follow<'a> for FeatureDefs<'a> {
   type Inner = FeatureDefs<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -2415,14 +2415,14 @@ pub fn size_prefixed_root_as_metrics_response_with_opts<'b, 'o>(
 /// # Safety
 /// Callers must trust the given bytes do indeed contain a valid `MetricsResponse`.
 pub unsafe fn root_as_metrics_response_unchecked(buf: &[u8]) -> MetricsResponse {
-  unsafe { flatbuffers::root_unchecked::<MetricsResponse>(buf) }
+  flatbuffers::root_unchecked::<MetricsResponse>(buf)
 }
 #[inline]
 /// Assumes, without verification, that a buffer of bytes contains a size prefixed MetricsResponse and returns it.
 /// # Safety
 /// Callers must trust the given bytes do indeed contain a valid size prefixed `MetricsResponse`.
 pub unsafe fn size_prefixed_root_as_metrics_response_unchecked(buf: &[u8]) -> MetricsResponse {
-  unsafe { flatbuffers::size_prefixed_root_unchecked::<MetricsResponse>(buf) }
+  flatbuffers::size_prefixed_root_unchecked::<MetricsResponse>(buf)
 }
 #[inline]
 pub fn finish_metrics_response_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(
