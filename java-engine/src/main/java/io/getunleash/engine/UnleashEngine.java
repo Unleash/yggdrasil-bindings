@@ -288,4 +288,15 @@ public class UnleashEngine {
     return new MetricsBucket(
         Instant.ofEpochMilli(metrics.start()), Instant.ofEpochMilli(metrics.stop()), toggles);
   }
+
+  // Only visible for testing.
+  Map<String, Boolean> customStrategiesEvaluatorEval(String featureName, Context context) {
+    return this.customStrategiesEvaluator.eval(featureName, context);
+  }
+
+  List<CustomStrategiesEvaluator.MappedStrategy> customStrategiesForFeature(String featureName) {
+    return this.customStrategiesEvaluator
+        .getFeatureStrategies()
+        .getOrDefault(featureName, Collections.emptyList());
+  }
 }

@@ -1,5 +1,5 @@
 use flatbuffers::{FlatBufferBuilder, Follow, WIPOffset};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::{
     cell::RefCell,
     fmt::{Display, Formatter},
@@ -39,7 +39,7 @@ pub struct ResponseMessage<T> {
 pub struct TakeStateResult {
     pub warnings: Vec<EvalWarning>,
     pub error: Option<String>,
-    pub feature_strategies_map: HashMap<String, HashMap<String, HashMap<String, String>>>,
+    pub feature_strategies_map: BTreeMap<String, BTreeMap<String, BTreeMap<String, String>>>,
 }
 
 #[repr(C)]

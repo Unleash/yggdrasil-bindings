@@ -23,6 +23,10 @@ class CustomStrategiesEvaluator {
 
   private Map<String, List<MappedStrategy>> featureStrategies = new HashMap<>();
 
+  Map<String, List<MappedStrategy>> getFeatureStrategies() {
+    return this.featureStrategies;
+  }
+
   public CustomStrategiesEvaluator(
       Stream<IStrategy> customStrategies, Set<String> builtinStrategies) {
     this(customStrategies, null, builtinStrategies);

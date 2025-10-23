@@ -10,7 +10,7 @@ use crate::flat::messaging::messaging::{BuiltInStrategies, FeatureDefs, MetricsR
 use crate::flat::serialisation::{Buf, TakeStateResult};
 use crate::{get_json, ManagedEngine, RawPointerDataType};
 use chrono::Utc;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::mem::forget;
 use std::panic;
 use std::panic::AssertUnwindSafe;
@@ -97,10 +97,15 @@ unsafe fn flat_take_state(engine_pointer: *mut c_void, toggles_pointer: *const c
         let mut engine = recover_lock(&guard);
         let toggles: UpdateMessage = get_json(toggles_pointer).map_err(|_| FlatError::InvalidState("Your features does not parse".to_string()))?;
         let res = engine.take_state(toggles);
-        let feature_strategies_map = engine.get_state().features.iter().map(|f| {
-            let name = f.name.clone();
-            (name, f.strategies.clone().unwrap_or_default().iter().map(|strategy| (strategy.name.clone(), strategy.parameters.clone().unwrap_or_default())).collect())
-        }).collect::<HashMap<_, _>>();
+        let feature_strategies_map= engine.get_state().features.iter().map(|feature| {
+            let name = feature.name.clone();
+            let strategies = feature.strategies.clone().unwrap_or_default().into_iter().map(|strategy| {
+                let params: BTreeMap<String, String> = strategy.parameters.clone().unwrap_or_default().into_iter().collect();
+                (strategy.name.clone(), params)
+            })
+                .collect::<BTreeMap<_, _>>();
+            (name, strategies)
+        }).collect::<BTreeMap<_, _>>();
         if let Some(warnings) = res {
             Ok(Some(TakeStateResult {
                 warnings,

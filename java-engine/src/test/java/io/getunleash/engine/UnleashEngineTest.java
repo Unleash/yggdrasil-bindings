@@ -20,7 +20,6 @@ import java.lang.ref.PhantomReference;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.nio.ByteBuffer;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -292,10 +291,10 @@ class UnleashEngineTest {
 
   @Test
   void customStrategiesBlah() throws Exception {
-      UnleashEngine customEngine = new UnleashEngine(Collections.singletonList(alwaysTrue("custom")));
-      takeFeaturesFromResource(customEngine, "custom-strategy-tests.json");
-      boolean result = customEngine.isEnabled("Feature.Custom.Strategies", new Context()).value;
-      assertThat(result).isEqualTo(true);
+    UnleashEngine customEngine = new UnleashEngine(Collections.singletonList(alwaysTrue("custom")));
+    takeFeaturesFromResource(customEngine, "custom-strategy-tests.json");
+    boolean result = customEngine.isEnabled("Feature.Custom.Strategies", new Context()).value;
+    assertThat(result).isEqualTo(true);
   }
 
   @SuppressWarnings("unused")
