@@ -3,47 +3,97 @@
 package io.getunleash.messaging;
 
 import com.google.flatbuffers.BaseVector;
-import com.google.flatbuffers.BooleanVector;
-import com.google.flatbuffers.ByteVector;
 import com.google.flatbuffers.Constants;
-import com.google.flatbuffers.DoubleVector;
 import com.google.flatbuffers.FlatBufferBuilder;
-import com.google.flatbuffers.FloatVector;
-import com.google.flatbuffers.IntVector;
-import com.google.flatbuffers.LongVector;
-import com.google.flatbuffers.ShortVector;
 import com.google.flatbuffers.StringVector;
-import com.google.flatbuffers.Struct;
 import com.google.flatbuffers.Table;
-import com.google.flatbuffers.UnionVector;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
 @SuppressWarnings("unused")
 public final class TakeStateResponse extends Table {
-  public static void ValidateVersion() { Constants.FLATBUFFERS_25_2_10(); }
-  public static TakeStateResponse getRootAsTakeStateResponse(ByteBuffer _bb) { return getRootAsTakeStateResponse(_bb, new TakeStateResponse()); }
-  public static TakeStateResponse getRootAsTakeStateResponse(ByteBuffer _bb, TakeStateResponse obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
-  public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
-  public TakeStateResponse __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+  public static void ValidateVersion() {
+    Constants.FLATBUFFERS_25_2_10();
+  }
 
-  public io.getunleash.messaging.StrategyFeature features(int j) { return features(new io.getunleash.messaging.StrategyFeature(), j); }
-  public io.getunleash.messaging.StrategyFeature features(io.getunleash.messaging.StrategyFeature obj, int j) { int o = __offset(4); return o != 0 ? obj.__assign(__indirect(__vector(o) + j * 4), bb) : null; }
-  public int featuresLength() { int o = __offset(4); return o != 0 ? __vector_len(o) : 0; }
-  public io.getunleash.messaging.StrategyFeature.Vector featuresVector() { return featuresVector(new io.getunleash.messaging.StrategyFeature.Vector()); }
-  public io.getunleash.messaging.StrategyFeature.Vector featuresVector(io.getunleash.messaging.StrategyFeature.Vector obj) { int o = __offset(4); return o != 0 ? obj.__assign(__vector(o), 4, bb) : null; }
-  public String warnings(int j) { int o = __offset(6); return o != 0 ? __string(__vector(o) + j * 4) : null; }
-  public int warningsLength() { int o = __offset(6); return o != 0 ? __vector_len(o) : 0; }
-  public StringVector warningsVector() { return warningsVector(new StringVector()); }
-  public StringVector warningsVector(StringVector obj) { int o = __offset(6); return o != 0 ? obj.__assign(__vector(o), 4, bb) : null; }
-  public String error() { int o = __offset(8); return o != 0 ? __string(o + bb_pos) : null; }
-  public ByteBuffer errorAsByteBuffer() { return __vector_as_bytebuffer(8, 1); }
-  public ByteBuffer errorInByteBuffer(ByteBuffer _bb) { return __vector_in_bytebuffer(_bb, 8, 1); }
+  public static TakeStateResponse getRootAsTakeStateResponse(ByteBuffer _bb) {
+    return getRootAsTakeStateResponse(_bb, new TakeStateResponse());
+  }
 
-  public static int createTakeStateResponse(FlatBufferBuilder builder,
-      int featuresOffset,
-      int warningsOffset,
-      int errorOffset) {
+  public static TakeStateResponse getRootAsTakeStateResponse(
+      ByteBuffer _bb, TakeStateResponse obj) {
+    _bb.order(ByteOrder.LITTLE_ENDIAN);
+    return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb));
+  }
+
+  public void __init(int _i, ByteBuffer _bb) {
+    __reset(_i, _bb);
+  }
+
+  public TakeStateResponse __assign(int _i, ByteBuffer _bb) {
+    __init(_i, _bb);
+    return this;
+  }
+
+  public io.getunleash.messaging.StrategyFeature features(int j) {
+    return features(new io.getunleash.messaging.StrategyFeature(), j);
+  }
+
+  public io.getunleash.messaging.StrategyFeature features(
+      io.getunleash.messaging.StrategyFeature obj, int j) {
+    int o = __offset(4);
+    return o != 0 ? obj.__assign(__indirect(__vector(o) + j * 4), bb) : null;
+  }
+
+  public int featuresLength() {
+    int o = __offset(4);
+    return o != 0 ? __vector_len(o) : 0;
+  }
+
+  public io.getunleash.messaging.StrategyFeature.Vector featuresVector() {
+    return featuresVector(new io.getunleash.messaging.StrategyFeature.Vector());
+  }
+
+  public io.getunleash.messaging.StrategyFeature.Vector featuresVector(
+      io.getunleash.messaging.StrategyFeature.Vector obj) {
+    int o = __offset(4);
+    return o != 0 ? obj.__assign(__vector(o), 4, bb) : null;
+  }
+
+  public String warnings(int j) {
+    int o = __offset(6);
+    return o != 0 ? __string(__vector(o) + j * 4) : null;
+  }
+
+  public int warningsLength() {
+    int o = __offset(6);
+    return o != 0 ? __vector_len(o) : 0;
+  }
+
+  public StringVector warningsVector() {
+    return warningsVector(new StringVector());
+  }
+
+  public StringVector warningsVector(StringVector obj) {
+    int o = __offset(6);
+    return o != 0 ? obj.__assign(__vector(o), 4, bb) : null;
+  }
+
+  public String error() {
+    int o = __offset(8);
+    return o != 0 ? __string(o + bb_pos) : null;
+  }
+
+  public ByteBuffer errorAsByteBuffer() {
+    return __vector_as_bytebuffer(8, 1);
+  }
+
+  public ByteBuffer errorInByteBuffer(ByteBuffer _bb) {
+    return __vector_in_bytebuffer(_bb, 8, 1);
+  }
+
+  public static int createTakeStateResponse(
+      FlatBufferBuilder builder, int featuresOffset, int warningsOffset, int errorOffset) {
     builder.startTable(3);
     TakeStateResponse.addError(builder, errorOffset);
     TakeStateResponse.addWarnings(builder, warningsOffset);
@@ -51,24 +101,59 @@ public final class TakeStateResponse extends Table {
     return TakeStateResponse.endTakeStateResponse(builder);
   }
 
-  public static void startTakeStateResponse(FlatBufferBuilder builder) { builder.startTable(3); }
-  public static void addFeatures(FlatBufferBuilder builder, int featuresOffset) { builder.addOffset(0, featuresOffset, 0); }
-  public static int createFeaturesVector(FlatBufferBuilder builder, int[] data) { builder.startVector(4, data.length, 4); for (int i = data.length - 1; i >= 0; i--) builder.addOffset(data[i]); return builder.endVector(); }
-  public static void startFeaturesVector(FlatBufferBuilder builder, int numElems) { builder.startVector(4, numElems, 4); }
-  public static void addWarnings(FlatBufferBuilder builder, int warningsOffset) { builder.addOffset(1, warningsOffset, 0); }
-  public static int createWarningsVector(FlatBufferBuilder builder, int[] data) { builder.startVector(4, data.length, 4); for (int i = data.length - 1; i >= 0; i--) builder.addOffset(data[i]); return builder.endVector(); }
-  public static void startWarningsVector(FlatBufferBuilder builder, int numElems) { builder.startVector(4, numElems, 4); }
-  public static void addError(FlatBufferBuilder builder, int errorOffset) { builder.addOffset(2, errorOffset, 0); }
+  public static void startTakeStateResponse(FlatBufferBuilder builder) {
+    builder.startTable(3);
+  }
+
+  public static void addFeatures(FlatBufferBuilder builder, int featuresOffset) {
+    builder.addOffset(0, featuresOffset, 0);
+  }
+
+  public static int createFeaturesVector(FlatBufferBuilder builder, int[] data) {
+    builder.startVector(4, data.length, 4);
+    for (int i = data.length - 1; i >= 0; i--) builder.addOffset(data[i]);
+    return builder.endVector();
+  }
+
+  public static void startFeaturesVector(FlatBufferBuilder builder, int numElems) {
+    builder.startVector(4, numElems, 4);
+  }
+
+  public static void addWarnings(FlatBufferBuilder builder, int warningsOffset) {
+    builder.addOffset(1, warningsOffset, 0);
+  }
+
+  public static int createWarningsVector(FlatBufferBuilder builder, int[] data) {
+    builder.startVector(4, data.length, 4);
+    for (int i = data.length - 1; i >= 0; i--) builder.addOffset(data[i]);
+    return builder.endVector();
+  }
+
+  public static void startWarningsVector(FlatBufferBuilder builder, int numElems) {
+    builder.startVector(4, numElems, 4);
+  }
+
+  public static void addError(FlatBufferBuilder builder, int errorOffset) {
+    builder.addOffset(2, errorOffset, 0);
+  }
+
   public static int endTakeStateResponse(FlatBufferBuilder builder) {
     int o = builder.endTable();
     return o;
   }
 
   public static final class Vector extends BaseVector {
-    public Vector __assign(int _vector, int _element_size, ByteBuffer _bb) { __reset(_vector, _element_size, _bb); return this; }
+    public Vector __assign(int _vector, int _element_size, ByteBuffer _bb) {
+      __reset(_vector, _element_size, _bb);
+      return this;
+    }
 
-    public TakeStateResponse get(int j) { return get(new TakeStateResponse(), j); }
-    public TakeStateResponse get(TakeStateResponse obj, int j) {  return obj.__assign(__indirect(__element(j), bb), bb); }
+    public TakeStateResponse get(int j) {
+      return get(new TakeStateResponse(), j);
+    }
+
+    public TakeStateResponse get(TakeStateResponse obj, int j) {
+      return obj.__assign(__indirect(__element(j), bb), bb);
+    }
   }
 }
-

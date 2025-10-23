@@ -2,12 +2,10 @@ package io.getunleash.engine;
 
 import com.sun.jna.Memory;
 import com.sun.jna.Pointer;
+import io.getunleash.messaging.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.Map;
-
-import io.getunleash.messaging.*;
 
 public class FlatInterface implements NativeInterface {
   private final UnleashFFI unleashFFI;
@@ -25,11 +23,12 @@ public class FlatInterface implements NativeInterface {
 
   @Override
   public TakeStateResponse takeState(String toggles) {
-    UnleashFFI.Buf.ByValue buf = this.unleashFFI.flatTakeState(enginePointer, toUtf8Pointer(toggles));
-      long len = buf.len.longValue();
-      byte[] out = buf.ptr.getByteArray(0, (int) len);
-      this.unleashFFI.flatBufFree(buf);
-      return TakeStateResponse.getRootAsTakeStateResponse(ByteBuffer.wrap(out));
+    UnleashFFI.Buf.ByValue buf =
+        this.unleashFFI.flatTakeState(enginePointer, toUtf8Pointer(toggles));
+    long len = buf.len.longValue();
+    byte[] out = buf.ptr.getByteArray(0, (int) len);
+    this.unleashFFI.flatBufFree(buf);
+    return TakeStateResponse.getRootAsTakeStateResponse(ByteBuffer.wrap(out));
   }
 
   @Override

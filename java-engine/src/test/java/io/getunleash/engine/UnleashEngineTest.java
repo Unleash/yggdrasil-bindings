@@ -78,12 +78,12 @@ class UnleashEngineTest {
     assertTrue(retrievedState.contains("\"version\":1"));
   }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"", "[]", "{}", "{\"version\": 2, \"features\": []}"})
-    @NullSource
-    void shouldBeAbleToTakeAnyStateWithoutFailing(String state) throws Exception {
-        assertDoesNotThrow(() -> engine.takeState(state));
-    }
+  @ParameterizedTest
+  @ValueSource(strings = {"", "[]", "{}", "{\"version\": 2, \"features\": []}"})
+  @NullSource
+  void shouldBeAbleToTakeAnyStateWithoutFailing(String state) throws Exception {
+    assertDoesNotThrow(() -> engine.takeState(state));
+  }
 
   @Test
   void testIsEnabled() throws Exception {
@@ -155,12 +155,11 @@ class UnleashEngineTest {
     objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     File basePath = Paths.get("../client-specification/specifications").toFile();
     File indexFile = new File(basePath, "index.json");
-    List<String> testSuites =
-        objectMapper.readValue(indexFile, new TypeReference<List<String>>() {});
+    List<String> testSuites = objectMapper.readValue(indexFile, new TypeReference<>() {});
 
     for (String suite : testSuites) {
       File suiteFile = new File(basePath, suite);
-      TestSuite suiteData = objectMapper.readValue(suiteFile, new TypeReference<TestSuite>() {});
+      TestSuite suiteData = objectMapper.readValue(suiteFile, new TypeReference<>() {});
 
       System.out.println("Executing test suite: " + suiteData.name + "\n");
       engine.takeState(objectMapper.writeValueAsString(suiteData.state));
@@ -286,7 +285,15 @@ class UnleashEngineTest {
     takeFeaturesFromResource(customEngine, "custom-strategy-tests.json");
     Boolean result = customEngine.isEnabled(featureName, context).value;
     assertNotNull(result);
-    assertEquals(expectedIsEnabled, result);
+    assertThat(result).isEqualTo(expectedIsEnabled);
+  }
+
+  @Test
+  void customStrategiesBlah() throws Exception {
+      UnleashEngine customEngine = new UnleashEngine(Collections.singletonList(alwaysTrue("custom")));
+      takeFeaturesFromResource(customEngine, "custom-strategy-tests.json");
+      boolean result = customEngine.isEnabled("Feature.Custom.Strategies", new Context()).value;
+      assertThat(result).isEqualTo(true);
   }
 
   @SuppressWarnings("unused")
@@ -489,7 +496,7 @@ class UnleashEngineTest {
   public void testIsEnabledHandlesNativeException() throws Exception {
     NativeInterface mockNativeInterface = mock(NativeInterface.class);
     when(mockNativeInterface.checkEnabled(any(ByteBuffer.class)))
-        .thenThrow(new YggdrasilError("Native exception occurred"));
+        .thenThrow(new RuntimeException("Native exception occurred"));
 
     UnleashEngine engine = new UnleashEngine(mockNativeInterface, null, null);
 
@@ -503,7 +510,7 @@ class UnleashEngineTest {
   public void testGetVariantHandlesNativeException() throws Exception {
     NativeInterface mockNativeInterface = mock(NativeInterface.class);
     when(mockNativeInterface.checkVariant(any(ByteBuffer.class)))
-        .thenThrow(new YggdrasilError("Native exception occurred"));
+        .thenThrow(new RuntimeException("Native exception occurred"));
 
     UnleashEngine engine = new UnleashEngine(mockNativeInterface, null, null);
 
@@ -516,7 +523,7 @@ class UnleashEngineTest {
   @Test
   public void testTakeStateWrapsNativeExceptionIntoCheckedException() throws Exception {
     NativeInterface mockNativeInterface = mock(NativeInterface.class);
-    doThrow(new YggdrasilError("Native exception occurred"))
+    doThrow(new RuntimeException("Native exception occurred"))
         .when(mockNativeInterface)
         .takeState(any(String.class));
 
@@ -529,21 +536,10 @@ class UnleashEngineTest {
   public void testListKnownTogglesHandlesNativeException() {
     NativeInterface mockNativeInterface = mock(NativeInterface.class);
     when(mockNativeInterface.listKnownToggles())
-        .thenThrow(new YggdrasilError("Native exception occurred"));
+        .thenThrow(new RuntimeException("Native exception occurred"));
 
     UnleashEngine engine = new UnleashEngine(mockNativeInterface, null, null);
 
     engine.listKnownToggles();
-  }
-
-  @Test
-  public void testGetMetricsHandlesNativeException() {
-    NativeInterface mockNativeInterface = mock(NativeInterface.class);
-    when(mockNativeInterface.getMetrics())
-        .thenThrow(new YggdrasilError("Native exception occurred"));
-
-    UnleashEngine engine = new UnleashEngine(mockNativeInterface, null, null);
-
-    engine.getMetrics();
   }
 }

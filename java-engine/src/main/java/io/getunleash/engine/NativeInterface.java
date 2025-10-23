@@ -20,5 +20,4 @@ public interface NativeInterface {
   Pointer getLogBufferPointer();
 
   FeatureDefs listKnownToggles();
-
 }

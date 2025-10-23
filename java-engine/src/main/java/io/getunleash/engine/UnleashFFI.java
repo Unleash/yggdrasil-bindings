@@ -4,7 +4,6 @@ import com.sun.jna.Library;
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
 import com.sun.jna.Structure;
-
 import java.nio.ByteBuffer;
 import java.util.List;
 
@@ -18,9 +17,11 @@ public interface UnleashFFI extends Library {
 
   Pointer getState(Pointer enginePointer);
 
-  UnleashFFI.Buf.ByValue flatCheckEnabled(Pointer enginePointer, ByteBuffer contextMessage, long bufferLength);
+  UnleashFFI.Buf.ByValue flatCheckEnabled(
+      Pointer enginePointer, ByteBuffer contextMessage, long bufferLength);
 
-  UnleashFFI.Buf.ByValue flatCheckVariant(Pointer enginePointer, ByteBuffer contextMessage, long bufferLength);
+  UnleashFFI.Buf.ByValue flatCheckVariant(
+      Pointer enginePointer, ByteBuffer contextMessage, long bufferLength);
 
   UnleashFFI.Buf.ByValue flatListKnownToggles(Pointer enginePointer);
 

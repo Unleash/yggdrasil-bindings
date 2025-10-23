@@ -8,11 +8,7 @@ public class VariantDef {
   private final Boolean enabled;
   private final Boolean featureEnabled;
 
-  VariantDef(
-       String name,
-       Payload payload,
-       Boolean enabled,
-       Boolean featureEnabled) {
+  VariantDef(String name, Payload payload, Boolean enabled, Boolean featureEnabled) {
     this.name = name;
     this.payload = payload;
     this.enabled = enabled;

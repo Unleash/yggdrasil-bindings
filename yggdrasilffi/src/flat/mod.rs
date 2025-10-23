@@ -96,11 +96,12 @@ unsafe fn flat_take_state(engine_pointer: *mut c_void, toggles_pointer: *const c
         let guard = get_engine(engine_pointer)?;
         let mut engine = recover_lock(&guard);
         let toggles: UpdateMessage = get_json(toggles_pointer).map_err(|_| FlatError::InvalidState("Your features does not parse".to_string()))?;
+        let res = engine.take_state(toggles);
         let feature_strategies_map = engine.get_state().features.iter().map(|f| {
             let name = f.name.clone();
             (name, f.strategies.clone().unwrap_or_default().iter().map(|strategy| (strategy.name.clone(), strategy.parameters.clone().unwrap_or_default())).collect())
         }).collect::<HashMap<_, _>>();
-        if let Some(warnings) = engine.take_state(toggles) {
+        if let Some(warnings) = res {
             Ok(Some(TakeStateResult {
                 warnings,
                 error: None,
@@ -114,7 +115,6 @@ unsafe fn flat_take_state(engine_pointer: *mut c_void, toggles_pointer: *const c
             }))
         }
     });
-
     TakeStateResponse::build_response(result)
 }
 
@@ -218,13 +218,12 @@ where
 #[cfg(test)]
 mod tests {
     use std::ffi::CString;
-
     use super::*;
-    use crate::flat::messaging::messaging::ContextMessageBuilder;
+    use crate::flat::messaging::messaging::{ContextMessageBuilder, StrategyDefinition};
     use crate::flat::serialisation::allocate;
     use crate::{free_engine, free_response, get_state, new_engine, take_state};
     use flatbuffers::{FlatBufferBuilder, WIPOffset};
-    use serde_json::Value;
+    use serde_json::{Value};
     use unleash_types::client_features::{ClientFeature, ClientFeatures, Strategy};
 
     #[test]
@@ -314,7 +313,7 @@ mod tests {
         let c_serialised = CString::new(serialised.clone()).unwrap();
         let json_ptr = c_serialised.as_ptr();
         unsafe {
-            let state_pointer = take_state(engine_ptr, json_ptr);
+            let _ = take_state(engine_ptr, json_ptr);
             let state = get_state(engine_ptr);
             let state_from_engine = CString::from_raw(state as *mut _);
             let state_as_json: Value = serde_json::from_str(state_from_engine.to_str().unwrap()).unwrap();
@@ -322,6 +321,94 @@ mod tests {
             let features: ClientFeatures = serde_json::from_value(value.clone()).unwrap();
             assert_eq!(features, client_features);
             free_engine(engine_ptr);
+        }
+    }
+
+    #[test]
+    fn flat_take_state_returns_all_features_and_their_strategies() {
+        let engine_ptr = new_engine();
+        let toggle_under_test = "some-toggle";
+        let client_features = ClientFeatures {
+            features: vec![ClientFeature {
+                name: toggle_under_test.into(),
+                enabled: true,
+                impression_data: Some(true),
+                strategies: Some(vec![Strategy {
+                    name: "default".into(),
+                    constraints: None,
+                    parameters: None,
+                    segments: None,
+                    sort_order: None,
+                    variants: None,
+                }]),
+                ..Default::default()
+            }],
+            query: None,
+            segments: None,
+            version: 2,
+            meta: None,
+        };
+        let serialised = serde_json::to_string(&client_features).unwrap();
+        let c_serialised = CString::new(serialised.clone()).unwrap();
+        let json_ptr = c_serialised.as_ptr();
+        unsafe {
+            let buf = flat_take_state(engine_ptr, json_ptr);
+            let bytes: &[u8] = std::slice::from_raw_parts(buf.ptr, buf.len);
+            let take_state_response = root::<TakeStateResponse>(bytes).unwrap();
+            assert!(take_state_response.features().is_some());
+            assert_eq!(take_state_response.features().map(|f| f.len()), Some(1));
+            let feature = take_state_response.features().unwrap().get(0);
+            assert_eq!(feature.feature_name(), Some(toggle_under_test));
+            assert!(feature.strategies().is_some());
+            let strategy = feature.strategies().unwrap().get(0);
+            assert_eq!(strategy.name(), Some("default"));
+        }
+    }
+
+    #[test]
+    pub fn flat_take_state_also_works_with_custom_strategies() {
+        let engine_ptr = new_engine();
+        let custom_strategy_tests = include_str!("../../testfiles/custom-strategy-tests.json");
+        let c_string = CString::new(custom_strategy_tests).unwrap();
+        let json_ptr = c_string.as_ptr();
+        unsafe {
+            let buf = flat_take_state(engine_ptr, json_ptr);
+            let bytes: &[u8] = std::slice::from_raw_parts(buf.ptr, buf.len);
+            let take_state_response = root::<TakeStateResponse>(bytes).unwrap();
+            assert!(take_state_response.features().is_some());
+            assert_eq!(take_state_response.features().map(|f| f.len()), Some(3));
+            let feature_map: HashMap<String, Vec<String>> = take_state_response.features().unwrap().iter().map(|e| {
+                let feature_name = e.feature_name().map(|s| s.to_string()).unwrap();
+                let strategies: Vec<String> = e.strategies().unwrap().iter().map(|s| s).map(|s| s.name().unwrap().to_string()).collect();
+                (feature_name, strategies)
+            }).collect();
+            let custom_strategies = feature_map.get("Feature.Custom.Strategies").unwrap().clone();
+            assert_eq!(custom_strategies.len(), 2);
+            assert!(custom_strategies.contains(&"custom".to_string()));
+            assert!(custom_strategies.contains(&"cus-tom".to_string()));
+        }
+    }
+
+    #[test]
+    pub fn flat_take_state_does_the_expected_thing() {
+        let engine_ptr = new_engine();
+        let custom_strategy_tests = include_str!("../../testfiles/custom_strategy_feature_d.json");
+        let c_string = CString::new(custom_strategy_tests).unwrap();
+        let json_ptr = c_string.as_ptr();
+        unsafe {
+            let buf = flat_take_state(engine_ptr, json_ptr);
+            let bytes: &[u8] = std::slice::from_raw_parts(buf.ptr, buf.len);
+            let take_state_response = root::<TakeStateResponse>(bytes).unwrap();
+            assert!(take_state_response.features().is_some());
+            assert_eq!(take_state_response.features().map(|f| f.len()), Some(1));
+            let feature_map: HashMap<String, Vec<String>> = take_state_response.features().unwrap().iter().map(|e| {
+                let feature_name = e.feature_name().map(|s| s.to_string()).unwrap();
+                let strategies: Vec<String> = e.strategies().unwrap().iter().map(|s| s).map(|s| s.name().unwrap().to_string()).collect();
+                (feature_name, strategies)
+            }).collect();
+            let custom_strategies = feature_map.get("Feature.D").unwrap().clone();
+            assert_eq!(custom_strategies.len(), 1);
+            assert!(custom_strategies.contains(&"custom".to_string()));
         }
     }
 }

@@ -3,7 +3,6 @@ use std::{
     fmt::{Display, Formatter},
 };
 use std::collections::HashMap;
-use std::iter::Map;
 use flatbuffers::{FlatBufferBuilder, Follow, WIPOffset};
 use unleash_types::client_metrics::MetricBucket;
 use unleash_yggdrasil::{EvalWarning, ExtendedVariantDef, ToggleDefinition};

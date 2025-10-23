@@ -1,6 +1,7 @@
 package io.getunleash.engine;
 
 import com.google.flatbuffers.FlatBufferBuilder;
+import io.getunleash.messaging.*;
 import java.lang.ref.Cleaner;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -8,8 +9,6 @@ import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Stream;
-
-import io.getunleash.messaging.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -160,6 +159,9 @@ public class UnleashEngine {
   }
 
   public void takeState(String clientFeatures) throws YggdrasilInvalidInputException {
+    if (clientFeatures == null) {
+      return;
+    }
     try {
       TakeStateResponse takeStateResponse = this.nativeEngine.takeState(clientFeatures);
       customStrategiesEvaluator.loadStrategiesFor(takeStateResponse);
@@ -172,7 +174,6 @@ public class UnleashEngine {
       throws YggdrasilInvalidInputException {
     try {
       Map<String, Boolean> strategyResults = customStrategiesEvaluator.eval(toggleName, context);
-      LOGGER.info("Evaluated custom strategies {}", strategyResults);
       ByteBuffer contextBytes = buildMessage(toggleName, context, strategyResults);
       Response response = this.nativeEngine.checkEnabled(contextBytes);
 
@@ -249,18 +250,23 @@ public class UnleashEngine {
   }
 
   public List<io.getunleash.engine.FeatureDef> listKnownToggles() {
-    var knownToggles = this.nativeEngine.listKnownToggles();
-    var toggleList = new ArrayList<FeatureDef>(knownToggles.itemsLength());
-    for (int i = 0; i < knownToggles.itemsLength(); i++) {
-      var tempFeature = knownToggles.items(i);
-      toggleList.add(
-          new FeatureDef(
-              tempFeature.name(),
-              tempFeature.type(),
-              tempFeature.project(),
-              tempFeature.enabled()));
+    try {
+      var knownToggles = this.nativeEngine.listKnownToggles();
+      var toggleList = new ArrayList<FeatureDef>(knownToggles.itemsLength());
+      for (int i = 0; i < knownToggles.itemsLength(); i++) {
+        var tempFeature = knownToggles.items(i);
+        toggleList.add(
+            new FeatureDef(
+                tempFeature.name(),
+                tempFeature.type(),
+                tempFeature.project(),
+                tempFeature.enabled()));
+      }
+      return toggleList;
+    } catch (RuntimeException e) {
+      LOGGER.warn("Could not list known toggles: {}", e.getMessage(), e);
+      return Collections.emptyList();
     }
-    return toggleList;
   }
 
   public MetricsBucket getMetrics() {
