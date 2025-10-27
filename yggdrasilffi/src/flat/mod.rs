@@ -1,12 +1,12 @@
 use flatbuffers::root;
 use std::ffi::{c_char, c_void};
 
-use messaging::messaging::{
-    ContextMessage, Response,
-};
+use messaging::messaging::{ContextMessage, Response};
 use serialisation::{FlatError, FlatMessage, ResponseMessage};
 
-use crate::flat::messaging::messaging::{BuiltInStrategies, FeatureDefs, MetricsResponse, TakeStateResponse, Variant};
+use crate::flat::messaging::messaging::{
+    BuiltInStrategies, FeatureDefs, MetricsResponse, TakeStateResponse, Variant,
+};
 use crate::flat::serialisation::{Buf, TakeStateResult};
 use crate::{get_json, ManagedEngine, RawPointerDataType};
 use chrono::Utc;
@@ -45,8 +45,6 @@ fn recover_lock<T>(lock: &Mutex<T>) -> MutexGuard<'_, T> {
     lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
-
-
 impl TryFrom<ContextMessage<'_>> for EnrichedContext {
     type Error = FlatError;
 
@@ -82,35 +80,49 @@ impl TryFrom<ContextMessage<'_>> for EnrichedContext {
 
 #[no_mangle]
 pub extern "C" fn flat_buf_free(buf: Buf) {
-    if buf.ptr.is_null() { return; }
-    unsafe {
-        drop(Vec::from_raw_parts(buf.ptr, buf.len, buf.cap))
+    if buf.ptr.is_null() {
+        return;
     }
+    unsafe { drop(Vec::from_raw_parts(buf.ptr, buf.len, buf.cap)) }
 }
-
-
 
 #[no_mangle]
 unsafe fn flat_take_state(engine_pointer: *mut c_void, toggles_pointer: *const c_char) -> Buf {
     let result = guard_result::<TakeStateResult, _>(|| {
         let guard = get_engine(engine_pointer)?;
         let mut engine = recover_lock(&guard);
-        let toggles: UpdateMessage = get_json(toggles_pointer).map_err(|_| FlatError::InvalidState("Your features does not parse".to_string()))?;
+        let toggles: UpdateMessage = get_json(toggles_pointer)
+            .map_err(|_| FlatError::InvalidState("Your features does not parse".to_string()))?;
         let res = engine.take_state(toggles);
-        let feature_strategies_map= engine.get_state().features.iter().map(|feature| {
-            let name = feature.name.clone();
-            let strategies = feature.strategies.clone().unwrap_or_default().into_iter().map(|strategy| {
-                let params: BTreeMap<String, String> = strategy.parameters.clone().unwrap_or_default().into_iter().collect();
-                (strategy.name.clone(), params)
+        let feature_strategies_map = engine
+            .get_state()
+            .features
+            .iter()
+            .map(|feature| {
+                let name = feature.name.clone();
+                let strategies = feature
+                    .strategies
+                    .clone()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|strategy| {
+                        let params: BTreeMap<String, String> = strategy
+                            .parameters
+                            .clone()
+                            .unwrap_or_default()
+                            .into_iter()
+                            .collect();
+                        (strategy.name.clone(), params)
+                    })
+                    .collect::<BTreeMap<_, _>>();
+                (name, strategies)
             })
-                .collect::<BTreeMap<_, _>>();
-            (name, strategies)
-        }).collect::<BTreeMap<_, _>>();
+            .collect::<BTreeMap<_, _>>();
         if let Some(warnings) = res {
             Ok(Some(TakeStateResult {
                 warnings,
                 error: None,
-                feature_strategies_map
+                feature_strategies_map,
             }))
         } else {
             Ok(Some(TakeStateResult {
@@ -156,8 +168,11 @@ pub unsafe extern "C" fn flat_check_enabled(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn flat_check_variant(engine_ptr: *mut c_void, message_ptr: u64, message_len: u64) -> Buf {
-
+pub unsafe extern "C" fn flat_check_variant(
+    engine_ptr: *mut c_void,
+    message_ptr: u64,
+    message_len: u64,
+) -> Buf {
     let variant = guard_result::<ResponseMessage<ExtendedVariantDef>, _>(|| {
         let bytes =
             unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
@@ -213,7 +228,6 @@ pub unsafe extern "C" fn flat_get_metrics(engine_pointer: *mut c_void) -> Buf {
     MetricsResponse::build_response(result.unwrap())
 }
 
-
 fn guard_result<T, F>(action: F) -> Result<Option<T>, FlatError>
 where
     F: FnOnce() -> Result<Option<T>, FlatError>,
@@ -223,13 +237,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::ffi::CString;
     use super::*;
     use crate::flat::messaging::messaging::{ContextMessageBuilder, StrategyDefinition};
     use crate::flat::serialisation::allocate;
     use crate::{free_engine, free_response, get_state, new_engine, take_state};
     use flatbuffers::{FlatBufferBuilder, WIPOffset};
-    use serde_json::{Value};
+    use serde_json::Value;
+    use std::ffi::CString;
     use unleash_types::client_features::{ClientFeature, ClientFeatures, Strategy};
 
     #[test]
@@ -322,7 +336,8 @@ mod tests {
             let _ = take_state(engine_ptr, json_ptr);
             let state = get_state(engine_ptr);
             let state_from_engine = CString::from_raw(state as *mut _);
-            let state_as_json: Value = serde_json::from_str(state_from_engine.to_str().unwrap()).unwrap();
+            let state_as_json: Value =
+                serde_json::from_str(state_from_engine.to_str().unwrap()).unwrap();
             let value = state_as_json.as_object().unwrap().get("value").unwrap();
             let features: ClientFeatures = serde_json::from_value(value.clone()).unwrap();
             assert_eq!(features, client_features);
@@ -383,12 +398,26 @@ mod tests {
             let take_state_response = root::<TakeStateResponse>(bytes).unwrap();
             assert!(take_state_response.features().is_some());
             assert_eq!(take_state_response.features().map(|f| f.len()), Some(3));
-            let feature_map: HashMap<String, Vec<String>> = take_state_response.features().unwrap().iter().map(|e| {
-                let feature_name = e.feature_name().map(|s| s.to_string()).unwrap();
-                let strategies: Vec<String> = e.strategies().unwrap().iter().map(|s| s).map(|s| s.name().unwrap().to_string()).collect();
-                (feature_name, strategies)
-            }).collect();
-            let custom_strategies = feature_map.get("Feature.Custom.Strategies").unwrap().clone();
+            let feature_map: HashMap<String, Vec<String>> = take_state_response
+                .features()
+                .unwrap()
+                .iter()
+                .map(|e| {
+                    let feature_name = e.feature_name().map(|s| s.to_string()).unwrap();
+                    let strategies: Vec<String> = e
+                        .strategies()
+                        .unwrap()
+                        .iter()
+                        .map(|s| s)
+                        .map(|s| s.name().unwrap().to_string())
+                        .collect();
+                    (feature_name, strategies)
+                })
+                .collect();
+            let custom_strategies = feature_map
+                .get("Feature.Custom.Strategies")
+                .unwrap()
+                .clone();
             assert_eq!(custom_strategies.len(), 2);
             assert!(custom_strategies.contains(&"custom".to_string()));
             assert!(custom_strategies.contains(&"cus-tom".to_string()));
@@ -407,11 +436,22 @@ mod tests {
             let take_state_response = root::<TakeStateResponse>(bytes).unwrap();
             assert!(take_state_response.features().is_some());
             assert_eq!(take_state_response.features().map(|f| f.len()), Some(1));
-            let feature_map: HashMap<String, Vec<String>> = take_state_response.features().unwrap().iter().map(|e| {
-                let feature_name = e.feature_name().map(|s| s.to_string()).unwrap();
-                let strategies: Vec<String> = e.strategies().unwrap().iter().map(|s| s).map(|s| s.name().unwrap().to_string()).collect();
-                (feature_name, strategies)
-            }).collect();
+            let feature_map: HashMap<String, Vec<String>> = take_state_response
+                .features()
+                .unwrap()
+                .iter()
+                .map(|e| {
+                    let feature_name = e.feature_name().map(|s| s.to_string()).unwrap();
+                    let strategies: Vec<String> = e
+                        .strategies()
+                        .unwrap()
+                        .iter()
+                        .map(|s| s)
+                        .map(|s| s.name().unwrap().to_string())
+                        .collect();
+                    (feature_name, strategies)
+                })
+                .collect();
             let custom_strategies = feature_map.get("Feature.D").unwrap().clone();
             assert_eq!(custom_strategies.len(), 1);
             assert!(custom_strategies.contains(&"custom".to_string()));

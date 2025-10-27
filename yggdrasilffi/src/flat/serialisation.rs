@@ -1,5 +1,5 @@
 use flatbuffers::{FlatBufferBuilder, Follow, WIPOffset};
-use std::collections::{BTreeMap};
+use std::collections::BTreeMap;
 use std::{
     cell::RefCell,
     fmt::{Display, Formatter},
@@ -63,7 +63,6 @@ impl Display for FlatError {
         }
     }
 }
-
 
 pub trait FlatMessage<TInput>: Follow<'static> + Sized {
     fn as_flat_buffer(builder: &mut FlatBufferBuilder<'static>, input: TInput) -> WIPOffset<Self>;
