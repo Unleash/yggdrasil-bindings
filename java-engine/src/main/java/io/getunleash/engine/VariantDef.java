@@ -2,9 +2,7 @@ package io.getunleash.engine;
 
 import java.util.Optional;
 
-/**
- * Represents a variant definition.
- */
+/** Represents a variant definition. */
 public class VariantDef {
   private final String name;
   private final Payload payload;

@@ -1,8 +1,6 @@
 package io.getunleash.engine;
 
-/**
- * Represents a payload for a variant definition.
- */
+/** Represents a payload for a variant definition. */
 public class Payload {
 
   private String type;
