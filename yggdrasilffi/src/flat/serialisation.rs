@@ -1,5 +1,5 @@
 use flatbuffers::{FlatBufferBuilder, Follow, WIPOffset};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::{
     cell::RefCell,
     fmt::{Display, Formatter},
@@ -62,13 +62,6 @@ impl Display for FlatError {
             FlatError::NullError => write!(f, "Null error detected, this is a serious issue and you should report this as a bug.")
         }
     }
-}
-
-pub extern "C" fn allocate(size: usize) -> *mut u8 {
-    let mut buf = Vec::with_capacity(size);
-    let ptr = buf.as_mut_ptr();
-    std::mem::forget(buf);
-    ptr
 }
 
 pub trait FlatMessage<TInput>: Follow<'static> + Sized {

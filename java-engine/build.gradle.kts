@@ -49,6 +49,9 @@ dependencies {
 
 tasks.withType<Javadoc> {
     exclude("io/getunleash/messaging/**")
+    exclude("io/getunleash/engine/MetricsBucket.java")
+    exclude("io/getunleash/engine/Payload.java")
+    exclude("io/getunelash/engine/IStrategy.java")
 }
 tasks.jar {
     manifest {

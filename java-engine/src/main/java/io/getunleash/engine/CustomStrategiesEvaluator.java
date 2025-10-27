@@ -42,6 +42,10 @@ class CustomStrategiesEvaluator {
     this.fallbackStrategy = fallbackStrategy;
   }
 
+  /**
+   * Takes the response from Yggdrasil Engine and maps all strategies of all features that Yggdrasil
+   * doesn't know about and assumes they are custom
+   */
   public void loadStrategiesFor(TakeStateResponse response) {
     if (this.registeredStrategies.isEmpty() && this.fallbackStrategy == null) {
       return;
@@ -106,6 +110,13 @@ class CustomStrategiesEvaluator {
     return parameters;
   }
 
+  /**
+   * Runs custom evaluators for the given feature name and context.
+   *
+   * @param name The name of the feature to evaluate.
+   * @param context The context in which to evaluate the feature.
+   * @return A map of strategy names to their evaluation results.
+   */
   public Map<String, Boolean> eval(String name, Context context) {
     List<MappedStrategy> mappedStrategies = featureStrategies.get(name);
     if (mappedStrategies == null || mappedStrategies.isEmpty()) {
