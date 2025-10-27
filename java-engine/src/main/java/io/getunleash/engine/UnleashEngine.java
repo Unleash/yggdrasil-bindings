@@ -18,14 +18,28 @@ public class UnleashEngine {
   private final NativeInterface nativeEngine;
   private final CustomStrategiesEvaluator customStrategiesEvaluator;
 
+  /*
+   * Default constructor for UnleashEngine. Used when no custom strategies are needed.
+   */
   public UnleashEngine() {
     this(new FlatInterface(UnleashFFI.getInstance()), null, null);
   }
 
+  /*
+   * Constructor for UnleashEngine with custom strategies.
+   *
+   * @param customStrategies List of custom strategies to be used.
+   */
   public UnleashEngine(List<IStrategy> customStrategies) {
     this(new FlatInterface(UnleashFFI.getInstance()), customStrategies, null);
   }
 
+  /*
+   * Constructor for UnleashEngine with custom strategies and a fallback strategy.
+   *
+   * @param customStrategies List of custom strategies to be used.
+   * @param fallbackStrategy Fallback strategy to be used when no other strategy matches.
+   */
   public UnleashEngine(List<IStrategy> customStrategies, IStrategy fallbackStrategy) {
     this(new FlatInterface(UnleashFFI.getInstance()), customStrategies, fallbackStrategy);
   }
@@ -170,6 +184,14 @@ public class UnleashEngine {
     }
   }
 
+  /**
+   * Used to evaluate a feature toggle.
+   *
+   * @param toggleName The name of the feature toggle to evaluate.
+   * @param context The context in which to evaluate the feature toggle.
+   * @return A response containing the evaluation result and impression data.
+   * @throws YggdrasilInvalidInputException If there is an error evaluating the feature toggle.
+   */
   public FlatResponse<Boolean> isEnabled(String toggleName, Context context)
       throws YggdrasilInvalidInputException {
     try {
@@ -193,6 +215,14 @@ public class UnleashEngine {
     }
   }
 
+  /**
+   * Used to get the active variant for a toggle and the current context.
+   *
+   * @param toggleName The name of the toggle to check.
+   * @param context The context to use for the toggle check.
+   * @return A FlatResponse containing the impression data and the active variant.
+   * @throws YggdrasilInvalidInputException If the input is invalid.
+   */
   public FlatResponse<VariantDef> getVariant(String toggleName, Context context)
       throws YggdrasilInvalidInputException {
     try {
@@ -228,6 +258,11 @@ public class UnleashEngine {
     }
   }
 
+  /**
+   * Returns a list of built-in strategies that Yggdrasil supports.
+   *
+   * @return A list of built-in strategies.
+   */
   public List<String> getBuiltInStrategies() {
     BuiltInStrategies builtInStrategies = FlatInterface.getBuiltInStrategies();
     if (builtInStrategies != null) {
@@ -241,6 +276,11 @@ public class UnleashEngine {
     }
   }
 
+  /**
+   * Which version of Yggdrasil is being used.
+   *
+   * @return The version string.
+   */
   public static String getCoreVersion() {
     return UnleashFFI.getInstance().getCoreVersion().getString(0);
   }
@@ -249,6 +289,11 @@ public class UnleashEngine {
     return this.nativeEngine.getState();
   }
 
+  /**
+   * Get all toggles that is loaded in the engine.
+   *
+   * @return A list of FeatureDef objects representing the loaded toggles.
+   */
   public List<io.getunleash.engine.FeatureDef> listKnownToggles() {
     try {
       var knownToggles = this.nativeEngine.listKnownToggles();
@@ -269,6 +314,12 @@ public class UnleashEngine {
     }
   }
 
+  /**
+   * Get the metrics for the engine. Metrics are collected during evaluation of feature toggles as
+   * well as when getVariant is called.
+   *
+   * @return A MetricsBucket object representing the engine's metrics.
+   */
   public MetricsBucket getMetrics() {
     var metrics = this.nativeEngine.getMetrics();
     Map<String, FeatureCount> toggles = new HashMap<>();
