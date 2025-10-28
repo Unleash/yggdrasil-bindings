@@ -20,7 +20,7 @@ use unleash_yggdrasil::state::EnrichedContext;
 use unleash_yggdrasil::{ExtendedVariantDef, ToggleDefinition, UpdateMessage, KNOWN_STRATEGIES};
 
 mod serialisation;
-
+mod jni_bridge;
 #[allow(clippy::all)]
 mod messaging {
     #![allow(dead_code)]
@@ -87,7 +87,7 @@ pub extern "C" fn flat_buf_free(buf: Buf) {
 }
 
 #[no_mangle]
-unsafe fn flat_take_state(engine_pointer: *mut c_void, toggles_pointer: *const c_char) -> Buf {
+pub unsafe fn flat_take_state(engine_pointer: *mut c_void, toggles_pointer: *const c_char) -> Buf {
     let result = guard_result::<TakeStateResult, _>(|| {
         let guard = get_engine(engine_pointer)?;
         let mut engine = recover_lock(&guard);
@@ -239,12 +239,18 @@ where
 mod tests {
     use super::*;
     use crate::flat::messaging::messaging::{ContextMessageBuilder, StrategyDefinition};
-    use crate::flat::serialisation::allocate;
     use crate::{free_engine, free_response, get_state, new_engine, take_state};
     use flatbuffers::{FlatBufferBuilder, WIPOffset};
     use serde_json::Value;
     use std::ffi::CString;
     use unleash_types::client_features::{ClientFeature, ClientFeatures, Strategy};
+
+    pub fn allocate(size: usize) -> *mut u8 {
+        let mut buf = Vec::with_capacity(size);
+        let ptr = buf.as_mut_ptr();
+        forget(buf);
+        ptr
+    }
 
     #[test]
     fn it_taketh_the_state() {

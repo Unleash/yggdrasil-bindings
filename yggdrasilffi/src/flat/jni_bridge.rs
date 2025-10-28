@@ -6,6 +6,7 @@ use std::ffi::{c_void, c_char, CString, CStr};
 use std::ptr::NonNull;
 
 use crate::flat::serialisation::Buf;
+use crate::get_state;
 
 // === C ABI from your library ===
 extern "C" {
@@ -71,8 +72,10 @@ unsafe extern "system" fn Java_io_getunleash_engine_NativeBridge_flatTakeState(
     engine_ptr: jlong,
     toggles_json: JString,
 ) -> jobject {
-    let s = env.get_string(&toggles_json).expect("read jstring");
-    let c = CString::new(s.to_bytes()).expect("CString");
+    let java_json = env.get_string_unchecked(&toggles_json).expect("read jstring");
+    let rust_json: String = java_json.into(); // standard UTF-8
+    // Make a C string (no interior NULs expected in JSON)
+    let c = CString::new(rust_json).expect("CString");
     let b = unsafe { flat_take_state(engine_ptr as *mut c_void, c.as_ptr()) };
     wrap_buf(&mut env, b)
 }
@@ -142,6 +145,16 @@ unsafe extern "system" fn Java_io_getunleash_engine_NativeBridge_flatGetMetrics(
 ) -> jobject {
     let b = unsafe { flat_get_metrics(engine_ptr as *mut c_void) };
     wrap_buf(&mut env, b)
+}
+
+#[no_mangle]
+unsafe extern "system" fn Java_io_getunleash_engine_NativeBridge_flatGetState(
+    env: JNIEnv,
+    _cls: JClass,
+    engine_ptr: jlong
+) -> jstring {
+    let cstring = CStr::from_ptr(get_state(engine_ptr as *mut c_void));
+    env.new_string(cstring.to_string_lossy()).unwrap().into_raw()
 }
 
 // ===== JNI: version =====

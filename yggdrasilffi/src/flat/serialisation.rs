@@ -76,6 +76,8 @@ pub trait FlatMessage<TInput>: Follow<'static> + Sized {
             builder.finished_data().to_vec()
         });
         let mut v = bytes;
+        v.shrink_to_fit();
+        debug_assert_eq!(v.len(), v.capacity());
         let buf = Buf {
             ptr: v.as_mut_ptr(),
             len: v.len(),
