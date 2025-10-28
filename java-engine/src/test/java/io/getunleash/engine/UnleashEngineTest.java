@@ -20,6 +20,9 @@ import java.lang.ref.PhantomReference;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -150,6 +153,19 @@ class UnleashEngineTest {
   }
 
   @Test
+  public void unicodeFlags() throws Exception {
+    Path p =
+        Paths.get(
+            Objects.requireNonNull(
+                    UnleashEngineTest.class.getClassLoader().getResource("18-utf8-examples.json"))
+                .toURI());
+    engine.takeState(Files.readString(p, StandardCharsets.UTF_8));
+    assertThat(engine.isEnabled("Feature.UTF-8.Hellø_Wørld", new Context()).value).isEqualTo(true);
+    assertThat(engine.isEnabled("Feature.UTF-8.😊_φriend_你好_🌍", new Context()).value)
+        .isEqualTo(true);
+  }
+
+  @Test
   public void testClientSpec() throws Exception {
     ObjectMapper objectMapper = new ObjectMapper();
     objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -179,7 +195,6 @@ class UnleashEngineTest {
           if (result == null) {
             result = false; // Default should be provided by SDK
           }
-
           assertEquals(
               expectedResult,
               result,

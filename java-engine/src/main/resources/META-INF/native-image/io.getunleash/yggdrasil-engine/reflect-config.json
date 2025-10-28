@@ -39,5 +39,15 @@
     "name": "io.getunleash.engine.YggResponse",
     "allDeclaredFields": true,
     "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.getunleash.engine.Buf",
+    "allDeclaredFields": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.getunleash.engine.Buf$ByValue",
+    "allDeclaredFields": true,
+    "allDeclaredConstructors": true
   }
 ]

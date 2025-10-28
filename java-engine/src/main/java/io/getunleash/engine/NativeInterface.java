@@ -1,6 +1,5 @@
 package io.getunleash.engine;
 
-import com.sun.jna.Pointer;
 import io.getunleash.messaging.*;
 import java.nio.ByteBuffer;
 
@@ -45,8 +44,6 @@ public interface NativeInterface {
    * @return The metrics for the engine.
    */
   MetricsResponse getMetrics();
-
-  Pointer getLogBufferPointer();
 
   /**
    * List known toggles.

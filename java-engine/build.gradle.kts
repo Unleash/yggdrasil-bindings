@@ -43,7 +43,6 @@ dependencies {
     testImplementation(libs.jackson.databind)
     testImplementation(libs.jackson.jsr310)
     implementation(libs.slf4j.api)
-    implementation(libs.jna)
     implementation(libs.flatbuffers)
 }
 

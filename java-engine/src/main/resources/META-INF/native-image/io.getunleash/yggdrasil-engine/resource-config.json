@@ -1,8 +1,7 @@
 {
   "resources": [
     {
-      "pattern": ".*\\.(dll|so|dylib)",
-      "uri": "classpath:/native"
+      "pattern": "native/.*\\.(dll|so|dylib)"
     }
   ]
 }

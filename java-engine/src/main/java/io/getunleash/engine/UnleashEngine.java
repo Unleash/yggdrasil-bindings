@@ -6,6 +6,7 @@ import java.lang.ref.Cleaner;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Stream;
@@ -22,7 +23,7 @@ public class UnleashEngine {
    * Default constructor for UnleashEngine. Used when no custom strategies are needed.
    */
   public UnleashEngine() {
-    this(new FlatInterface(UnleashFFI.getInstance()), null, null);
+    this(new FlatInterface(), null, null);
   }
 
   /*
@@ -31,7 +32,7 @@ public class UnleashEngine {
    * @param customStrategies List of custom strategies to be used.
    */
   public UnleashEngine(List<IStrategy> customStrategies) {
-    this(new FlatInterface(UnleashFFI.getInstance()), customStrategies, null);
+    this(new FlatInterface(), customStrategies, null);
   }
 
   /*
@@ -41,7 +42,7 @@ public class UnleashEngine {
    * @param fallbackStrategy Fallback strategy to be used when no other strategy matches.
    */
   public UnleashEngine(List<IStrategy> customStrategies, IStrategy fallbackStrategy) {
-    this(new FlatInterface(UnleashFFI.getInstance()), customStrategies, fallbackStrategy);
+    this(new FlatInterface(), customStrategies, fallbackStrategy);
   }
 
   // Only visible for testing
@@ -108,7 +109,7 @@ public class UnleashEngine {
 
   private static ByteBuffer buildMessage(
       String toggleName, Context context, Map<String, Boolean> customStrategyResults) {
-    ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
+    ByteBuffer buffer = ByteBuffer.allocateDirect(1024).order(ByteOrder.LITTLE_ENDIAN);
     FlatBufferBuilder builder = new FlatBufferBuilder(buffer);
 
     int toggleNameOffset = builder.createString(toggleName);
@@ -169,7 +170,13 @@ public class UnleashEngine {
 
     int ctx = ContextMessage.endContextMessage(builder);
     builder.finish(ctx);
-    return builder.dataBuffer();
+    // Exact-size byte array
+    byte[] arr = builder.sizedByteArray();
+
+    // Copy into direct, little-endian buffer for JNI
+    ByteBuffer direct = ByteBuffer.allocateDirect(arr.length).order(ByteOrder.LITTLE_ENDIAN);
+    direct.put(arr).flip(); // position=0, limit=len
+    return direct;
   }
 
   public void takeState(String clientFeatures) throws YggdrasilInvalidInputException {
@@ -282,7 +289,7 @@ public class UnleashEngine {
    * @return The version string.
    */
   public static String getCoreVersion() {
-    return UnleashFFI.getInstance().getCoreVersion().getString(0);
+    return NativeBridge.getCoreVersion();
   }
 
   public String getState() {
@@ -343,11 +350,5 @@ public class UnleashEngine {
   // Only visible for testing.
   Map<String, Boolean> customStrategiesEvaluatorEval(String featureName, Context context) {
     return this.customStrategiesEvaluator.eval(featureName, context);
-  }
-
-  List<CustomStrategiesEvaluator.MappedStrategy> customStrategiesForFeature(String featureName) {
-    return this.customStrategiesEvaluator
-        .getFeatureStrategies()
-        .getOrDefault(featureName, Collections.emptyList());
   }
 }
