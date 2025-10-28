@@ -292,50 +292,57 @@ impl FlatMessage<Result<Option<ResponseMessage<ExtendedVariantDef>>, FlatError>>
     }
 }
 
-impl FlatMessage<Option<MetricBucket>> for MetricsResponse<'static> {
+impl FlatMessage<Result<Option<MetricBucket>, FlatError>> for MetricsResponse<'static> {
     fn as_flat_buffer(
         builder: &mut FlatBufferBuilder<'static>,
-        metrics: Option<MetricBucket>,
+        metrics: Result<Option<MetricBucket>, FlatError>,
     ) -> WIPOffset<Self> {
-        if let Some(metrics) = metrics {
-            let items: Vec<_> = metrics
-                .toggles
-                .iter()
-                .map(|(toggle_key, stats)| {
-                    let variant_items: Vec<_> = stats
-                        .variants
-                        .iter()
-                        .map(|(variant_key, count)| {
-                            let variant_key = builder.create_string(variant_key);
-                            let mut variant_builder = VariantEntryBuilder::new(builder);
-                            variant_builder.add_key(variant_key);
-                            variant_builder.add_value(*count);
-                            variant_builder.finish()
-                        })
-                        .collect();
-                    let variant_vector = builder.create_vector(&variant_items);
+        match metrics {
+            Ok(Some(metrics)) => {
+                let items: Vec<_> = metrics
+                    .toggles
+                    .iter()
+                    .map(|(toggle_key, stats)| {
+                        let variant_items: Vec<_> = stats
+                            .variants
+                            .iter()
+                            .map(|(variant_key, count)| {
+                                let variant_key = builder.create_string(variant_key);
+                                let mut variant_builder = VariantEntryBuilder::new(builder);
+                                variant_builder.add_key(variant_key);
+                                variant_builder.add_value(*count);
+                                variant_builder.finish()
+                            })
+                            .collect();
+                        let variant_vector = builder.create_vector(&variant_items);
 
-                    let toggle_key = builder.create_string(toggle_key);
-                    let mut toggle_builder = ToggleStatsBuilder::new(builder);
-                    toggle_builder.add_no(stats.no);
-                    toggle_builder.add_yes(stats.yes);
-                    toggle_builder.add_variants(variant_vector);
-                    let toggle_value = toggle_builder.finish();
-                    let mut toggle_entry_builder = ToggleEntryBuilder::new(builder);
-                    toggle_entry_builder.add_value(toggle_value);
-                    toggle_entry_builder.add_key(toggle_key);
-                    toggle_entry_builder.finish()
-                })
-                .collect();
-            let toggle_vector = builder.create_vector(&items);
-            let mut resp_builder = MetricsResponseBuilder::new(builder);
-            resp_builder.add_start(metrics.start.timestamp_millis());
-            resp_builder.add_stop(metrics.stop.timestamp_millis());
-            resp_builder.add_toggles(toggle_vector);
-            resp_builder.finish()
-        } else {
-            let resp_builder = MetricsResponseBuilder::new(builder);
-            resp_builder.finish()
+                        let toggle_key = builder.create_string(toggle_key);
+                        let mut toggle_builder = ToggleStatsBuilder::new(builder);
+                        toggle_builder.add_no(stats.no);
+                        toggle_builder.add_yes(stats.yes);
+                        toggle_builder.add_variants(variant_vector);
+                        let toggle_value = toggle_builder.finish();
+                        let mut toggle_entry_builder = ToggleEntryBuilder::new(builder);
+                        toggle_entry_builder.add_value(toggle_value);
+                        toggle_entry_builder.add_key(toggle_key);
+                        toggle_entry_builder.finish()
+                    })
+                    .collect();
+                let toggle_vector = builder.create_vector(&items);
+                let mut resp_builder = MetricsResponseBuilder::new(builder);
+                resp_builder.add_start(metrics.start.timestamp_millis());
+                resp_builder.add_stop(metrics.stop.timestamp_millis());
+                resp_builder.add_toggles(toggle_vector);
+                resp_builder.finish()
+            }
+            Ok(None) => {
+                let resp_builder = MetricsResponseBuilder::new(builder);
+                resp_builder.finish()
+            }
+            Err(_flat_error) => {
+                let resp_builder = MetricsResponseBuilder::new(builder);
+                resp_builder.finish()
+            }
         }
     }
 }
