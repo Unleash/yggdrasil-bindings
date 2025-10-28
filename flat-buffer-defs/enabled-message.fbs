@@ -1,4 +1,4 @@
-namespace messaging;
+namespace yggdrasil.messaging;
 
 table PropertyEntry {
   key: string (key);
