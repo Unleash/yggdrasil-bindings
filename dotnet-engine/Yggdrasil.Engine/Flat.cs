@@ -85,7 +85,7 @@ internal static class Flat
 
     public static Buf GetMetrics(IntPtr ptr)
     {
-        return built_in_strategies(ptr);
+        return get_metrics(ptr);
     }
 
     public static void FreeBuf(Buf buf)
