@@ -3,8 +3,8 @@ use jni::sys::{jlong, jobject, jstring};
 use jni::JNIEnv;
 
 use std::ffi::{c_void, c_char, CString, CStr};
+use std::panic;
 use std::ptr::NonNull;
-
 use crate::flat::serialisation::Buf;
 use crate::get_state;
 
@@ -25,23 +25,47 @@ extern "C" {
     fn get_core_version() -> *const c_char;
 }
 
-// Wrap a Buf as a Java DirectByteBuffer (do NOT free here)
-unsafe fn wrap_buf<'a>(env: &mut JNIEnv<'a>, b: Buf) -> jobject {
-    // Expect cap == len invariant
-    if b.len == 0 {
-        // If you may produce empty buffers, either:
-        // - return a small non-null 0-len direct buffer, or
-        // - handle on Java side by returning null or an empty heap buffer.
-        // Easiest here: create a 0-sized direct buffer is not supported by JNI,
-        // so just return an empty heap ByteBuffer on the Java side if you need that.
-        // For simplicity, assert no empty outputs:
-        debug_assert_eq!(b.cap, 0);
-        panic!("Zero-length Buf not supported; avoid producing empty outputs or special-case in Java");
+
+const NATIVE_EX_CLASS: &str = "io/getunleash/engine/NativeException";
+
+#[inline]
+fn throw_java(env: &mut JNIEnv, msg: impl AsRef<str>) {
+    let _ = env.throw_new(NATIVE_EX_CLASS, msg.as_ref());
+}
+
+/// Run a closure, catching Rust panics and mapping errors to Java exceptions.
+/// Returns Ok(val) or throws and returns Err(()).
+fn jni_guard<T, F>(env: &mut JNIEnv<'_>, f: F) -> Result<T, ()>
+where
+    F: FnOnce(&mut JNIEnv<'_>) -> Result<T, String>,
+{
+    match panic::catch_unwind(panic::AssertUnwindSafe(|| f(env))) {
+        Ok(Ok(v)) => Ok(v),
+        Ok(Err(msg)) => { throw_java(env, msg); Err(()) }
+        Err(_) => { throw_java(env, "native panic"); Err(()) }
     }
-    let ptr = NonNull::new(b.ptr).expect("Buf.ptr null");
-    env.new_direct_byte_buffer(ptr.as_ptr(), b.len)
-        .expect("new_direct_byte_buffer failed")
-        .into_raw()
+}
+
+// No panics: turn problems into Java exceptions + return null
+unsafe fn wrap_buf(env: &mut JNIEnv<'_>, b: Buf) -> jobject {
+    if b.len == 0 {
+        throw_java(env, "native returned empty buffer");
+        return std::ptr::null_mut();
+    }
+    let nn = match NonNull::new(b.ptr) {
+        Some(p) => p,
+        None => {
+            throw_java(env, "native buffer pointer was null");
+            return std::ptr::null_mut();
+        }
+    };
+    match env.new_direct_byte_buffer(nn.as_ptr(), b.len) {
+        Ok(bb) => bb.into_raw(),
+        Err(e) => {
+            throw_java(env, format!("new_direct_byte_buffer failed: {e}"));
+            std::ptr::null_mut()
+        }
+    }
 }
 
 // ===== JNI: engine lifecycle =====
@@ -72,12 +96,20 @@ unsafe extern "system" fn Java_io_getunleash_engine_NativeBridge_flatTakeState(
     engine_ptr: jlong,
     toggles_json: JString,
 ) -> jobject {
-    let java_json = env.get_string_unchecked(&toggles_json).expect("read jstring");
-    let rust_json: String = java_json.into(); // standard UTF-8
-    // Make a C string (no interior NULs expected in JSON)
-    let c = CString::new(rust_json).expect("CString");
-    let b = unsafe { flat_take_state(engine_ptr as *mut c_void, c.as_ptr()) };
-    wrap_buf(&mut env, b)
+    let res = jni_guard(&mut env, |env| {
+        // 1) Read from env
+        let js = env.get_string(&toggles_json).map_err(|e| format!("get_string: {e}"))?;
+        let rust_json: String = js.into(); // proper UTF-16 → UTF-8
+
+        let c = CString::new(rust_json).map_err(|_| "JSON contained NUL byte")?;
+
+        // 2) Native call
+        let b = unsafe { flat_take_state(engine_ptr as *mut c_void, c.as_ptr()) };
+
+        // 3) Wrap
+        Ok(wrap_buf(env, b))
+    });
+    res.unwrap_or(std::ptr::null_mut())
 }
 
 #[no_mangle]
@@ -88,15 +120,15 @@ unsafe extern "system" fn Java_io_getunleash_engine_NativeBridge_flatCheckEnable
     ctx: JByteBuffer,
     len: jlong,
 ) -> jobject {
-    let addr = env.get_direct_buffer_address(&ctx).expect("ctx addr");
-    let b = unsafe {
-        flat_check_enabled(
-            engine_ptr as *mut c_void,
-            addr as u64,
-            len as u64,
-        )
-    };
-    wrap_buf(&mut env, b)
+    let res = jni_guard(&mut env, |env| {
+        let addr = env.get_direct_buffer_address(&ctx)
+            .map_err(|e| format!("get_direct_buffer_address: {e}"))?;
+        if len < 0 { return Err("negative length".into()); }
+
+        let b = unsafe { flat_check_enabled(engine_ptr as *mut c_void, addr as u64, len as u64) };
+        Ok(wrap_buf(env, b))
+    });
+    res.unwrap_or(std::ptr::null_mut())
 }
 
 #[no_mangle]
@@ -107,25 +139,29 @@ unsafe extern "system" fn Java_io_getunleash_engine_NativeBridge_flatCheckVarian
     ctx: JByteBuffer,
     len: jlong,
 ) -> jobject {
-    let addr = env.get_direct_buffer_address(&ctx).expect("ctx addr");
-    let b = unsafe {
-        flat_check_variant(
-            engine_ptr as *mut c_void,
-            addr as u64,
-            len as u64,
-        )
-    };
-    wrap_buf(&mut env, b)
+    let res = jni_guard(&mut env, |env| {
+        let addr = env.get_direct_buffer_address(&ctx)
+            .map_err(|e| format!("get_direct_buffer_address: {e}"))?;
+        if len < 0 { return Err("negative length".into()); }
+
+        let b = unsafe { flat_check_variant(engine_ptr as *mut c_void, addr as u64, len as u64) };
+        Ok(wrap_buf(env, b))
+    });
+    res.unwrap_or(std::ptr::null_mut())
 }
 
+// List known toggles  ---------------------------------------------------------
 #[no_mangle]
-unsafe extern "system" fn Java_io_getunleash_engine_NativeBridge_flatListKnownToggles(
+pub unsafe extern "system" fn Java_io_getunleash_engine_NativeBridge_flatListKnownToggles(
     mut env: JNIEnv,
     _cls: JClass,
     engine_ptr: jlong,
 ) -> jobject {
-    let b = unsafe { flat_list_known_toggles(engine_ptr as *mut c_void) };
-    wrap_buf(&mut env, b)
+    let res = jni_guard(&mut env, |env| {
+        let b = unsafe { flat_list_known_toggles(engine_ptr as *mut c_void) };
+        Ok(wrap_buf(env, b))
+    });
+    res.unwrap_or(std::ptr::null_mut())
 }
 
 #[no_mangle]
@@ -133,8 +169,11 @@ unsafe extern "system" fn Java_io_getunleash_engine_NativeBridge_flatBuiltInStra
     mut env: JNIEnv,
     _cls: JClass,
 ) -> jobject {
-    let b = unsafe { flat_built_in_strategies() };
-    wrap_buf(&mut env, b)
+    let res = jni_guard(&mut env, |env| {
+        let b = unsafe { flat_built_in_strategies() };
+        Ok(wrap_buf(env, b))
+    });
+    res.unwrap_or(std::ptr::null_mut())
 }
 
 #[no_mangle]
@@ -143,47 +182,92 @@ unsafe extern "system" fn Java_io_getunleash_engine_NativeBridge_flatGetMetrics(
     _cls: JClass,
     engine_ptr: jlong,
 ) -> jobject {
-    let b = unsafe { flat_get_metrics(engine_ptr as *mut c_void) };
-    wrap_buf(&mut env, b)
+    let res = jni_guard(&mut env, |env| {
+        let b = unsafe { flat_get_metrics(engine_ptr as *mut c_void) };
+        Ok(wrap_buf(env, b))
+    });
+    res.unwrap_or(std::ptr::null_mut())
 }
 
 #[no_mangle]
 unsafe extern "system" fn Java_io_getunleash_engine_NativeBridge_flatGetState(
-    env: JNIEnv,
+    mut env: JNIEnv,
     _cls: JClass,
     engine_ptr: jlong
 ) -> jstring {
-    let cstring = CStr::from_ptr(get_state(engine_ptr as *mut c_void));
-    env.new_string(cstring.to_string_lossy()).unwrap().into_raw()
+    let res = jni_guard(&mut env, |env| {
+        // COMPUTE: fetch C string pointer; handle null
+        let ptr = unsafe { get_state(engine_ptr as *mut c_void) };
+        if ptr.is_null() {
+            return Err("get_state returned null".into());
+        }
+        let rust_s = unsafe { CStr::from_ptr(ptr) }.to_string_lossy().into_owned();
+
+        // WRAP: Java String
+        let j = env.new_string(rust_s).map_err(|e| format!("new_string failed: {e}"))?;
+        Ok(j.into_raw())
+    });
+    res.unwrap_or(std::ptr::null_mut())
 }
 
 // ===== JNI: version =====
 #[no_mangle]
 pub extern "system" fn Java_io_getunleash_engine_NativeBridge_getCoreVersion(
-    env: JNIEnv,
+    mut env: JNIEnv,
     _cls: JClass,
 ) -> jstring {
-    unsafe {
-        let p = get_core_version();
-        if !p.is_null() {
-            let s = CStr::from_ptr(p);
-            return env.new_string(s.to_string_lossy()).unwrap().into_raw();
-        }
-    }
-    env.new_string(env!("CARGO_PKG_VERSION")).unwrap().into_raw()
+    let res = jni_guard(&mut env, |env| {
+        // COMPUTE: get version string from native (or fallback)
+        let ver: String = unsafe {
+            let p = get_core_version();
+            if !p.is_null() {
+                // to_string_lossy never panics; copies into an owned String
+                CStr::from_ptr(p).to_string_lossy().into_owned()
+            } else {
+                env!("CARGO_PKG_VERSION").to_string()
+            }
+        };
+
+        // WRAP: create Java String
+        let jstr = env
+            .new_string(ver)
+            .map_err(|e| format!("new_string failed: {e}"))?;
+        Ok(jstr.into_raw())
+    });
+
+    // If an exception was thrown, return null so JVM can continue.
+    res.unwrap_or(std::ptr::null_mut())
 }
 
 // ===== JNI: free returned buffers (cap == len) =====
 #[no_mangle]
 pub extern "system" fn Java_io_getunleash_engine_NativeBridge_flatBufFree(
-    env: JNIEnv,
+    mut env: JNIEnv,
     _cls: JClass,
     bb: JByteBuffer,
 ) {
-    if let Ok(addr) = env.get_direct_buffer_address(&bb) {
-        let len = env.get_direct_buffer_capacity(&bb).unwrap_or(0);
-        if len == 0 { return; }
+    // READ
+    let _ = jni_guard(&mut env, |env| {
+        let addr = env
+            .get_direct_buffer_address(&bb)
+            .map_err(|e| format!("get_direct_buffer_address: {e}"))?;
+        let len = env
+            .get_direct_buffer_capacity(&bb)
+            .map_err(|e| format!("get_direct_buffer_capacity: {e}"))? as usize;
+
+        // COMPUTE
+        if len == 0 {
+            // 0-length: nothing was allocated (we used a dangling pointer policy),
+            // so there's nothing to free. Treat as success.
+            return Ok(());
+        }
+
+        // cap == len invariant required by your builder
         let b = Buf { ptr: addr, len, cap: len };
         unsafe { flat_buf_free(b) };
-    }
+
+        // RETURN (nothing to wrap for void-return JNI)
+        Ok(())
+    });
+    // If an error occurred, a Java exception is already pending; just return.
 }

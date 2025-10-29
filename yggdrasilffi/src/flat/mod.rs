@@ -5,6 +5,7 @@
     clippy::todo,
     clippy::unimplemented,
 )]
+
 use flatbuffers::root;
 use std::ffi::{c_char, c_void};
 
