@@ -24,7 +24,7 @@ public static class Flatbuffers
     {
         var toggleName = builder.CreateString(featureName);
         var appName = builder.CreateString(context.AppName);
-        var currentTime = builder.CreateString((context.CurrentTime ?? DateTime.Now).ToString());
+        var currentTime = builder.CreateString((context.CurrentTime ?? DateTime.UtcNow).ToString("O"));
         var environment = builder.CreateString(context.Environment);
         var remoteAddress = builder.CreateString(context.RemoteAddress);
         var sessionId = builder.CreateString(context.SessionId);
