@@ -81,11 +81,15 @@ public static class Flatbuffers
         return null;
     }
 
-    internal static bool? GetCheckEnabledResponse(Buf buf)
+    internal static EnabledResult? GetCheckEnabledResponse(Buf buf)
     {
         var response = ReadBuffer(buf);
         var r = Response.GetRootAsResponse(new ByteBuffer(response));
-        return r.HasEnabled ? r.Enabled : null;
+        return r.HasEnabled ? new EnabledResult
+        {
+            Enabled = r.Enabled,
+            ImpressionData = r.ImpressionData
+        } : null;
     }
 
     internal static string[] GetBuiltInStrategiesResponse(Buf buf)

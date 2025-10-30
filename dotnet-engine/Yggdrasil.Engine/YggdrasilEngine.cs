@@ -64,7 +64,7 @@ public class YggdrasilEngine
         return JsonSerializer.Serialize(stateObject, options);
     }
 
-    public bool? IsEnabled(string toggleName, Context context)
+    public EnabledResult? IsEnabled(string toggleName, Context context)
     {
         var customStrategyResults = customStrategies.GetCustomStrategyResults(toggleName, context);
         var builder = new FlatBufferBuilder(128);

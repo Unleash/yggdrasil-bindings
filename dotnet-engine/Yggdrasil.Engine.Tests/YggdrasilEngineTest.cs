@@ -100,7 +100,7 @@ public class Tests
                 var toggleName = (string)test["toggleName"];
                 var expectedResult = (bool)test["expectedResult"];
 
-                var result = yggdrasilEngine.IsEnabled(toggleName, context) ?? false;
+                var result = yggdrasilEngine.IsEnabled(toggleName, context)?.Enabled ?? false;
 
                 Assert.AreEqual(expectedResult, result, message: $"Failed client specification '{suite}': Failed test '{test["description"]}': expected {expectedResult}, got {result}");
             }
@@ -113,7 +113,7 @@ public class Tests
                 var toggleName = (string)test["toggleName"];
                 // Silly hack to deal with the legacy "feature_enabled" property on the specs
                 var expectedResult = JsonSerializer.Deserialize<TestVariantReadModel>(test["expectedResult"].ToString(), options);
-                var enabled = yggdrasilEngine.IsEnabled(toggleName, context) ?? false;
+                var enabled = yggdrasilEngine.IsEnabled(toggleName, context)?.Enabled ?? false;
                 var result = yggdrasilEngine.GetVariant(toggleName, context) ?? new Variant("disabled", null, false, enabled);
 
                 Assert.AreEqual(expectedResult!.Name, result.Name, message: $"Failed client specification '{suite}': Failed test '{test["description"]}': expected {expectedResult.Name}, got {result.Name}");
@@ -203,7 +203,7 @@ public class Tests
         var result = engine.IsEnabled(featureName, new Context());
         var shouldEmit = engine.ShouldEmitImpressionEvent(featureName);
         Assert.NotNull(result);
-        Assert.IsTrue(result);
+        Assert.IsTrue(result?.Enabled);
         Assert.NotNull(shouldEmit);
         Assert.IsTrue(shouldEmit);
     }
@@ -237,7 +237,7 @@ public class Tests
         var result = engine.IsEnabled(featureName, new Context());
         var shouldEmit = engine.ShouldEmitImpressionEvent(featureName);
         Assert.NotNull(result);
-        Assert.IsTrue(result);
+        Assert.IsTrue(result?.Enabled);
         Assert.IsFalse(shouldEmit);
     }
 
