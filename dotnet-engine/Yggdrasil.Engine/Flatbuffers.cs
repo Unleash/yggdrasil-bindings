@@ -30,23 +30,8 @@ public static class Flatbuffers
         var sessionId = builder.CreateString(context.SessionId);
         var userId = builder.CreateString(context.UserId);
         var runtimeHostname = builder.CreateString(System.Net.Dns.GetHostName());
-        var propertyEntries = new Offset<PropertyEntry>[context.Properties?.Count ?? 0];
-
-        for (var i = 0; i < context.Properties?.Count; i++)
-        {
-            var kvp = context.Properties.ElementAt(i);
-            propertyEntries[i] = PropertyEntry.CreatePropertyEntry(builder, builder.CreateString(kvp.Key), builder.CreateString(kvp.Value));
-        }
-        var propertiesVector = ContextMessage.CreatePropertiesVector(builder, propertyEntries);
-
-        var strategyEntries = new Offset<CustomStrategyResult>[customStrategyResults.Count];
-        for (var i = 0; i < customStrategyResults.Count; i++)
-        {
-            var kvp = customStrategyResults.ElementAt(i);
-
-            strategyEntries[i] = CustomStrategyResult.CreateCustomStrategyResult(builder, builder.CreateString(kvp.Key), kvp.Value);
-        }
-        var customStrategiesVector = ContextMessage.CreateCustomStrategiesResultsVector(builder, strategyEntries);
+        var propertiesVector = CreatePropertiesVector(builder, context);
+        var customStrategiesVector = CreateCustomStrategiesVector(builder, customStrategyResults);
 
         ContextMessage.StartContextMessage(builder);
         ContextMessage.AddToggleName(builder, toggleName);
@@ -63,6 +48,30 @@ public static class Flatbuffers
         var contextMessage = ContextMessage.EndContextMessage(builder);
         builder.Finish(contextMessage.Value);
         return builder.SizedByteArray();
+    }
+
+    internal static VectorOffset CreatePropertiesVector(FlatBufferBuilder builder, Context context)
+    {
+        var propertyEntries = new Offset<PropertyEntry>[context.Properties?.Count ?? 0];
+
+        for (var i = 0; i < context.Properties?.Count; i++)
+        {
+            var kvp = context.Properties.ElementAt(i);
+            propertyEntries[i] = PropertyEntry.CreatePropertyEntry(builder, builder.CreateString(kvp.Key), builder.CreateString(kvp.Value));
+        }
+        return ContextMessage.CreatePropertiesVector(builder, propertyEntries);
+    }
+
+    internal static VectorOffset CreateCustomStrategiesVector(FlatBufferBuilder builder, Dictionary<string, bool> customStrategyResults)
+    {
+        var strategyEntries = new Offset<CustomStrategyResult>[customStrategyResults.Count];
+        for (var i = 0; i < customStrategyResults.Count; i++)
+        {
+            var kvp = customStrategyResults.ElementAt(i);
+
+            strategyEntries[i] = CustomStrategyResult.CreateCustomStrategyResult(builder, builder.CreateString(kvp.Key), kvp.Value);
+        }
+        return ContextMessage.CreateCustomStrategiesResultsVector(builder, strategyEntries);
     }
 
     internal static Variant? GetCheckVariantResponse(Buf buf)
