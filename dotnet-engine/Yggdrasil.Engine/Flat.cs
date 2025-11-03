@@ -20,15 +20,21 @@ internal static class Flat
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate Buf TakeStateDelegate(IntPtr ptr, byte[] json);
+
     private delegate void FreeBufferDelegate(Buf buf);
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate Buf CheckEnabledDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate Buf CheckVariantDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate Buf ListKnownTogglesDelegate(IntPtr enginePtr);
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate Buf BuiltInStrategiesDelegate(IntPtr enginePtr);
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate Buf GetMetricsDelegate(IntPtr enginePtr);
     private static readonly TakeStateDelegate take_state;
