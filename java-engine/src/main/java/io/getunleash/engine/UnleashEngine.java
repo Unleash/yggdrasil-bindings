@@ -114,59 +114,61 @@ public class UnleashEngine {
 
     int toggleNameOffset = builder.createString(toggleName);
 
-    int userIdOffset = context.getUserId() != null ? builder.createString(context.getUserId()) : 0;
+    if (context != null) {
+        int userIdOffset = context.getUserId() != null ? builder.createString(context.getUserId()) : 0;
 
-    int sessionIdOffset =
-        context.getSessionId() != null ? builder.createString(context.getSessionId()) : 0;
+        int sessionIdOffset =
+                context.getSessionId() != null ? builder.createString(context.getSessionId()) : 0;
 
-    int appNameOffset =
-        context.getAppName() != null ? builder.createString(context.getAppName()) : 0;
+        int appNameOffset =
+                context.getAppName() != null ? builder.createString(context.getAppName()) : 0;
 
-    int remoteAddressOffset =
-        context.getRemoteAddress() != null ? builder.createString(context.getRemoteAddress()) : 0;
+        int remoteAddressOffset =
+                context.getRemoteAddress() != null ? builder.createString(context.getRemoteAddress()) : 0;
 
-    String currentTime =
-        context.getCurrentTime() != null
-            ? context.getCurrentTime()
-            : java.time.Instant.now().toString();
-    int currentTimeOffset = builder.createString(currentTime);
+        String currentTime =
+                context.getCurrentTime() != null
+                        ? context.getCurrentTime()
+                        : java.time.Instant.now().toString();
+        int currentTimeOffset = builder.createString(currentTime);
 
-    int environmentOffset =
-        context.getEnvironment() != null ? builder.createString(context.getEnvironment()) : 0;
+        int environmentOffset =
+                context.getEnvironment() != null ? builder.createString(context.getEnvironment()) : 0;
 
-    int[] propertyOffsets = buildProperties(builder, context.getProperties());
-    int[] customStrategyResultsOffsets = buildCustomStrategyResults(builder, customStrategyResults);
+        int[] propertyOffsets = buildProperties(builder, context.getProperties());
+        int[] customStrategyResultsOffsets = buildCustomStrategyResults(builder, customStrategyResults);
 
-    String runtimeHostname = getRuntimeHostname();
-    int runtimeHostnameOffset =
-        runtimeHostname != null
-            ? builder.createString(runtimeHostname)
-            : builder.createString(getRuntimeHostname());
+        String runtimeHostname = getRuntimeHostname();
+        int runtimeHostnameOffset =
+                runtimeHostname != null
+                        ? builder.createString(runtimeHostname)
+                        : builder.createString(getRuntimeHostname());
 
-    int propsVec = ContextMessage.createPropertiesVector(builder, propertyOffsets);
-    int customStrategyResultsVec =
-        ContextMessage.createCustomStrategiesResultsVector(builder, customStrategyResultsOffsets);
+        int propsVec = ContextMessage.createPropertiesVector(builder, propertyOffsets);
+        int customStrategyResultsVec =
+                ContextMessage.createCustomStrategiesResultsVector(builder, customStrategyResultsOffsets);
 
-    ContextMessage.startContextMessage(builder);
+        ContextMessage.startContextMessage(builder);
 
-    if (userIdOffset != 0) ContextMessage.addUserId(builder, userIdOffset);
-    if (sessionIdOffset != 0) ContextMessage.addSessionId(builder, sessionIdOffset);
-    if (appNameOffset != 0) ContextMessage.addAppName(builder, appNameOffset);
-    if (environmentOffset != 0) ContextMessage.addEnvironment(builder, environmentOffset);
-    if (remoteAddressOffset != 0) ContextMessage.addRemoteAddress(builder, remoteAddressOffset);
-    if (runtimeHostnameOffset != 0)
-      ContextMessage.addRuntimeHostname(builder, runtimeHostnameOffset);
+        if (userIdOffset != 0) ContextMessage.addUserId(builder, userIdOffset);
+        if (sessionIdOffset != 0) ContextMessage.addSessionId(builder, sessionIdOffset);
+        if (appNameOffset != 0) ContextMessage.addAppName(builder, appNameOffset);
+        if (environmentOffset != 0) ContextMessage.addEnvironment(builder, environmentOffset);
+        if (remoteAddressOffset != 0) ContextMessage.addRemoteAddress(builder, remoteAddressOffset);
+        if (runtimeHostnameOffset != 0)
+            ContextMessage.addRuntimeHostname(builder, runtimeHostnameOffset);
 
-    ContextMessage.addCurrentTime(builder, currentTimeOffset);
+        ContextMessage.addCurrentTime(builder, currentTimeOffset);
+        if (propertyOffsets.length > 0) {
+            ContextMessage.addProperties(builder, propsVec);
+        }
+
+        if (customStrategyResultsOffsets.length > 0) {
+            ContextMessage.addCustomStrategiesResults(builder, customStrategyResultsVec);
+        }
+    }
     ContextMessage.addToggleName(builder, toggleNameOffset);
 
-    if (propertyOffsets.length > 0) {
-      ContextMessage.addProperties(builder, propsVec);
-    }
-
-    if (customStrategyResultsOffsets.length > 0) {
-      ContextMessage.addCustomStrategiesResults(builder, customStrategyResultsVec);
-    }
 
     int ctx = ContextMessage.endContextMessage(builder);
     builder.finish(ctx);
@@ -201,6 +203,9 @@ public class UnleashEngine {
    */
   public FlatResponse<Boolean> isEnabled(String toggleName, Context context)
       throws YggdrasilInvalidInputException {
+      if (toggleName == null) {
+          return new FlatResponse<>(false, false);
+      }
     try {
       Map<String, Boolean> strategyResults = customStrategiesEvaluator.eval(toggleName, context);
       ByteBuffer contextBytes = buildMessage(toggleName, context, strategyResults);

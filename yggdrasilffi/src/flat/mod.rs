@@ -1,3 +1,11 @@
+#![deny(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::todo,
+    clippy::unimplemented,
+)]
+
 use flatbuffers::root;
 use std::ffi::{c_char, c_void};
 
@@ -151,7 +159,7 @@ pub unsafe extern "C" fn flat_check_enabled(
             .try_into()
             .map_err(|e: FlatError| FlatError::InvalidContext(e.to_string()))?;
 
-        let lock = get_engine(engine_ptr).unwrap();
+        let lock = get_engine(engine_ptr)?;
         let engine = recover_lock(&lock);
 
         let enabled = engine.check_enabled(&context);
@@ -181,7 +189,7 @@ pub unsafe extern "C" fn flat_check_variant(
         let context: EnrichedContext = ctx
             .try_into()
             .map_err(|e: FlatError| FlatError::InvalidContext(e.to_string()))?;
-        let lock = get_engine(engine_ptr).unwrap();
+        let lock = get_engine(engine_ptr)?;
         let engine = recover_lock(&lock);
         let base_variant = engine.check_variant(&context);
         let toggle_enabled = engine.check_enabled(&context).unwrap_or_default();
@@ -202,7 +210,7 @@ pub unsafe extern "C" fn flat_check_variant(
 #[no_mangle]
 pub unsafe extern "C" fn flat_list_known_toggles(engine_ptr: *mut c_void) -> Buf {
     let toggles = guard_result::<Vec<ToggleDefinition>, _>(|| {
-        let guard = get_engine(engine_ptr).unwrap();
+        let guard = get_engine(engine_ptr)?;
         let engine = recover_lock(&guard);
         Ok(Some(engine.list_known_toggles()))
     });
@@ -221,11 +229,11 @@ pub unsafe extern "C" fn flat_built_in_strategies() -> Buf {
 #[no_mangle]
 pub unsafe extern "C" fn flat_get_metrics(engine_pointer: *mut c_void) -> Buf {
     let result = guard_result::<MetricBucket, _>(|| {
-        let guard = get_engine(engine_pointer).unwrap();
+        let guard = get_engine(engine_pointer)?;
         let mut engine = recover_lock(&guard);
         Ok(engine.get_metrics(Utc::now()))
     });
-    MetricsResponse::build_response(result.unwrap())
+    MetricsResponse::build_response(result)
 }
 
 fn guard_result<T, F>(action: F) -> Result<Option<T>, FlatError>
@@ -238,7 +246,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::flat::messaging::messaging::{ContextMessageBuilder, StrategyDefinition};
+    use crate::flat::messaging::messaging::ContextMessageBuilder;
     use crate::{free_engine, free_response, get_state, new_engine, take_state};
     use flatbuffers::{FlatBufferBuilder, WIPOffset};
     use serde_json::Value;

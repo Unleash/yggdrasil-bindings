@@ -434,7 +434,7 @@ pub unsafe extern "C" fn should_emit_impression_event(
         let guard = get_engine(engine_ptr)?;
         let engine = recover_lock(&guard);
 
-        let toggle_name = get_str(toggle_name_ptr)?;
+        let toggle_name = unsafe { get_str(toggle_name_ptr)? };
 
         Ok(Some(engine.should_emit_impression_event(toggle_name)))
     })();
@@ -456,7 +456,7 @@ pub unsafe extern "C" fn should_emit_impression_event(
 #[no_mangle]
 pub unsafe extern "C" fn list_known_toggles(engine_ptr: *mut c_void) -> *mut c_char {
     let result: Result<Option<Vec<ToggleDefinition>>, FFIError> = (|| {
-        let guard = get_engine(engine_ptr)?;
+        let guard = unsafe { get_engine(engine_ptr)? };
         let engine = recover_lock(&guard);
 
         Ok(Some(engine.list_known_toggles()))
