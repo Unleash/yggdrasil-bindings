@@ -23,7 +23,7 @@ public static class Flatbuffers
     {
         var toggleName = builder.CreateString(featureName);
         var appName = builder.CreateString(context.AppName);
-        var currentTimeOffset = context.CurrentTime.HasValue ? (StringOffset?)builder.CreateString(context.CurrentTime.Value.ToString("O")) : null;
+        var currentTimeOffset = builder.CreateString(context.CurrentTime.HasValue ? context.CurrentTime.Value.ToString("O") : null);
         var environment = builder.CreateString(context.Environment);
         var remoteAddress = builder.CreateString(context.RemoteAddress);
         var sessionId = builder.CreateString(context.SessionId);
@@ -34,10 +34,7 @@ public static class Flatbuffers
         ContextMessage.StartContextMessage(builder);
         ContextMessage.AddToggleName(builder, toggleName);
         ContextMessage.AddAppName(builder, appName);
-        if (currentTimeOffset.HasValue)
-        {
-            ContextMessage.AddCurrentTime(builder, currentTimeOffset.Value);
-        }
+        ContextMessage.AddCurrentTime(builder, currentTimeOffset);
         ContextMessage.AddEnvironment(builder, environment);
         ContextMessage.AddCustomStrategiesResults(builder, customStrategiesVector);
         ContextMessage.AddRemoteAddress(builder, remoteAddress);
