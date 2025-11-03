@@ -11,12 +11,11 @@ public static class Flatbuffers
 {
     private static byte[] ReadBuffer(Buf buf)
     {
-        ulong len = buf.len.ToUInt64();
-        if (len == 0 || buf.ptr == IntPtr.Zero)
+        if (buf.len == 0 || buf.ptr == IntPtr.Zero)
             return Array.Empty<byte>();
 
-        byte[] managed = new byte[len];
-        Marshal.Copy(buf.ptr, managed, 0, (int)len);
+        byte[] managed = new byte[buf.len];
+        Marshal.Copy(buf.ptr, managed, 0, (int)buf.len);
         return managed;
     }
 
@@ -24,23 +23,24 @@ public static class Flatbuffers
     {
         var toggleName = builder.CreateString(featureName);
         var appName = builder.CreateString(context.AppName);
-        var currentTime = builder.CreateString((context.CurrentTime ?? DateTime.UtcNow).ToString("O"));
+        var currentTimeOffset = context.CurrentTime.HasValue ? (StringOffset?)builder.CreateString(context.CurrentTime.Value.ToString("O")) : null;
         var environment = builder.CreateString(context.Environment);
         var remoteAddress = builder.CreateString(context.RemoteAddress);
         var sessionId = builder.CreateString(context.SessionId);
         var userId = builder.CreateString(context.UserId);
-        var runtimeHostname = builder.CreateString(System.Net.Dns.GetHostName());
         var propertiesVector = CreatePropertiesVector(builder, context);
         var customStrategiesVector = CreateCustomStrategiesVector(builder, customStrategyResults);
 
         ContextMessage.StartContextMessage(builder);
         ContextMessage.AddToggleName(builder, toggleName);
         ContextMessage.AddAppName(builder, appName);
-        ContextMessage.AddCurrentTime(builder, currentTime);
+        if (currentTimeOffset.HasValue)
+        {
+            ContextMessage.AddCurrentTime(builder, currentTimeOffset.Value);
+        }
         ContextMessage.AddEnvironment(builder, environment);
         ContextMessage.AddCustomStrategiesResults(builder, customStrategiesVector);
         ContextMessage.AddRemoteAddress(builder, remoteAddress);
-        ContextMessage.AddRuntimeHostname(builder, runtimeHostname);
         ContextMessage.AddSessionId(builder, sessionId);
         ContextMessage.AddUserId(builder, userId);
         ContextMessage.AddProperties(builder, propertiesVector);
@@ -90,15 +90,11 @@ public static class Flatbuffers
         return null;
     }
 
-    internal static EnabledResult? GetCheckEnabledResponse(Buf buf)
+    internal static Response GetCheckEnabledResponse(Buf buf)
     {
-        var response = ReadBuffer(buf);
-        var r = Response.GetRootAsResponse(new ByteBuffer(response));
-        return r.HasEnabled ? new EnabledResult
-        {
-            Enabled = r.Enabled,
-            ImpressionData = r.ImpressionData
-        } : null;
+        var buffer = ReadBuffer(buf);
+        var response = Response.GetRootAsResponse(new ByteBuffer(buffer));
+        return response;
     }
 
     internal static string[] GetBuiltInStrategiesResponse(Buf buf)

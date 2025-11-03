@@ -22,10 +22,10 @@ internal static class Flat
     private delegate Buf TakeStateDelegate(IntPtr ptr, byte[] json);
     private delegate void FreeBufferDelegate(Buf buf);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate Buf CheckEnabledDelegate(IntPtr enginePtr, IntPtr messagePtr, ulong messageLen);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate Buf CheckVariantDelegate(IntPtr enginePtr, IntPtr messagePtr, ulong messageLen);
+    private delegate Buf CheckEnabledDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate Buf CheckVariantDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
     public delegate Buf ListKnownTogglesDelegate(IntPtr enginePtr);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate Buf BuiltInStrategiesDelegate(IntPtr enginePtr);
@@ -46,7 +46,7 @@ internal static class Flat
 
     public static Buf CheckEnabled(IntPtr ptr, byte[] message)
     {
-        ulong len = (ulong)message.Length;
+        nuint len = (nuint)message.Length;
         GCHandle handle = GCHandle.Alloc(message, GCHandleType.Pinned);
         try
         {
@@ -61,7 +61,7 @@ internal static class Flat
 
     public static Buf CheckVariant(IntPtr ptr, byte[] message)
     {
-        ulong len = (ulong)message.Length;
+        nuint len = (nuint)message.Length;
         GCHandle handle = GCHandle.Alloc(message, GCHandleType.Pinned);
         try
         {

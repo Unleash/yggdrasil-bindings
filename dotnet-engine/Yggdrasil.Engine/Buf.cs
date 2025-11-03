@@ -4,6 +4,6 @@ using System.Runtime.InteropServices;
 public struct Buf
 {
     public IntPtr ptr;
-    public UIntPtr len;
-    public UIntPtr cap;
+    public nuint len;
+    public nuint cap;
 }
