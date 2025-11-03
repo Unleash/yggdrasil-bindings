@@ -76,15 +76,19 @@ public static class Flatbuffers
 
     internal static Variant? GetCheckVariantResponse(Buf buf)
     {
-        var response = ReadBuffer(buf);
-        var variant = FlatVariant.GetRootAsVariant(new ByteBuffer(response));
-        if (variant.Name != null)
+        var buffer = ReadBuffer(buf);
+        var response = FlatVariant.GetRootAsVariant(new ByteBuffer(buffer));
+        if (response.Error != null)
+        {
+            throw new YggdrasilEngineException(response.Error);
+        }
+        if (response.Name != null)
         {
             return new Variant(
-                variant.Name,
-                variant.Payload != null ? new Payload(variant.Payload.Value.PayloadType, variant.Payload.Value.Value) : null,
-                variant.Enabled,
-                variant.FeatureEnabled
+                response.Name,
+                response.Payload != null ? new Payload(response.Payload.Value.PayloadType, response.Payload.Value.Value) : null,
+                response.Enabled,
+                response.FeatureEnabled
             );
         }
         return null;
@@ -94,6 +98,11 @@ public static class Flatbuffers
     {
         var buffer = ReadBuffer(buf);
         var response = Response.GetRootAsResponse(new ByteBuffer(buffer));
+        if (response.Error != null)
+        {
+            throw new YggdrasilEngineException(response.Error);
+        }
+
         return response;
     }
 

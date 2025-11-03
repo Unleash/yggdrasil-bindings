@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using Google.FlatBuffers;
+using yggdrasil.messaging;
 
 namespace Yggdrasil;
 
@@ -32,14 +33,6 @@ public class YggdrasilEngine
         finally { Flat.FreeBuf(buf); }
     }
 
-    public bool ShouldEmitImpressionEvent(string featureName)
-    {
-        var shouldEmitImpressionEventPtr = FFI.ShouldEmitImpressionEvent(state, featureName);
-        var shouldEmitImpressionEvent = FFIReader.ReadPrimitive<bool>(shouldEmitImpressionEventPtr);
-
-        return shouldEmitImpressionEvent ?? false;
-    }
-
     public void Dispose()
     {
         FFI.FreeEngine(this.state);
@@ -64,7 +57,7 @@ public class YggdrasilEngine
         return JsonSerializer.Serialize(stateObject, options);
     }
 
-    public EnabledResult? IsEnabled(string toggleName, Context context)
+    public Response IsEnabled(string toggleName, Context context)
     {
         var customStrategyResults = customStrategies.GetCustomStrategyResults(toggleName, context);
         var builder = new FlatBufferBuilder(128);
