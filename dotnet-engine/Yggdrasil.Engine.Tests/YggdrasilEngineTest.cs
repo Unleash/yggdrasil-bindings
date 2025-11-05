@@ -71,7 +71,7 @@ public class Tests
 
         runTestFor(() => yggdrasilEngine.IsEnabled("Feature.A", new Context()), "IsEnabled");
         runTestFor(() => yggdrasilEngine.GetVariant("Feature.A", new Context()), "GetVariant");
-        runTestFor(() => yggdrasilEngine.TakeState(suiteData["state"].ToString()), "TakeState");
+        runTestFor(() => yggdrasilEngine.TakeState(suiteData["state"]!.ToString()), "TakeState");
         runTestFor(() => yggdrasilEngine.GetMetrics(), "GetMetrics");
     }
 
@@ -88,17 +88,17 @@ public class Tests
             var suitePath = Path.Combine(basePath, suite.ToString());
             var suiteData = JObject.Parse(File.ReadAllText(suitePath));
 
-            yggdrasilEngine.TakeState(suiteData["state"].ToString());
+            yggdrasilEngine.TakeState(suiteData["state"]!.ToString());
 
             var tests = suiteData["tests"] ?? new JArray();
 
             foreach (var test in tests)
             {
 
-                var contextJson = test["context"].ToString();
+                var contextJson = test["context"]!.ToString();
                 var context = JsonSerializer.Deserialize<Context>(contextJson, options) ?? new Context();
-                var toggleName = (string)test["toggleName"];
-                var expectedResult = (bool)test["expectedResult"];
+                var toggleName = (string)test["toggleName"]!;
+                var expectedResult = (bool)test["expectedResult"]!;
 
                 var result = yggdrasilEngine.IsEnabled(toggleName, context).Enabled;
 
@@ -108,11 +108,11 @@ public class Tests
             var variantTests = suiteData["variantTests"] ?? new JArray();
             foreach (var test in variantTests)
             {
-                var contextJson = test["context"].ToString();
+                var contextJson = test["context"]!.ToString();
                 var context = JsonSerializer.Deserialize<Context>(contextJson, options) ?? new Context();
-                var toggleName = (string)test["toggleName"];
+                var toggleName = (string)test["toggleName"]!;
                 // Silly hack to deal with the legacy "feature_enabled" property on the specs
-                var expectedResult = JsonSerializer.Deserialize<TestVariantReadModel>(test["expectedResult"].ToString(), options);
+                var expectedResult = JsonSerializer.Deserialize<TestVariantReadModel>(test["expectedResult"]!.ToString(), options);
                 var enabled = yggdrasilEngine.IsEnabled(toggleName, context).Enabled;
                 var result = yggdrasilEngine.GetVariant(toggleName, context) ?? new Variant("disabled", null, false, enabled);
 
