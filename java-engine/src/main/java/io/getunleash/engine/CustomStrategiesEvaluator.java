@@ -3,10 +3,10 @@ package io.getunleash.engine;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
-import io.getunleash.messaging.StrategyDefinition;
-import io.getunleash.messaging.StrategyFeature;
-import io.getunleash.messaging.StrategyParameter;
-import io.getunleash.messaging.TakeStateResponse;
+import io.getunleash.yggdrasil.messaging.StrategyDefinition;
+import io.getunleash.yggdrasil.messaging.StrategyFeature;
+import io.getunleash.yggdrasil.messaging.StrategyParameter;
+import io.getunleash.yggdrasil.messaging.TakeStateResponse;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -77,7 +77,7 @@ class CustomStrategiesEvaluator {
     int index = 1;
     if (feature.strategiesLength() > 0) {
       for (int i = 0; i < feature.strategiesLength(); i++) {
-        io.getunleash.messaging.StrategyDefinition strategy = feature.strategies(i);
+        io.getunleash.yggdrasil.messaging.StrategyDefinition strategy = feature.strategies(i);
         if (builtinStrategies.contains(strategy.name())) {
           continue;
         }
@@ -99,7 +99,8 @@ class CustomStrategiesEvaluator {
     return mappedStrategies;
   }
 
-  Map<String, String> getStrategyParameters(io.getunleash.messaging.StrategyDefinition strategy) {
+  Map<String, String> getStrategyParameters(
+      io.getunleash.yggdrasil.messaging.StrategyDefinition strategy) {
     Map<String, String> parameters = new HashMap<>();
     if (strategy.parametersLength() > 0) {
       for (int i = 0; i < strategy.parametersLength(); i++) {

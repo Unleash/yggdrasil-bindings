@@ -1,7 +1,7 @@
 package io.getunleash.engine;
 
 import com.google.flatbuffers.FlatBufferBuilder;
-import io.getunleash.messaging.*;
+import io.getunleash.yggdrasil.messaging.*;
 import java.nio.ByteBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,6 +1,6 @@
 package io.getunleash.engine;
 
-import io.getunleash.messaging.*;
+import io.getunleash.yggdrasil.messaging.*;
 import java.nio.ByteBuffer;
 
 /** Represents the native interface for interacting with the Unleash engine. */
