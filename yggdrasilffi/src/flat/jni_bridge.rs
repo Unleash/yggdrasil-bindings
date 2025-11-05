@@ -2,11 +2,11 @@ use jni::objects::{JByteBuffer, JClass, JString};
 use jni::sys::{jlong, jobject, jstring};
 use jni::JNIEnv;
 
-use std::ffi::{c_void, c_char, CString, CStr};
-use std::panic;
-use std::ptr::NonNull;
 use crate::flat::serialisation::Buf;
 use crate::get_state;
+use std::ffi::{c_char, c_void, CStr, CString};
+use std::panic;
+use std::ptr::NonNull;
 
 // === C ABI from your library ===
 extern "C" {
@@ -25,7 +25,6 @@ extern "C" {
     fn get_core_version() -> *const c_char;
 }
 
-
 const NATIVE_EX_CLASS: &str = "io/getunleash/engine/NativeException";
 
 #[inline]
@@ -41,8 +40,14 @@ where
 {
     match panic::catch_unwind(panic::AssertUnwindSafe(|| f(env))) {
         Ok(Ok(v)) => Ok(v),
-        Ok(Err(msg)) => { throw_java(env, msg); Err(()) }
-        Err(_) => { throw_java(env, "native panic"); Err(()) }
+        Ok(Err(msg)) => {
+            throw_java(env, msg);
+            Err(())
+        }
+        Err(_) => {
+            throw_java(env, "native panic");
+            Err(())
+        }
     }
 }
 
@@ -98,7 +103,9 @@ unsafe extern "system" fn Java_io_getunleash_engine_NativeBridge_flatTakeState(
 ) -> jobject {
     let res = jni_guard(&mut env, |env| {
         // 1) Read from env
-        let js = env.get_string(&toggles_json).map_err(|e| format!("get_string: {e}"))?;
+        let js = env
+            .get_string(&toggles_json)
+            .map_err(|e| format!("get_string: {e}"))?;
         let rust_json: String = js.into(); // proper UTF-16 → UTF-8
 
         let c = CString::new(rust_json).map_err(|_| "JSON contained NUL byte")?;
@@ -121,9 +128,12 @@ unsafe extern "system" fn Java_io_getunleash_engine_NativeBridge_flatCheckEnable
     len: jlong,
 ) -> jobject {
     let res = jni_guard(&mut env, |env| {
-        let addr = env.get_direct_buffer_address(&ctx)
+        let addr = env
+            .get_direct_buffer_address(&ctx)
             .map_err(|e| format!("get_direct_buffer_address: {e}"))?;
-        if len < 0 { return Err("negative length".into()); }
+        if len < 0 {
+            return Err("negative length".into());
+        }
 
         let b = unsafe { flat_check_enabled(engine_ptr as *mut c_void, addr as u64, len as u64) };
         Ok(wrap_buf(env, b))
@@ -140,9 +150,12 @@ unsafe extern "system" fn Java_io_getunleash_engine_NativeBridge_flatCheckVarian
     len: jlong,
 ) -> jobject {
     let res = jni_guard(&mut env, |env| {
-        let addr = env.get_direct_buffer_address(&ctx)
+        let addr = env
+            .get_direct_buffer_address(&ctx)
             .map_err(|e| format!("get_direct_buffer_address: {e}"))?;
-        if len < 0 { return Err("negative length".into()); }
+        if len < 0 {
+            return Err("negative length".into());
+        }
 
         let b = unsafe { flat_check_variant(engine_ptr as *mut c_void, addr as u64, len as u64) };
         Ok(wrap_buf(env, b))
@@ -193,7 +206,7 @@ unsafe extern "system" fn Java_io_getunleash_engine_NativeBridge_flatGetMetrics(
 unsafe extern "system" fn Java_io_getunleash_engine_NativeBridge_flatGetState(
     mut env: JNIEnv,
     _cls: JClass,
-    engine_ptr: jlong
+    engine_ptr: jlong,
 ) -> jstring {
     let res = jni_guard(&mut env, |env| {
         // COMPUTE: fetch C string pointer; handle null
@@ -201,10 +214,14 @@ unsafe extern "system" fn Java_io_getunleash_engine_NativeBridge_flatGetState(
         if ptr.is_null() {
             return Err("get_state returned null".into());
         }
-        let rust_s = unsafe { CStr::from_ptr(ptr) }.to_string_lossy().into_owned();
+        let rust_s = unsafe { CStr::from_ptr(ptr) }
+            .to_string_lossy()
+            .into_owned();
 
         // WRAP: Java String
-        let j = env.new_string(rust_s).map_err(|e| format!("new_string failed: {e}"))?;
+        let j = env
+            .new_string(rust_s)
+            .map_err(|e| format!("new_string failed: {e}"))?;
         Ok(j.into_raw())
     });
     res.unwrap_or(std::ptr::null_mut())
@@ -263,7 +280,11 @@ pub extern "system" fn Java_io_getunleash_engine_NativeBridge_flatBufFree(
         }
 
         // cap == len invariant required by your builder
-        let b = Buf { ptr: addr, len, cap: len };
+        let b = Buf {
+            ptr: addr,
+            len,
+            cap: len,
+        };
         unsafe { flat_buf_free(b) };
 
         // RETURN (nothing to wrap for void-return JNI)

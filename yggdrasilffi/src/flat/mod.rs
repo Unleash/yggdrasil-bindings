@@ -3,7 +3,7 @@
     clippy::expect_used,
     clippy::panic,
     clippy::todo,
-    clippy::unimplemented,
+    clippy::unimplemented
 )]
 
 use flatbuffers::root;
@@ -27,8 +27,8 @@ use unleash_types::client_metrics::MetricBucket;
 use unleash_yggdrasil::state::EnrichedContext;
 use unleash_yggdrasil::{ExtendedVariantDef, ToggleDefinition, UpdateMessage, KNOWN_STRATEGIES};
 
-mod serialisation;
 mod jni_bridge;
+mod serialisation;
 #[allow(clippy::all)]
 mod messaging {
     #![allow(dead_code)]
