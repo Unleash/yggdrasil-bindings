@@ -155,7 +155,8 @@ public static class Flatbuffers
         var response = ReadBuffer(buf);
         var knownTogglesResponse = FeatureDefs.GetRootAsFeatureDefs(new ByteBuffer(response));
         return Enumerable.Range(0, knownTogglesResponse.ItemsLength)
-            .Select(i => {
+            .Select(i =>
+            {
                 var item = knownTogglesResponse.Items(i)!.Value;
                 return new FeatureDefinition(item.Name, item.Project, item.Type);
             }).ToList();
