@@ -44,12 +44,25 @@ internal class CustomStrategies
             .ToList();
     }
 
+    internal void MapFeatures(Dictionary<string, List<StrategyDefinition>> featureStrategies)
+    {
+        mappedFeatures = new Dictionary<string, MappedFeature>();
+        foreach (var kvp in featureStrategies)
+        {
+            mappedFeatures.Add(kvp.Key, MapFeature(kvp.Key, kvp.Value));
+        }
+    }
     internal void MapFeatures(string json)
     {
         var features = JsonSerializer.Deserialize<FeatureCollection>(json, options)?.Features;
         mappedFeatures = features?
             .Select(feature => new MappedFeature(feature, MapCustomStrategies(feature.Strategies)))
             .ToDictionary(feature => feature.Name);
+    }
+
+    private MappedFeature MapFeature(string name, List<StrategyDefinition>? strategies)
+    {
+        return new MappedFeature(new Feature() { Name = name }, MapCustomStrategies(strategies ?? new List<StrategyDefinition>()));
     }
 
     internal void RegisterCustomStrategies(List<IStrategy> strategies)
@@ -71,5 +84,19 @@ internal class CustomStrategies
                 strategy => strategy.IsEnabled(context));
 
         return JsonSerializer.Serialize(strategies, options);
+    }
+
+    internal Dictionary<string, bool> GetCustomStrategyResults(string toggleName, Context context)
+    {
+        MappedFeature? feature = null;
+        mappedFeatures?.TryGetValue(toggleName, out feature);
+        if (feature == null)
+        {
+            return new Dictionary<string, bool>();
+        }
+
+        return feature.Strategies
+            .ToDictionary(strategy => strategy.ResultName,
+                strategy => strategy.IsEnabled(context));
     }
 }

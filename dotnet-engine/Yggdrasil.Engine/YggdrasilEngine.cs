@@ -1,5 +1,6 @@
-﻿using System.Runtime.InteropServices;
-using System.Text.Json;
+﻿using System.Text.Json;
+using Google.FlatBuffers;
+using yggdrasil.messaging;
 
 namespace Yggdrasil;
 
@@ -18,23 +19,18 @@ public class YggdrasilEngine
     {
         state = FFI.NewEngine();
 
-        var knownStrategiesPtr = FFI.BuiltInStrategies(state);
-        var knownStrategies = FFIReader.ReadResponse<string[]>(knownStrategiesPtr);
-
-        customStrategies = new CustomStrategies(knownStrategies);
-
-        if (strategies != null)
+        var buf = Flat.BuiltInStrategies(state);
+        try
         {
-            customStrategies.RegisterCustomStrategies(strategies);
+            var knownStrategies = Flatbuffers.GetBuiltInStrategiesResponse(buf);
+            customStrategies = new CustomStrategies(knownStrategies);
+
+            if (strategies != null)
+            {
+                customStrategies.RegisterCustomStrategies(strategies);
+            }
         }
-    }
-
-    public bool ShouldEmitImpressionEvent(string featureName)
-    {
-        var shouldEmitImpressionEventPtr = FFI.ShouldEmitImpressionEvent(state, featureName);
-        var shouldEmitImpressionEvent = FFIReader.ReadPrimitive<bool>(shouldEmitImpressionEventPtr);
-
-        return shouldEmitImpressionEvent ?? false;
+        finally { Flat.FreeBuf(buf); }
     }
 
     public void Dispose()
@@ -45,10 +41,13 @@ public class YggdrasilEngine
 
     public void TakeState(string json)
     {
-        var takeStatePtr = FFI.TakeState(state, json);
-        FFIReader.CheckResponse(takeStatePtr);
-
-        customStrategies.MapFeatures(json);
+        var buf = Flat.TakeState(state, json);
+        try
+        {
+            var takeStateResponse = Flatbuffers.GetTakeStateResponse(buf);
+            customStrategies.MapFeatures(takeStateResponse);
+        }
+        finally { Flat.FreeBuf(buf); }
     }
 
     public string GetState()
@@ -58,50 +57,35 @@ public class YggdrasilEngine
         return JsonSerializer.Serialize(stateObject, options);
     }
 
-    public bool? IsEnabled(string toggleName, Context context)
+    public Response IsEnabled(string toggleName, Context context)
     {
-        var customStrategyPayload = customStrategies.GetCustomStrategyPayload(toggleName, context);
-        string contextJson = JsonSerializer.Serialize(context, options);
-        var isEnabledPtr = FFI.CheckEnabled(state, toggleName, contextJson, customStrategyPayload);
-
-        return FFIReader.ReadPrimitive<bool>(isEnabledPtr);
+        var customStrategyResults = customStrategies.GetCustomStrategyResults(toggleName, context);
+        var messageBuffer = Flatbuffers.GetContextMessageBuffer(new FlatBufferBuilder(128), toggleName, context, customStrategyResults);
+        var buf = Flat.CheckEnabled(state, messageBuffer);
+        try { return Flatbuffers.GetCheckEnabledResponse(buf); }
+        finally { Flat.FreeBuf(buf); }
     }
 
     public Variant? GetVariant(string toggleName, Context context)
     {
-        var customStrategyPayload = customStrategies.GetCustomStrategyPayload(toggleName, context);
-        var contextJson = JsonSerializer.Serialize(context, options);
-        var variantPtr = FFI.CheckVariant(state, toggleName, contextJson, customStrategyPayload);
-
-        return FFIReader.ReadComplex<Variant>(variantPtr);
+        var customStrategyResults = customStrategies.GetCustomStrategyResults(toggleName, context);
+        var messageBuffer = Flatbuffers.GetContextMessageBuffer(new FlatBufferBuilder(128), toggleName, context, customStrategyResults);
+        var buf = Flat.CheckVariant(state, messageBuffer);
+        try { return Flatbuffers.GetCheckVariantResponse(buf); }
+        finally { Flat.FreeBuf(buf); }
     }
 
     public MetricsBucket? GetMetrics()
     {
-        var metricsPtr = FFI.GetMetrics(state);
-        return FFIReader.ReadComplex<MetricsBucket>(metricsPtr);
-    }
-
-    public void CountFeature(string featureName, bool enabled)
-    {
-        var responsePtr = FFI.CountToggle(state, featureName, enabled);
-        FFIReader.CheckResponse(responsePtr);
-    }
-
-    public void CountVariant(string featureName, string variantName)
-    {
-        var responsePtr = FFI.CountVariant(state, featureName, variantName);
-        FFIReader.CheckResponse(responsePtr);
+        var buf = Flat.GetMetrics(state);
+        try { return Flatbuffers.GetMetricsBucket(buf); }
+        finally { Flat.FreeBuf(buf); }
     }
 
     public ICollection<FeatureDefinition> ListKnownToggles()
     {
-        var featureDefinitionsPtr = FFI.ListKnownToggles(state);
-        var knownFeatures = FFIReader.ReadComplex<List<FeatureDefinition>>(featureDefinitionsPtr);
-        if (knownFeatures == null)
-        {
-            return new List<FeatureDefinition>();
-        }
-        return knownFeatures;
+        var buf = Flat.ListKnownToggles(state);
+        try { return Flatbuffers.GetKnownToggles(buf); }
+        finally { Flat.FreeBuf(buf); }
     }
 }
