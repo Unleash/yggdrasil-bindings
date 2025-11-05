@@ -13,8 +13,6 @@ public class YggdrasilEngine
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private static FlatBufferBuilder BUILDER = new FlatBufferBuilder(128);
-
     private IntPtr state;
 
     public YggdrasilEngine(List<IStrategy>? strategies = null)
@@ -62,8 +60,8 @@ public class YggdrasilEngine
     public Response IsEnabled(string toggleName, Context context)
     {
         var customStrategyResults = customStrategies.GetCustomStrategyResults(toggleName, context);
-        var array = Flatbuffers.GetContextMessageBuffer(BUILDER, toggleName, context, customStrategyResults);
-        var buf = Flat.CheckEnabled(state, array);
+        var messageBuffer = Flatbuffers.GetContextMessageBuffer(new FlatBufferBuilder(128), toggleName, context, customStrategyResults);
+        var buf = Flat.CheckEnabled(state, messageBuffer);
         try { return Flatbuffers.GetCheckEnabledResponse(buf); }
         finally { Flat.FreeBuf(buf); }
     }
@@ -71,8 +69,8 @@ public class YggdrasilEngine
     public Variant? GetVariant(string toggleName, Context context)
     {
         var customStrategyResults = customStrategies.GetCustomStrategyResults(toggleName, context);
-        var array = Flatbuffers.GetContextMessageBuffer(BUILDER, toggleName, context, customStrategyResults);
-        var buf = Flat.CheckVariant(state, array);
+        var messageBuffer = Flatbuffers.GetContextMessageBuffer(new FlatBufferBuilder(128), toggleName, context, customStrategyResults);
+        var buf = Flat.CheckVariant(state, messageBuffer);
         try { return Flatbuffers.GetCheckVariantResponse(buf); }
         finally { Flat.FreeBuf(buf); }
     }
