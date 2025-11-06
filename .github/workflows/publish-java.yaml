@@ -1,11 +1,6 @@
 name: Publish Java
 on:
   workflow_dispatch:
-    inputs:
-      yggdrasilVersion:
-        type: string
-        required: true
-        description: The semver version of yggdrasilffi you want to embed in java-engine (major.minor.version). No prefix supported
 
 jobs:
 
@@ -13,17 +8,33 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
-      - name: Update yggdrasil version
+      - name: Checkout the repo
+        uses: actions/checkout@v5
+      - name: Read yggdrasilCoreVersion from gradle.properties
+        id: read_ygg
         shell: bash
-        working-directory: ./java-engine
         run: |
-          sed -i -E "s/^(yggdrasilCoreVersion=).*/\1${{ github.event.inputs.yggdrasilVersion }}/" gradle.properties
+          # Grab the last non-comment match in case the file has multiple entries
+          line="$(grep -E '^[[:space:]]*yggdrasilCoreVersion[[:space:]]*=' gradle.properties | tail -n1 || true)"
+          if [ -z "$line" ]; then
+            echo "yggdrasilCoreVersion not found in gradle.properties" >&2
+            exit 1
+          fi
+
+          # Extract the value (right side of =) and trim whitespace/CRLF
+          value="${line#*=}"
+          # trim leading/trailing spaces
+          value="$(printf '%s' "$value" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+          # strip possible CR from Windows checkouts
+          value="${value%$'\r'}"
+
+          echo "ygg_version=$value" >> "$GITHUB_OUTPUT"
+
       - name: Download binaries
         shell: bash
         working-directory: ./java-engine
         run: |
-          gh release download "yggdrasilffi-v${{ inputs.yggdrasilVersion }}" --repo Unleash/yggdrasil-bindings -D binaries/
+          gh release download "yggdrasilffi-v${{ steps.read_ygg.outputs.ygg_version }}" --repo Unleash/yggdrasil-bindings -D binaries/
       - name: Publish to Maven Central Portal
         working-directory: ./java-engine
         env:
