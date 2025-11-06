@@ -167,9 +167,9 @@ jobs:
         run: ls -lah assets/
       - name: Upload assets to release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.secrets.token }}
         shell: bash
         run: |
-          TAG="${{ github.event.inputs.tag }}"
+          TAG="${{ create-tag-and-release.outputs.full_tag }}"
           gh release upload "$TAG" assets/* --clobber
 
