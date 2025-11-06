@@ -141,7 +141,7 @@ unsafe fn get_engine(engine_ptr: *const u32) -> Result<ManagedEngine, WasmError>
     Ok(cloned_arc)
 }
 
-fn recover_lock<T>(lock: &Mutex<T>) -> MutexGuard<T> {
+fn recover_lock<T>(lock: &Mutex<T>) -> MutexGuard<'_, T> {
     match lock.lock() {
         Ok(guard) => guard,
         Err(poisoned) => poisoned.into_inner(),

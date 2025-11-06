@@ -83,4 +83,8 @@
       <LogicalName>Yggdrasil.Engine.libyggdrasilffi_arm64_$(YggdrasilCoreVersion).dylib</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.FlatBuffers" Version="25.2.10" />
+  </ItemGroup>
 </Project>

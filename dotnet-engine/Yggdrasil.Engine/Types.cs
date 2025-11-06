@@ -22,6 +22,12 @@ public class EngineResponse
     public string? StatusCode { get; set; }
 }
 
+public class EnabledResult
+{
+    public bool Enabled { get; set; }
+    public bool ImpressionData { get; set; }
+}
+
 public class EngineResponse<TValue> : EngineResponse
 {
     public TValue? Value { get; set; }

@@ -1,26 +1,18 @@
+import java.net.URL
+import java.nio.file.Files
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+
 plugins {
+    java
     `java-library`
     `maven-publish`
     signing
-    id ("com.diffplug.spotless").version("6.23.2")
+    id ("com.diffplug.spotless").version("8.0.0")
     id("io.github.gradle-nexus.publish-plugin").version("2.0.0")
-    id("pl.allegro.tech.build.axion-release").version("1.16.0")
+    id("pl.allegro.tech.build.axion-release").version("1.21.0")
     id("tech.yanand.maven-central-publish").version("1.3.0")
-    id("me.champeau.jmh").version("0.7.2")
-    id("at.released.wasm2class.plugin").version("0.5.0")
-}
-
-wasm2class {
-    modules {
-        create("Yggdrasil") {
-            wasm = file("../target/wasm32-unknown-unknown/release/pure_wasm.wasm")
-            targetPackage = "io.getunleash.wasm"
-        }
-    }
-}
-
-sourceSets["main"].java {
-    srcDir("build/generated-chicory")
+    id("me.champeau.jmh").version("0.7.3")
 }
 
 version = project.findProperty("version") as String
@@ -37,20 +29,29 @@ repositories {
 }
 
 dependencies {
-    jmh("org.openjdk.jmh:jmh-core:1.37")
-    jmhAnnotationProcessor("org.openjdk.jmh:jmh-generator-annprocess:1.37")
-    testImplementation("org.junit.jupiter:junit-jupiter:5.9.2")
-    testImplementation("org.mockito:mockito-core:4.11.0")
-    testImplementation("org.slf4j:slf4j-simple:2.0.5")
-    implementation("org.slf4j:slf4j-api:2.0.5")
-    implementation("net.java.dev.jna:jna:5.13.0")
-    implementation("com.fasterxml.jackson.core:jackson-core:2.15.2")
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.15.1")
-    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.14.2")
-    implementation("com.dylibso.chicory:runtime:1.5.1")
-    implementation("com.google.flatbuffers:flatbuffers-java:25.2.10")
+    jmh(libs.jmh.core)
+    jmhAnnotationProcessor(libs.jmh.annprocess)
+    testImplementation(platform(libs.junit.bom))
+    testImplementation("org.junit.jupiter:junit-jupiter-api")
+    testImplementation("org.junit.platform:junit-platform-launcher")
+    testImplementation("org.junit.jupiter:junit-jupiter-engine")
+    testImplementation("org.junit.jupiter:junit-jupiter-params")
+    testImplementation(libs.assert4j.core)
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.slf4j.simple)
+    testImplementation(libs.jackson.core)
+    testImplementation(libs.jackson.databind)
+    testImplementation(libs.jackson.jsr310)
+    implementation(libs.slf4j.api)
+    implementation(libs.flatbuffers)
 }
 
+tasks.withType<Javadoc> {
+    exclude("io/getunleash/messaging/**")
+    exclude("io/getunleash/engine/MetricsBucket.java")
+    exclude("io/getunleash/engine/Payload.java")
+    exclude("io/getunelash/engine/IStrategy.java")
+}
 tasks.jar {
     manifest {
         attributes(
@@ -63,26 +64,57 @@ tasks.jar {
     }
 }
 
-val buildWasm by tasks.registering(Exec::class) {
+val buildFfi by tasks.registering(Exec::class) {
     group = "build"
-    description = "Builds the Rust WASM binary"
+    description = "Builds the Rust Ffi binary"
 
-    workingDir = file("../pure-wasm")
-    commandLine = listOf("cargo", "build", "--release", "--target", "wasm32-unknown-unknown")
+    workingDir = file("../yggdrasilffi")
+    commandLine = listOf("cargo", "build", "--release")
 }
 
+val copyTestBinary by tasks.register<Copy>("copyTestBinary") {
+    val platform = System.getProperty("os.arch").lowercase()
+    val os = System.getProperty("os.name").lowercase()
+
+    val sourceFileName = when {
+        os.contains("linux") -> "libyggdrasilffi.so"
+        os.contains("mac") -> "libyggdrasilffi.dylib"
+        os.contains("win") -> "yggdrasilffi.dll"
+        else -> throw GradleException("Unsupported OS")
+    }
+
+    val sourcePath = file("../target/release/$sourceFileName")
+    val targetPath = file("build/resources/test/native")
+
+    val binaryName = when {
+        os.contains("mac") && (platform.contains("arm") || platform.contains("aarch")) -> "libyggdrasilffi_arm64.dylib"
+        os.contains("mac") -> "libyggdrasilffi_x86_64.dylib"
+        os.contains("win") -> "yggdrasilffi_x86_64.dll"
+        os.contains("linux") -> "libyggdrasilffi_x86_64.so"
+        else -> throw GradleException("Unsupported OS")
+    }
+    from(sourcePath) {
+        rename { binaryName }
+    }
+    into(targetPath)
+    outputs.upToDateWhen { false }
+}
+
+copyTestBinary.dependsOn(buildFfi)
+
 tasks.named<Test>("test") {
-    dependsOn(buildWasm)
+    dependsOn(copyTestBinary)
+    dependsOn(fetchClientSpecification)
     useJUnitPlatform()
     testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
 }
 
 tasks.named("jmh") {
-    dependsOn(buildWasm)
+    dependsOn(copyTestBinary)
 }
 
 tasks.named("jmhJar") {
-    dependsOn(buildWasm)
+    dependsOn(copyTestBinary)
 }
 
 spotless {
@@ -157,4 +189,122 @@ mavenCentral {
     authToken = mavenCentralToken
     publishingType = "AUTOMATIC"
     maxWait = 120
+}
+
+
+@CacheableTask
+abstract class FetchZip: DefaultTask() {
+    @get:Input
+    abstract val versionProp: Property<String>
+
+    /**
+     * Either provide a fully-resolved URL (e.g. via a `map` from version),
+     * or set this directly from a property.
+     */
+    @get:Input
+    abstract val downloadUrl: Property<String>
+
+    @get:OutputDirectory
+    abstract val destinationDir: DirectoryProperty
+
+    init {
+        // Up-to-date if destination/package.json exists AND its "version" equals versionProp
+        outputs.upToDateWhen {
+            val pkg = destinationDir.file("package.json").get().asFile
+            if (!pkg.exists()) return@upToDateWhen false
+            val text = pkg.readText()
+            // Minimal/robust-enough extraction of "version": "x.y.z"
+            val regex = """"version"\s*:\s*"([^"]+)"""".toRegex()
+            val found = regex.find(text)?.groupValues?.getOrNull(1)
+            found == versionProp.get()
+        }
+    }
+    @TaskAction
+    fun fetch() {
+        val dest = destinationDir.get().asFile
+        dest.mkdirs()
+
+        // If an old version is there (and package.json doesn't match), we overwrite the folder.
+        // We’ll unpack into a temp dir then atomically replace contents to avoid half-extracted states.
+        val tmpZip = Files.createTempFile("download-", ".zip").toFile()
+        val tmpExtractDir = Files.createTempDirectory("extract-").toFile()
+
+        try {
+            // --- Download ---
+            logger.lifecycle("Downloading ${downloadUrl.get()} (version=${versionProp.get()})")
+            URL(downloadUrl.get()).openStream().use { input ->
+                tmpZip.outputStream().use { output -> input.copyTo(output) }
+            }
+
+            // Unzip while STRIPPING the first path segment (top-level folder) from all entries
+            unzipStripTopLevel(tmpZip, tmpExtractDir)
+
+            dest.listFiles()?.forEach { it.deleteRecursively() }
+            tmpExtractDir.copyRecursively(dest, overwrite = true)
+
+            logger.lifecycle("Unpacked to: $dest")
+        } finally {
+            tmpZip.delete()
+            tmpExtractDir.deleteRecursively()
+        }
+    }
+
+    /**
+     * Unzips [zipFile] into [toDir], removing the first path segment from each entry.
+     * Example: client-specification-1.2.3/pkg/a.json -> pkg/a.json
+     * Also guards against Zip Slip attacks.
+     */
+    private fun unzipStripTopLevel(zipFile: java.io.File, toDir: java.io.File) {
+        val targetCanonical = toDir.canonicalFile.toPath()
+
+        fun stripFirstSegment(path: String): String {
+            val parts = path.split('/','\\')
+            return when {
+                parts.isEmpty() -> ""
+                parts.size == 1 -> parts[0] // single file at root (rare) — keep as is
+                else -> parts.drop(1).joinToString("/")
+            }
+        }
+
+        ZipInputStream(zipFile.inputStream()).use { zis ->
+            var entry: ZipEntry? = zis.nextEntry
+            while (entry != null) {
+                val stripped = stripFirstSegment(entry.name).trim().removePrefix("/").removePrefix("\\")
+                if (stripped.isNotEmpty()) {
+                    val outPath = File(toDir, stripped)
+                    // Zip Slip protection
+                    val outCanonical = outPath.canonicalFile.toPath()
+                    require(outCanonical.startsWith(targetCanonical)) {
+                        "Blocked suspicious zip entry: ${entry.name}"
+                    }
+
+                    if (entry.isDirectory || stripped.endsWith("/") || stripped.endsWith("\\")) {
+                        outPath.mkdirs()
+                    } else {
+                        outPath.parentFile?.mkdirs()
+                        outPath.outputStream().use { os -> zis.copyTo(os) }
+                    }
+                }
+                zis.closeEntry()
+                entry = zis.nextEntry
+            }
+        }
+    }
+}
+
+val clientSpecificationVersion = providers.gradleProperty("clientSpecificationVersion")
+val clientSpecificationUrlTemplate = providers.gradleProperty("clientSpecificationUrlTemplate")
+
+val clientSpecDir = layout.projectDirectory.dir("client-specification")
+
+val fetchClientSpecification = tasks.register<FetchZip>("fetchClientSpecification") {
+    group = "client-specification"
+    description = "Downloads and unpacks client-specification"
+
+    versionProp.set(clientSpecificationVersion)
+
+    downloadUrl.set(clientSpecificationVersion.zip(clientSpecificationUrlTemplate) { v, tmpl ->
+        String.format(tmpl, v)
+    })
+    destinationDir.set(clientSpecDir)
 }
