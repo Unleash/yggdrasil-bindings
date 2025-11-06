@@ -9,15 +9,14 @@
 use flatbuffers::root;
 use std::ffi::{c_char, c_void};
 
-use messaging::messaging::{ContextMessage, Response};
-use serialisation::{FlatError, FlatMessage, ResponseMessage};
-
-use crate::flat::messaging::messaging::{
-    BuiltInStrategies, FeatureDefs, MetricsResponse, TakeStateResponse, Variant,
-};
 use crate::flat::serialisation::{Buf, TakeStateResult};
 use crate::{get_json, ManagedEngine, RawPointerDataType};
 use chrono::Utc;
+use messaging::messaging::{
+    BuiltInStrategies, ContextMessage, FeatureDefs, MetricsResponse, Response, TakeStateResponse,
+    Variant,
+};
+use serialisation::{FlatError, FlatMessage, ResponseMessage};
 use std::collections::{BTreeMap, HashMap};
 use std::mem::forget;
 use std::panic;
@@ -29,7 +28,13 @@ use unleash_yggdrasil::{ExtendedVariantDef, ToggleDefinition, UpdateMessage, KNO
 
 mod jni_bridge;
 mod serialisation;
-#[allow(clippy::all)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::todo,
+    clippy::unimplemented
+)]
 mod messaging {
     #![allow(dead_code)]
     #![allow(non_snake_case)]
