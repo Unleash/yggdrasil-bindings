@@ -427,8 +427,8 @@ class UnleashEngineTest {
     MetricsBucket bucket = engine.getMetrics();
     FeatureCount featA = bucket.getToggles().get("Feature.A");
     FeatureCount featC = bucket.getToggles().get("Feature.C");
-    assert (featA.getYes() == 1);
-    assert (featC.getYes() == 2);
+    assertThat(featA.getYes()).isEqualTo(1);
+    assertThat(featC.getYes()).isEqualTo(2);
   }
 
   @Test
@@ -448,12 +448,10 @@ class UnleashEngineTest {
     Instant stop = bucket.getStop();
     ZonedDateTime utcStop = stop.atZone(ZoneOffset.UTC);
 
-    assert (utcStart.isBefore(now))
-        : "start not before now. start: " + utcStart + " - stop: " + utcStop;
-    assert (utcStart.plusMinutes(1).isAfter(now))
-        : "start plus minute not after now. start: " + utcStart + " - stop: " + utcStop;
-    assert (utcStop.isBefore(now)) : "stop not before now";
-    assert (utcStop.plusMinutes(1).isAfter(now)) : "stop plus minute not after now" + utcStop;
+    assertThat(utcStart).isBeforeOrEqualTo(now);
+    assertThat(utcStart.plusMinutes(1)).isAfter(now);
+    assertThat(utcStop).isBeforeOrEqualTo(now);
+    assertThat(utcStop.plusMinutes(1)).isAfter(now);
   }
 
   @Test
