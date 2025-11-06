@@ -1,6 +1,11 @@
 name: Publish Java
 on:
   workflow_dispatch:
+    inputs:
+      yggdrasilVersion:
+        type: string
+        required: true
+        description: The semver version of yggdrasilffi you want to embed in java-engine (major.minor.version). No prefix supported
 
 jobs:
 
@@ -9,11 +14,21 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+      - name: Update yggdrasil version
+        shell: bash
+        working-directory: ./java-engine
+        run: |
+          sed -i -E "s/^(yggdrasilCoreVersion=).*/\1${{ github.event.inputs.yggdrasilVersion }}/" gradle.properties
+      - name: Download binaries
+        shell: bash
+        working-directory: ./java-engine
+        run: |
+          gh release download "yggdrasilffi-v${{ inputs.yggdrasilVersion }}" --repo Unleash/yggdrasil-bindings -D binaries/
       - name: Publish to Maven Central Portal
+        working-directory: ./java-engine
         env:
           ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_PRIVATE_KEY }}
           ORG_GRADLE_PROJECT_signingPassphrase: ${{ secrets.GPG_PASSPHRASE }}
           ORG_GRADLE_PROJECT_mavenCentralToken: ${{ secrets.MAVEN_CENTRAL_TOKEN }}
         run: |
-          cd java-engine
           ./gradlew publishToMavenCentralPortal
