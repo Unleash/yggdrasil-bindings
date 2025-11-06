@@ -145,11 +145,17 @@ jobs:
         if: startsWith(matrix.target, 'x86_64-unknown-linux-musl') || startsWith(matrix.target, 'aarch64-unknown-linux-musl')
         run: cargo zigbuild -p yggdrasilffi --release --target ${{ matrix.target }};
 
+      - name: Rename binary
+        shell: bash
+        run: |
+          mkdir -p upload
+          cp target/${{ matrix.target }}/release/${{ matrix.output }} upload/${{ matrix.name }}
+
       - name: Upload asset
         uses: actions/upload-artifact@v5
         with:
           name: ${{ matrix.name }}
-          path: target/${{ matrix.target }}/release/${{ matrix.output }}
+          path: upload/${{ matrix.name }}
           if-no-files-found: 'error'
           retention-days: 3
 
