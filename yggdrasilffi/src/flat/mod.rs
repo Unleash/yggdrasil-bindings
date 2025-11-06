@@ -100,6 +100,9 @@ pub extern "C" fn flat_buf_free(buf: Buf) {
 }
 
 #[no_mangle]
+/// # Safety
+///
+/// Should only be called from the thread that created the engine, to ensure the engine pointer is valid
 pub unsafe fn flat_take_state(engine_pointer: *mut c_void, toggles_pointer: *const c_char) -> Buf {
     let result = guard_result::<TakeStateResult, _>(|| {
         let guard = get_engine(engine_pointer)?;
@@ -149,7 +152,9 @@ pub unsafe fn flat_take_state(engine_pointer: *mut c_void, toggles_pointer: *con
 }
 
 #[no_mangle]
-/// safety: should only be called from the same thread that created the engine
+/// # Safety
+///
+/// should only be called from the same thread that created the engine
 pub unsafe extern "C" fn flat_check_enabled(
     engine_ptr: *mut c_void,
     message_ptr: u64,
@@ -179,7 +184,11 @@ pub unsafe extern "C" fn flat_check_enabled(
 
     Response::build_response(enabled)
 }
-
+/// Evaluates the variant for the requested feature toggle contained in the ContextMessage
+///
+/// # Safety
+///
+/// Both engine pointer and the message pointer is not verified, so it's the responsibility of the caller to pass in valid pointers here
 #[no_mangle]
 pub unsafe extern "C" fn flat_check_variant(
     engine_ptr: *mut c_void,
@@ -212,6 +221,11 @@ pub unsafe extern "C" fn flat_check_variant(
     Variant::build_response(variant)
 }
 
+/// Get the list of toggles the engine knows about.
+///
+/// # Safety
+///
+/// Engine pointer must be valid or you'll face UB
 #[no_mangle]
 pub unsafe extern "C" fn flat_list_known_toggles(engine_ptr: *mut c_void) -> Buf {
     let toggles = guard_result::<Vec<ToggleDefinition>, _>(|| {
@@ -226,11 +240,20 @@ pub unsafe extern "C" fn flat_list_known_toggles(engine_ptr: *mut c_void) -> Buf
     }
 }
 
+///
+/// Returns a list of built-in strategies
+///
 #[no_mangle]
-pub unsafe extern "C" fn flat_built_in_strategies() -> Buf {
+pub extern "C" fn flat_built_in_strategies() -> Buf {
     BuiltInStrategies::build_response(KNOWN_STRATEGIES)
 }
 
+/// Get the accumulated metrics for the current bucket
+///
+/// # Safety
+///
+/// This is inherently unsafe, and callers will need to make sure the engine pointer is valid or risk UB
+///
 #[no_mangle]
 pub unsafe extern "C" fn flat_get_metrics(engine_pointer: *mut c_void) -> Buf {
     let result = guard_result::<MetricBucket, _>(|| {

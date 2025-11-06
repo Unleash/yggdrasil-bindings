@@ -270,7 +270,7 @@ pub extern "system" fn Java_io_getunleash_engine_NativeBridge_flatBufFree(
             .map_err(|e| format!("get_direct_buffer_address: {e}"))?;
         let len = env
             .get_direct_buffer_capacity(&bb)
-            .map_err(|e| format!("get_direct_buffer_capacity: {e}"))? as usize;
+            .map_err(|e| format!("get_direct_buffer_capacity: {e}"))?;
 
         // COMPUTE
         if len == 0 {
