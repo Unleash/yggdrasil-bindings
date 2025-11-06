@@ -161,6 +161,7 @@ jobs:
 
   upload_to_release:
     needs:
+      - create-tag-and-release
       - build
     runs-on: ubuntu-latest
     steps:
@@ -178,6 +179,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          TAG="${{ create-tag-and-release.outputs.full_tag }}"
+          TAG="${{ needs.create-tag-and-release.outputs.full_tag }}"
           gh release upload "$TAG" assets/* --clobber
 
