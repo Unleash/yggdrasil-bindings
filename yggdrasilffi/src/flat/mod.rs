@@ -42,6 +42,10 @@ mod messaging {
     include!("enabled-message_generated.rs");
 }
 
+///
+/// # Safety
+///
+/// Must be freed on the calling side, we forget this in order to be able to pass it back to the caller
 unsafe fn get_engine(engine_ptr: *mut c_void) -> Result<ManagedEngine, FlatError> {
     if engine_ptr.is_null() {
         return Err(FlatError::NullError);
@@ -103,6 +107,7 @@ pub extern "C" fn flat_buf_free(buf: Buf) {
 /// # Safety
 ///
 /// Should only be called from the thread that created the engine, to ensure the engine pointer is valid
+/// The return value should also be freed using flat_buf_free
 pub unsafe fn flat_take_state(engine_pointer: *mut c_void, toggles_pointer: *const c_char) -> Buf {
     let result = guard_result::<TakeStateResult, _>(|| {
         let guard = get_engine(engine_pointer)?;
@@ -154,7 +159,8 @@ pub unsafe fn flat_take_state(engine_pointer: *mut c_void, toggles_pointer: *con
 #[no_mangle]
 /// # Safety
 ///
-/// should only be called from the same thread that created the engine
+/// passing an invalid engine_ptr, message_ptr or message_len will cause UB
+/// the returned Buf should be freed by calling flat_buf_free, otherwise you're leaking memory
 pub unsafe extern "C" fn flat_check_enabled(
     engine_ptr: *mut c_void,
     message_ptr: u64,
@@ -188,7 +194,8 @@ pub unsafe extern "C" fn flat_check_enabled(
 ///
 /// # Safety
 ///
-/// Both engine pointer and the message pointer is not verified, so it's the responsibility of the caller to pass in valid pointers here
+/// passing an invalid engine_ptr, message_ptr or message_len will cause UB
+/// the returned Buf should be freed by calling flat_buf_free, otherwise you're leaking memory
 #[no_mangle]
 pub unsafe extern "C" fn flat_check_variant(
     engine_ptr: *mut c_void,
@@ -225,7 +232,8 @@ pub unsafe extern "C" fn flat_check_variant(
 ///
 /// # Safety
 ///
-/// Engine pointer must be valid or you'll face UB
+/// passing an invalid engine_ptr will cause UB
+/// the returned Buf should be freed by calling flat_buf_free, otherwise you're leaking memory
 #[no_mangle]
 pub unsafe extern "C" fn flat_list_known_toggles(engine_ptr: *mut c_void) -> Buf {
     let toggles = guard_result::<Vec<ToggleDefinition>, _>(|| {
@@ -243,8 +251,11 @@ pub unsafe extern "C" fn flat_list_known_toggles(engine_ptr: *mut c_void) -> Buf
 ///
 /// Returns a list of built-in strategies
 ///
+/// # Safety
+///
+/// the returned Buf should be freed by calling flat_buf_free, otherwise you're leaking memory
 #[no_mangle]
-pub extern "C" fn flat_built_in_strategies() -> Buf {
+pub unsafe extern "C" fn flat_built_in_strategies() -> Buf {
     BuiltInStrategies::build_response(KNOWN_STRATEGIES)
 }
 
@@ -252,7 +263,8 @@ pub extern "C" fn flat_built_in_strategies() -> Buf {
 ///
 /// # Safety
 ///
-/// This is inherently unsafe, and callers will need to make sure the engine pointer is valid or risk UB
+/// passing an invalid engine_ptr will cause UB
+/// the returned Buf should be freed by calling flat_buf_free, otherwise you're leaking memory
 ///
 #[no_mangle]
 pub unsafe extern "C" fn flat_get_metrics(engine_pointer: *mut c_void) -> Buf {
