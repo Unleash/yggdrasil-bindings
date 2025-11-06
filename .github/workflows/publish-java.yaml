@@ -8,21 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install rust
-        run: |
-          rustup set auto-self-update disable
-          rustup toolchain install stable --profile default
-          rustup show
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-      - name: Install wasm-target
-        run: rustup target add wasm32-unknown-unknown
-      - name: Build yggdrasil wasm
-        working-directory: pure-wasm
-        run: cargo build --release --target wasm32-unknown-unknown
-
+      - uses: actions/checkout@v5
       - name: Publish to Maven Central Portal
         env:
           ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_PRIVATE_KEY }}
