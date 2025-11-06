@@ -1,8 +1,9 @@
 package io.getunleash.engine;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 
 public class ResourceReader {
   public static String readResourceAsString(String resourceName) throws IOException {
@@ -10,6 +11,10 @@ public class ResourceReader {
     if (resourceUrl == null) {
       throw new IllegalArgumentException("Resource not found: " + resourceName);
     }
-    return Files.readString(Paths.get(resourceUrl.getPath()));
+    try {
+      return Files.readString(Path.of(resourceUrl.toURI()));
+    } catch (URISyntaxException use) {
+      throw new IOException("Incorrect URI: " + resourceUrl);
+    }
   }
 }
