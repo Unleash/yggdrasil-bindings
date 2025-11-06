@@ -448,7 +448,7 @@ class UnleashEngineTest {
     Instant stop = bucket.getStop();
     ZonedDateTime utcStop = stop.atZone(ZoneOffset.UTC);
 
-    assertThat(utcStart).isBeforeOrEqualTo (now);
+    assertThat(utcStart).isBeforeOrEqualTo(now);
     assertThat(utcStart.plusMinutes(1)).isAfter(now);
     assertThat(utcStop).isBeforeOrEqualTo(now);
     assertThat(utcStop.plusMinutes(1)).isAfter(now);
