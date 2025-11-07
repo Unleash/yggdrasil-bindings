@@ -1,10 +1,10 @@
 # Java Bindings to Yggdrasil
 
-This project provides a pure Java wrapper for the Yggdrasil engine, built on top of a compiled [WebAssembly core](../pure-wasm). It requires **no native libraries or JNI**, and runs entirely within the JVM using a WASM runtime.
+This project provides a Java wrapper for the Yggdrasil engine, built on top of a native library and hooked together using JNI.
 
 ## ☕ Overview
 
-The Java Engine embeds the Yggdrasil WASM core using [Chicory](https://github.com/dylibso/chicory), providing full engine functionality with no external dependencies. It enables evaluation of feature toggles, variants, and gradual rollouts directly from Java code.
+The Java Engine embeds the Yggdrasil engine using Flatbuffers to communicate with the core.
 
 ## Usage
 
@@ -36,9 +36,9 @@ Once the engine is initialized, you can evaluate toggles using the isEnabled or 
 Context context = new Context();
 context.setUserId("user-123");
 
-WasmResponse<Boolean> enabledResponse = engine.isEnabled("some-toggle", context);
+FlatResponse<Boolean> enabledResponse = engine.isEnabled("some-toggle", context);
 
-if (Boolean.TRUE.equals(enabledResponse.getValue())) {
+if (Boolean.TRUE.equals(enabledResponse.value)) {
     // Feature is enabled for this context
 }
 
@@ -46,10 +46,10 @@ if(enabledResponse.impressionData) {
     // Impression data has been enabled in Unleash
 }
 
-WasmResponse<VariantDef> response = this.featureRepository.getVariant("some-toggle-with-variants", context);
+FlatResponse<VariantDef> response = this.featureRepository.getVariant("some-toggle-with-variants", context);
 
-VariantDef variant = response.getValue();
-if (variantResult.getValue() != null) {
+VariantDef variant = response.value;
+if (variant != null) {
     // do something with the variant
 }
 ```
@@ -81,10 +81,10 @@ The engine provides a few methods to retrieve some static metadata about what it
 You can query the version of the underlying Yggdrasil engine, which will return a semver string:
 
 ``` java
-String version = UnleashEngine.getCoreVersion(); //1.2.1
+String version = UnleashEngine.getCoreVersion(); //0.18.1
 ```
 
-You can also retrieve the list of built in strategies that the engine is aware of:
+You can also retrieve the list of built-in strategies that the engine is aware of:
 
 ``` java
 List<String> strategies = UnleashEngine.getBuiltInStrategies();
@@ -97,7 +97,7 @@ List<String> strategies = UnleashEngine.getBuiltInStrategies();
 
 To work with this project, you’ll need:
 
-- The Yggdrasil WASM binary (compiled with Rust)
+- The Yggdrasil flatbuffer binary (compiled with Rust)
 - [flatc version 25.2.10](https://github.com/google/flatbuffers/releases/tag/v25.2.10) for regenerating the Java FlatBuffer bindings
 
 ### Linting
@@ -108,7 +108,7 @@ To work with this project, you’ll need:
 
 ### Testing
 
-The WASM library is automatically built on running tests but you'll need to make sure that you've set up the [WASM build correctly](../pure-wasm/README.md). We use Gradle here, tests can be invoked with:
+The FFI library is automatically built on running tests but you'll need to make sure that you've set up the [FFI build correctly](../yggdrasilffi/README.md). We use Gradle here, tests can be invoked with:
 
 ``` bash
 ./gradlew test
@@ -116,18 +116,18 @@ The WASM library is automatically built on running tests but you'll need to make
 
 ### FlatBuffer Bindings
 
-The Java engine uses FlatBuffers for communication with the WASM core. If you make changes to the data interchange format, regenerate the bindings like this:
+The Java engine uses FlatBuffers for communication with the engine core. If you make changes to the data interchange format, regenerate the bindings like this:
 
 ``` bash
-flatc --java -o java-engine/src/main/java flat-buffer-defs/enabled-message.fbs
+flatc --java --java-package-prefix "io.getunleash" -o java-engine/src/main/java flat-buffer-defs/enabled-message.fbs
 
 ```
 
-You'll need to update the [WASM](../pure-wasm/) code as well to handle any changes you make to the FlatBuffer definitions.
+You'll need to update the [FFI](../yggdrasilffi/) code as well to handle any changes you make to the FlatBuffer definitions.
 
 ### Building a JAR for Testing
 
-You may want to build a JAR for linking to a local project for testing. To do this, make sure you've followed the [instructions for building](../pure-wasm/README.md) the WASM code.
+You may want to build a JAR for linking to a local project for testing. To do this, make sure you've followed the [instructions for building](../yggdrasilffi/README.md) the FFI code.
 
 You can then run the local publish
 
