@@ -108,7 +108,7 @@ To work with this project, you’ll need:
 
 ### Testing
 
-The Flatbuffer library is automatically built on running tests but you'll need to make sure that you've set up the [WASM build correctly](../yggdrasilffi/README.md). We use Gradle here, tests can be invoked with:
+The FFI library is automatically built on running tests but you'll need to make sure that you've set up the [FFI build correctly](../yggdrasilffi/README.md). We use Gradle here, tests can be invoked with:
 
 ``` bash
 ./gradlew test
