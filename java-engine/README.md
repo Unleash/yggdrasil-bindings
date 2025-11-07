@@ -4,7 +4,7 @@ This project provides a pure Java wrapper for the Yggdrasil engine, built on top
 
 ## ☕ Overview
 
-The Java Engine embeds the Yggdrasil engine using Flatbuffers to communicate core.
+The Java Engine embeds the Yggdrasil engine using Flatbuffers to communicate with the core.
 
 ## Usage
 
