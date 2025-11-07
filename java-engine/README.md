@@ -38,7 +38,7 @@ context.setUserId("user-123");
 
 FlatResponse<Boolean> enabledResponse = engine.isEnabled("some-toggle", context);
 
-if (Boolean.TRUE.equals(enabledResponse.getValue())) {
+if (Boolean.TRUE.equals(enabledResponse.value)) {
     // Feature is enabled for this context
 }
 
@@ -48,7 +48,7 @@ if(enabledResponse.impressionData) {
 
 FlatResponse<VariantDef> response = this.featureRepository.getVariant("some-toggle-with-variants", context);
 
-VariantDef variant = response.getValue();
+VariantDef variant = response.value;
 if (variant != null) {
     // do something with the variant
 }
@@ -81,7 +81,7 @@ The engine provides a few methods to retrieve some static metadata about what it
 You can query the version of the underlying Yggdrasil engine, which will return a semver string:
 
 ``` java
-String version = UnleashEngine.getCoreVersion(); //1.2.1
+String version = UnleashEngine.getCoreVersion(); //0.18.1
 ```
 
 You can also retrieve the list of built-in strategies that the engine is aware of:
