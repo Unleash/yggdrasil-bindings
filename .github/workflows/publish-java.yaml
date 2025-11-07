@@ -57,6 +57,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release download "yggdrasilffi-v${{ steps.read_ygg.outputs.ygg_version }}" --repo Unleash/yggdrasil-bindings -D binaries/
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: 21
+          cache: 'gradle'
+          distribution: 'temurin'
       - name: Publish to Maven Central Portal
         working-directory: ./java-engine
         env:
