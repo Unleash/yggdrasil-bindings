@@ -72,7 +72,7 @@ jobs:
         run: |
           ./gradlew publishToMavenCentralPortal
       - name: Make a tag for the java release
-        uses: actions/github-script@v5
+        uses: actions/github-script@v8
         with:
           script: |
             github.rest.git.createRef({
