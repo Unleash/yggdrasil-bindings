@@ -13,6 +13,7 @@ jobs:
       - name: Read yggdrasilCoreVersion from gradle.properties
         id: read_ygg
         shell: bash
+        working-directory: "./java-engine"
         run: |
           # Grab the last non-comment match in case the file has multiple entries
           line="$(grep -E '^[[:space:]]*yggdrasilCoreVersion[[:space:]]*=' gradle.properties | tail -n1 || true)"
@@ -33,6 +34,8 @@ jobs:
       - name: Download binaries
         shell: bash
         working-directory: ./java-engine
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh release download "yggdrasilffi-v${{ steps.read_ygg.outputs.ygg_version }}" --repo Unleash/yggdrasil-bindings -D binaries/
       - name: Publish to Maven Central Portal
