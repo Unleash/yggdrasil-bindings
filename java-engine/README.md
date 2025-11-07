@@ -1,6 +1,6 @@
 # Java Bindings to Yggdrasil
 
-This project provides a pure Java wrapper for the Yggdrasil engine, built on top of a native library and hooked together using JNI**.
+This project provides a pure Java wrapper for the Yggdrasil engine, built on top of a native library and hooked together using JNI.
 
 ## ☕ Overview
 
