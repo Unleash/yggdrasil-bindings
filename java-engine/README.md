@@ -49,7 +49,7 @@ if(enabledResponse.impressionData) {
 FlatResponse<VariantDef> response = this.featureRepository.getVariant("some-toggle-with-variants", context);
 
 VariantDef variant = response.getValue();
-if (variantResult.getValue() != null) {
+if (variant != null) {
     // do something with the variant
 }
 ```
