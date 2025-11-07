@@ -81,12 +81,3 @@ jobs:
             ref: 'refs/tags/java-engine-v${{ steps.read_java_engine.outputs.java_version }}',
             sha: context.sha
             })
-      - name: Create a release from the tag
-        uses: actions/create-release@latest
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          tag_name: java-engine-v${{ steps.read_java_engine.outputs.java_version }}
-          release_name: Java engine ${{ steps.read_java_engine.outputs.java_version }}
-          draft: false
-          prerelease: false
