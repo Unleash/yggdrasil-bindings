@@ -30,7 +30,26 @@ jobs:
           value="${value%$'\r'}"
 
           echo "ygg_version=$value" >> "$GITHUB_OUTPUT"
-
+      - name: Read java library version from gradle.properties
+        id: read_java_engine
+        shell: bash
+        working-directory: ./java-engine
+        run: |
+          # Grab the last non-comment match in case the file has multiple entries
+          line="$(grep -E '^[[:space:]]*version[[:space:]]*=' gradle.properties | tail -n1 || true)"
+          if [ -z "$line" ]; then
+            echo "version not found in gradle.properties" >&2
+            exit 1
+          fi
+          
+          # Extract the value (right side of =) and trim whitespace/CRLF
+          value="${line#*=}"
+          # trim leading/trailing spaces
+          value="$(printf '%s' "$value" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+          # strip possible CR from Windows checkouts
+          value="${value%$'\r'}"
+          
+          echo "java_version=$value" >> "$GITHUB_OUTPUT"
       - name: Download binaries
         shell: bash
         working-directory: ./java-engine
@@ -46,3 +65,22 @@ jobs:
           ORG_GRADLE_PROJECT_mavenCentralToken: ${{ secrets.MAVEN_CENTRAL_TOKEN }}
         run: |
           ./gradlew publishToMavenCentralPortal
+      - name: Make a tag for the java release
+        uses: actions/github-script@v5
+        with:
+          script: |
+            github.rest.git.createRef({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: 'refs/tags/java-engine-v${{ steps.read_java_engine.outputs.java_version }}'
+            sha: context.sha
+            })
+      - name: Create a release from the tag
+        uses: actions/create-release@latest
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          tag_name: java-engine-v${{ steps.read_java_engine.outputs.java_version }}
+          release_name: Java engine ${{ steps.read_java_engine.outputs.java_version }}
+          draft: false
+          prerelease: false
