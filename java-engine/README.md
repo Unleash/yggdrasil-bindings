@@ -127,7 +127,7 @@ You'll need to update the [FFI](../yggdrasilffi/) code as well to handle any cha
 
 ### Building a JAR for Testing
 
-You may want to build a JAR for linking to a local project for testing. To do this, make sure you've followed the [instructions for building](../pure-wasm/README.md) the WASM code.
+You may want to build a JAR for linking to a local project for testing. To do this, make sure you've followed the [instructions for building](../yggdrasilffi/README.md) the FFI code.
 
 You can then run the local publish
 
