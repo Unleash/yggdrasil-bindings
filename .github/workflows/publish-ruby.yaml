@@ -53,7 +53,10 @@ jobs:
         working-directory: ./ruby-engine
         shell: bash
         run: |
-          gh release download "yggdrasilffi-v${{ needs.extract_versions.outputs.core_version }}" --repo "Unleash/yggdrasil-bindings" --pattern="${{ matrix.binary }}" -D lib/
+          if ! gh release download "yggdrasilffi-v${{ needs.extract_versions.outputs.core_version }}" --repo "Unleash/yggdrasil-bindings" --pattern="${{ matrix.binary }}" -D lib/; then
+            echo "Error: Failed to download ${{ matrix.binary }} from release"
+            exit 1
+          fi
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
