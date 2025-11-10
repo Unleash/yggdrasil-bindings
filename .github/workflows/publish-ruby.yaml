@@ -22,8 +22,6 @@ jobs:
   build_single_binary_gems:
     needs: extract_versions
     runs-on: ubuntu-latest
-    outputs:
-      engine_version: ${{ steps.read_gem_data.outputs.ENGINE_VERSION }}
     strategy:
       matrix:
         include:
