@@ -15,10 +15,7 @@ jobs:
         id: read_gem_data
         working-directory: ./ruby-engine
         run: |
-          ENGINE_VERSION=$(ruby -e "puts Gem::Specification.load('yggdrasil-engine.gemspec').version")
-          CORE_VERSION=$(ruby -e "puts Gem::Specification.load('yggdrasil-engine.gemspec').metadata['yggdrasil_core_version']")
-          echo "ENGINE_VERSION=${ENGINE_VERSION}" >> $GITHUB_OUTPUT
-          echo "CORE_VERSION=${CORE_VERSION}" >> $GITHUB_OUTPUT
+          ruby -e "spec = Gem::Specification.load('yggdrasil-engine.gemspec'); puts \"ENGINE_VERSION=#{spec.version}\"; puts \"CORE_VERSION=#{spec.metadata['yggdrasil_core_version']}\"" >> $GITHUB_OUTPUT
   build_single_binary_gems:
     needs: extract_versions
     runs-on: ubuntu-latest
