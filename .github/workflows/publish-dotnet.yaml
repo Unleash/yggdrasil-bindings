@@ -48,3 +48,13 @@ jobs:
         run: |
           cd dotnet-engine
           dotnet nuget push Yggdrasil.Engine/bin/Release/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }}
+      - name: Make a tag for the dotnet release
+        uses: actions/github-script@v8
+        with:
+          script: |
+            github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'refs/tags/dotnet-engine-v$CORE_VERSION',
+              sha: context.sha
+            })
