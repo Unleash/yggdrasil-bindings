@@ -114,7 +114,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download "yggdrasilffi-v${{ needs.extract_versions.outputs.CORE_VERSION }}" --repo Unleash/yggdrasil-bindings -D lib/
+          gh release download "yggdrasilffi-v${{ needs.extract_versions.outputs.core_version }}" --repo Unleash/yggdrasil-bindings -D lib/
       - name: Build JRuby Gem
         run: |
           gem build yggdrasil-engine.gemspec
