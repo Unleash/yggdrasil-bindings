@@ -36,6 +36,7 @@ jobs:
           CORE_VERSION=$(python3 -c "import yggdrasil_engine;print(yggdrasil_engine.__yggdrasil_core_version__)")
           echo "FFI Library Version: $CORE_VERSION"
           echo "CORE_VERSION=$CORE_VERSION" >> $GITHUB_ENV
+          echo "CORE_VERSION=$CORE_VERSION" >> $GITHUB_OUTPUT
 
       - name: Extract Python engine version
         id: extract_engine_version
@@ -44,7 +45,7 @@ jobs:
         run: |
           ENGINE_VERSION=$(poetry version -s)
           echo "Python Engine Version: $ENGINE_VERSION"
-          echo "ENGINE_VERSION=$ENGINE_VERSION" >> $GITHUB_ENV
+          echo "ENGINE_VERSION=$ENGINE_VERSION" >> $GITHUB_OUTPUT
 
       - name: Download binaries
         working-directory: ./python-engine
