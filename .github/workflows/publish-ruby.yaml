@@ -112,7 +112,7 @@ jobs:
         working-directory: ./ruby-engine
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           gh release download "yggdrasilffi-v${{ needs.extract_versions.outputs.core_version }}" --repo Unleash/yggdrasil-bindings -D lib/
       - name: Build JRuby Gem
