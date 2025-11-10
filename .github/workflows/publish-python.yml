@@ -37,6 +37,15 @@ jobs:
           echo "FFI Library Version: $CORE_VERSION"
           echo "CORE_VERSION=$CORE_VERSION" >> $GITHUB_ENV
 
+      - name: Extract Python engine version
+        id: extract_engine_version
+        working-directory: ./python-engine
+        shell: bash
+        run: |
+          ENGINE_VERSION=$(poetry version -s)
+          echo "Python Engine Version: $ENGINE_VERSION"
+          echo "ENGINE_VERSION=$ENGINE_VERSION" >> $GITHUB_ENV
+
       - name: Download binaries
         working-directory: ./python-engine
         env:
@@ -56,3 +65,13 @@ jobs:
         env:
           TWINE_USERNAME: '__token__'
           TWINE_PASSWORD: ${{ secrets.PYPI_PUBLISH_KEY }}
+      - name: Create tag
+        uses: actions/github-script@v8
+        with:
+          script: |
+            github.rest.git.createRef({
+              owner: github.context.repo.owner,
+              repo: github.context.repo.repo,
+              ref: `refs/tags/python-engine-v${{ steps.extract_engine_version.outputs.ENGINE_VERSION }}`,
+              sha: github.context.sha,
+            });
