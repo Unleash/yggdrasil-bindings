@@ -152,7 +152,7 @@ jobs:
           GEM_HOST_API_KEY: ${{ secrets.GEMS_PUBLISH_KEY }}
   tag_repo:
     runs-on: ubuntu-latest
-    needs: [extract_versions,publish_gems, build_single_binary_gems, build_jruby_gems]
+    needs: [extract_versions, publish_gems, build_single_binary_gems, build_jruby_gems]
     steps:
       - uses: actions/checkout@v5
         name: Checkout repository
