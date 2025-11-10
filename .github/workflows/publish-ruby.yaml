@@ -56,7 +56,7 @@ jobs:
         working-directory: ./ruby-engine
         shell: bash
         run: |
-          gh release download "yggdrasilffi-v${{ needs.extract_versions.outputs.CORE_VERSION }}" --repo "Unleash/yggdrasil-bindings" --pattern="${{ matrix.binary }}" -D lib/
+          gh release download "yggdrasilffi-v${{ needs.extract_versions.outputs.core_version }}" --repo "Unleash/yggdrasil-bindings" --pattern="${{ matrix.binary }}" -D lib/
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
