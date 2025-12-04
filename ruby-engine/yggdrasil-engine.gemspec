@@ -13,5 +13,5 @@ Gem::Specification.new do |s|
   s.license = 'MIT'
   s.add_dependency "ffi", "~> 1.17.2"
   s.platform = target_platform.call
-  s.metadata["yggdrasil_core_version"] = '0.18.1'
+  s.metadata["yggdrasil_core_version"] = '0.18.2'
 end
