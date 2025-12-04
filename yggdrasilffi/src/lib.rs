@@ -17,6 +17,8 @@ use unleash_yggdrasil::{
     ToggleDefinition, UpdateMessage, CORE_VERSION, KNOWN_STRATEGIES,
 };
 
+pub mod flat;
+
 static CORE_VERSION_CSTRING: std::sync::LazyLock<CString> =
     std::sync::LazyLock::new(|| CString::new(CORE_VERSION).expect("CString::new failed"));
 
@@ -153,7 +155,7 @@ unsafe fn get_engine(engine_ptr: *mut c_void) -> Result<ManagedEngine, FFIError>
     Ok(cloned_arc)
 }
 
-fn recover_lock<T>(lock: &Mutex<T>) -> MutexGuard<T> {
+fn recover_lock<T>(lock: &Mutex<T>) -> MutexGuard<'_, T> {
     match lock.lock() {
         Ok(guard) => guard,
         Err(poisoned) => poisoned.into_inner(),
@@ -458,7 +460,7 @@ pub unsafe extern "C" fn should_emit_impression_event(
         let guard = get_engine(engine_ptr)?;
         let engine = recover_lock(&guard);
 
-        let toggle_name = get_str(toggle_name_ptr)?;
+        let toggle_name = unsafe { get_str(toggle_name_ptr)? };
 
         Ok(Some(engine.should_emit_impression_event(toggle_name)))
     });

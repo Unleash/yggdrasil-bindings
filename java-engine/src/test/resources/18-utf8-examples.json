@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "features": [
+    {
+      "name": "Feature.UTF-8.Hellø_Wørld",
+      "description": "Enabled toggle",
+      "enabled": true,
+      "strategies": [
+        {
+          "name": "default"
+        }
+      ]
+    },
+    {
+      "name": "Feature.UTF-8.\uD83D\uDE0A_φriend_你好_\uD83C\uDF0D",
+      "description": "Disabled toggle",
+      "enabled": true,
+      "strategies": [
+        {
+          "name": "default"
+        }
+      ]
+    }
+  ]
+}

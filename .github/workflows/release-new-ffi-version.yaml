@@ -1,9 +1,6 @@
 name: Release FFI and Upload Binaries
 
 on:
-  push:
-    tags:
-      - yggdrasilffi-v*
   workflow_dispatch:
     inputs:
       tag:
@@ -72,8 +69,8 @@ jobs:
           name: Release ${{ steps.tag.outputs.full_tag }}
           body: ${{ steps.changelog.outputs.changelog }}
 
-  build-and-upload:
-    name: Build + Upload Binaries
+  build:
+    name: Build Binary for ${{ matrix.target }} - ${{ matrix.name }}
     needs: [create-tag-and-release]
     runs-on: ${{ matrix.os }}
     strategy:
@@ -83,7 +80,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
             output: libyggdrasilffi.so
             name: libyggdrasilffi_x86_64.so
-          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             output: libyggdrasilffi.so
             name: libyggdrasilffi_arm64.so
@@ -91,7 +88,7 @@ jobs:
             target: x86_64-unknown-linux-musl
             output: libyggdrasilffi.so
             name: libyggdrasilffi_x86_64-musl.so
-          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-musl
             output: libyggdrasilffi.so
             name: libyggdrasilffi_arm64-musl.so
@@ -148,46 +145,40 @@ jobs:
         if: startsWith(matrix.target, 'x86_64-unknown-linux-musl') || startsWith(matrix.target, 'aarch64-unknown-linux-musl')
         run: cargo zigbuild -p yggdrasilffi --release --target ${{ matrix.target }};
 
-      - name: Rename Output Binary
+      - name: Rename binary
+        shell: bash
         run: |
-          mv target/${{ matrix.target }}/release/${{ matrix.output }} target/${{ matrix.target }}/release/${{ matrix.name }}
+          mkdir -p upload
+          cp target/${{ matrix.target }}/release/${{ matrix.output }} upload/${{ matrix.name }}
 
-      - name: Set Tag Name
-        id: tag
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "tag=${{ needs.create-tag-and-release.outputs.full_tag }}" >> $GITHUB_ENV
-          else
-            echo "tag=${GITHUB_REF##*/}" >> $GITHUB_ENV
-            echo "tag=${GITHUB_REF##*/}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Get Release Upload URL by Tag
-        id: get_release
-        uses: actions/github-script@v5
+      - name: Upload asset
+        uses: actions/upload-artifact@v5
         with:
-          script: |
-            const tag = process.env.tag;
-            console.log(`Looking for release with tag: ${tag}`);
-            const { data: releases } = await github.rest.repos.listReleases({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            });
-            const release = releases.find(r => r.tag_name === tag);
-            if (release) {
-              core.setOutput("upload_url", release.upload_url);
-            } else {
-              throw new Error(`Release with tag ${tag} not found.`);
-            }
-          result-encoding: json
+          name: ${{ matrix.name }}
+          path: upload/${{ matrix.name }}
+          if-no-files-found: 'error'
+          retention-days: 3
 
-      - name: Upload Binary to Release
-        if: ${{ steps.get_release.outputs.upload_url }}
-        uses: actions/upload-release-asset@v1
+  upload_to_release:
+    needs:
+      - create-tag-and-release
+      - build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v5
         with:
-          upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_path: target/${{ matrix.target }}/release/${{ matrix.name }}
-          asset_name: "${{ matrix.name }}"
-          asset_content_type: application/octet-stream
+          path: assets/
+          merge-multiple: true
+      - name: Show me what you got
+        run: ls -lah assets/
+      - name: Upload assets to release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          TAG="${{ needs.create-tag-and-release.outputs.full_tag }}"
+          gh release upload "$TAG" assets/* --clobber
+
