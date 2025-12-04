@@ -3,8 +3,21 @@ on:
   workflow_dispatch:
 
 jobs:
-
+  extract_versions:
+    runs-on: ubuntu-latest
+    outputs:
+      engine_version: ${{ steps.read_gem_data.outputs.ENGINE_VERSION }}
+      core_version: ${{ steps.read_gem_data.outputs.CORE_VERSION }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v5
+      - name: Extract Yggdrasil Engine Version
+        id: read_gem_data
+        working-directory: ./ruby-engine
+        run: |
+          ruby -e "unless File.exist?('yggdrasil-engine.gemspec'); STDERR.puts 'ERROR: yggdrasil-engine.gemspec not found'; exit 1; end; spec = Gem::Specification.load('yggdrasil-engine.gemspec'); unless spec; STDERR.puts 'ERROR: Failed to load gemspec'; exit 1; end; puts \"ENGINE_VERSION=#{spec.version}\"; puts \"CORE_VERSION=#{spec.metadata['yggdrasil_core_version']}\"" >> $GITHUB_OUTPUT
   build_single_binary_gems:
+    needs: extract_versions
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -29,37 +42,23 @@ jobs:
             platform: arm64-darwin
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+        name: Checkout repository
 
       - name: Overwrite Build Platform
         if: matrix.platform != ''
         run: echo "YGG_BUILD_PLATFORM=${{ matrix.platform }}" >> $GITHUB_ENV
 
-      - name: Extract Yggdrasil Core Version
-        run: |
-          cd ruby-engine
-          CORE_VERSION=$(ruby -e "puts Gem::Specification.load('yggdrasil-engine.gemspec').metadata['yggdrasil_core_version']")
-          echo "FFI Library Version: $CORE_VERSION"
-          echo "CORE_VERSION=$CORE_VERSION" >> $GITHUB_ENV
-
       - name: Download Binary
+        working-directory: ./ruby-engine
+        shell: bash
         run: |
-          BINARY_URL="https://github.com/${{ github.repository }}/releases/download/unleash-yggdrasil-v${CORE_VERSION}/${{ matrix.binary }}"
-          TARGET_DIR="ruby-engine/lib"
-
-          mkdir -p "$TARGET_DIR"
-          curl -L -o "$TARGET_DIR/${{ matrix.binary }}" \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            "$BINARY_URL"
-
-          if [ -f "$TARGET_DIR/${{ matrix.binary }}" ]; then
-            echo "${{ matrix.binary }} downloaded successfully to $TARGET_DIR."
-          else
-            echo "Error: ${{ matrix.binary }} could not be downloaded."
+          if ! gh release download "yggdrasilffi-v${{ needs.extract_versions.outputs.core_version }}" --repo "Unleash/yggdrasil-bindings" --pattern="${{ matrix.binary }}" -D lib/; then
+            echo "Error: Failed to download ${{ matrix.binary }} from release"
             exit 1
           fi
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
 
       - name: Build Gem
         run: |
@@ -84,6 +83,7 @@ jobs:
 
   build_jruby_gems:
     runs-on: ubuntu-latest
+    needs: extract_versions
     strategy:
       matrix:
         include:
@@ -95,10 +95,10 @@ jobs:
             ruby: jruby-9.4
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -108,57 +108,19 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby }}
 
-      - name: Extract Yggdrasil Core Version
-        run: |
-          cd ruby-engine
-          CORE_VERSION=$(ruby -e "puts Gem::Specification.load('yggdrasil-engine.gemspec').metadata['yggdrasil_core_version']")
-          echo "FFI Library Version: $CORE_VERSION"
-          echo "CORE_VERSION=$CORE_VERSION" >> $GITHUB_ENV
-
-      - name: Set up Binary List
-        run: |
-          # List of binaries we want to download
-          binaries=(
-            "libyggdrasilffi_x86_64.so"
-            "libyggdrasilffi_arm64.so"
-            "libyggdrasilffi_x86_64-musl.so"
-            "libyggdrasilffi_arm64-musl.so"
-            "yggdrasilffi_x86_64.dll"
-            "yggdrasilffi_arm64.dll"
-            "libyggdrasilffi_x86_64.dylib"
-            "libyggdrasilffi_arm64.dylib"
-          )
-          echo "binaries=${binaries[@]}" >> $GITHUB_ENV
-
-      - name: Download All Binaries
+      - name: Download binaries
+        working-directory: ./ruby-engine
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          TARGET_DIR="ruby-engine/lib"
-          mkdir -p "$TARGET_DIR"
-
-          # Loop through each binary and download it
-          for binary in ${binaries[@]}; do
-            echo "Downloading $binary..."
-            curl -L -o "$TARGET_DIR/$binary" \
-              -H "Authorization: token $GITHUB_TOKEN" \
-              "https://github.com/${{ github.repository }}/releases/download/unleash-yggdrasil-v${CORE_VERSION}/$binary"
-
-            if [ -f "$TARGET_DIR/$binary" ]; then
-              echo "$binary downloaded successfully."
-            else
-              echo "Error: $binary could not be downloaded."
-              exit 1
-            fi
-          done
-
+          gh release download "yggdrasilffi-v${{ needs.extract_versions.outputs.core_version }}" --repo Unleash/yggdrasil-bindings -D lib/
       - name: Build JRuby Gem
         run: |
-          cd ruby-engine
           gem build yggdrasil-engine.gemspec
           export GEM_FILE=$(ls yggdrasil-engine-*.gem)
           echo "gem_file_name=$GEM_FILE" >> $GITHUB_ENV
-        working-directory: ${{ github.workspace }}
+        working-directory: ruby-engine
         env:
           GEM_HOST_API_KEY: ${{ secrets.GEMS_PUBLISH_KEY }}
 
@@ -188,4 +150,19 @@ jobs:
           done
         env:
           GEM_HOST_API_KEY: ${{ secrets.GEMS_PUBLISH_KEY }}
-
+  tag_repo:
+    runs-on: ubuntu-latest
+    needs: [extract_versions, publish_gems]
+    steps:
+      - uses: actions/checkout@v5
+        name: Checkout repository
+      - name: Make a tag for the ruby release
+        uses: actions/github-script@v8
+        with:
+          script: |
+            github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'refs/tags/ruby-engine-v${{ needs.extract_versions.outputs.engine_version }}',
+              sha: context.sha
+            })
