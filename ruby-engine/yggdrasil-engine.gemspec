@@ -4,7 +4,6 @@ Gem::Specification.new do |s|
 
   s.name = 'yggdrasil-engine'
   s.version = '1.1.1'
-  s.date = '2023-06-28'
   s.summary = 'Unleash engine for evaluating feature toggles'
   s.description = '...'
   s.authors = ['Unleash']
