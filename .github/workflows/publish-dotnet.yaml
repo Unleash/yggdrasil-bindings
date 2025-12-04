@@ -24,6 +24,14 @@ jobs:
           echo "FFI Library Version: $CORE_VERSION"
           echo "CORE_VERSION=$CORE_VERSION" >> $GITHUB_ENV
 
+      - name: Extract Engine Version
+        id: extract_engine_version
+        run: |
+          cd dotnet-engine/Yggdrasil.Engine
+          ENGINE_VERSION=$(xmlstarlet sel -t -v "/Project/PropertyGroup/Version" -n Yggdrasil.Engine.csproj)
+          echo "Engine Version: $ENGINE_VERSION"
+          echo "ENGINE_VERSION=$ENGINE_VERSION" >> $GITHUB_ENV
+
       - name: Download binaries
         shell: bash
         working-directory: ./dotnet-engine
@@ -48,3 +56,13 @@ jobs:
         run: |
           cd dotnet-engine
           dotnet nuget push Yggdrasil.Engine/bin/Release/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }}
+      - name: Make a tag for the dotnet release
+        uses: actions/github-script@v8
+        with:
+          script: |
+            github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `refs/tags/dotnet-engine-v${process.env.ENGINE_VERSION}`,
+              sha: context.sha
+            })
