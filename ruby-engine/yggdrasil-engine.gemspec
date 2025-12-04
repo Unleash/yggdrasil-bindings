@@ -3,8 +3,7 @@ Gem::Specification.new do |s|
   target_platform = -> { ENV['YGG_BUILD_PLATFORM'] || Gem::Platform::CURRENT }
 
   s.name = 'yggdrasil-engine'
-  s.version = '1.1.0'
-  s.date = '2023-06-28'
+  s.version = '1.1.1'
   s.summary = 'Unleash engine for evaluating feature toggles'
   s.description = '...'
   s.authors = ['Unleash']
@@ -12,7 +11,7 @@ Gem::Specification.new do |s|
   s.files = Dir.glob("{lib,spec}/**/*") + ["README.md"] + Dir["lib/**/*"]
   s.homepage = 'http://github.com/username/my_gem'
   s.license = 'MIT'
-  s.add_dependency "ffi", "~> 1.16.3"
+  s.add_dependency "ffi", "~> 1.17.2"
   s.platform = target_platform.call
   s.metadata["yggdrasil_core_version"] = '0.18.1'
 end
