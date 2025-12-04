@@ -58,7 +58,7 @@ jobs:
             exit 1
           fi
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
 
       - name: Build Gem
         run: |
