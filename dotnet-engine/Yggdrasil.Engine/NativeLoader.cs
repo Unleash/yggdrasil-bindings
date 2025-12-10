@@ -5,8 +5,10 @@ internal static class NativeLibLoader
 {
     internal static IntPtr LoadNativeLibrary()
     {
+        var localAppName = GetAppPoolIdPrefix();
+        localAppName = !string.IsNullOrWhiteSpace(localAppName) ? $"{localAppName}_" : null;
         var libName = GetBinaryName();
-        var tempPath = Path.Combine(Path.GetTempPath(), libName);
+        var tempPath = Path.Combine(Path.GetTempPath(), $"{localAppName}{libName}");
         var assembly = Assembly.GetExecutingAssembly();
         var assemblyName = assembly.GetName().Name;
 
@@ -25,6 +27,18 @@ internal static class NativeLibLoader
         }
 
         return LoadBinary(tempPath);
+    }
+
+    private static string? GetAppPoolIdPrefix()
+    {
+        var appName = Environment.GetEnvironmentVariable("APP_POOL_ID");
+        if (appName == null)
+        {
+            return null;
+        }
+
+        var validChars = appName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries);
+        return validChars.Length > 0 ? string.Join("", validChars) : null;
     }
 
     private static string GetBinaryName()
