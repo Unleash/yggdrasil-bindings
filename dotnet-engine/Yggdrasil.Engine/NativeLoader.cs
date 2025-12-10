@@ -1,12 +1,14 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
 
 internal static class NativeLibLoader
 {
     internal static IntPtr LoadNativeLibrary()
     {
+        var localAppName = GetLocalAppName();
         var libName = GetBinaryName();
-        var tempPath = Path.Combine(Path.GetTempPath(), libName);
+        var tempPath = Path.Combine(Path.GetTempPath(), $"{localAppName}{libName}");
         var assembly = Assembly.GetExecutingAssembly();
         var assemblyName = assembly.GetName().Name;
 
@@ -25,6 +27,16 @@ internal static class NativeLibLoader
         }
 
         return LoadBinary(tempPath);
+    }
+
+    private static string? GetLocalAppName()
+    {
+        var appName = Environment.GetEnvironmentVariable("APP_POOL_ID");
+        foreach (var c in Path.GetInvalidFileNameChars())
+        {
+            appName = appName?.Replace(c, '-');
+        }
+        return appName != null ? $"{appName}_" : null;
     }
 
     private static string GetBinaryName()
