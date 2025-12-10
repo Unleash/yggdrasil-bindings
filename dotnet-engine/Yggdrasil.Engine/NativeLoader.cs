@@ -36,6 +36,7 @@ internal static class NativeLibLoader
         {
             appName = appName?.Replace(c, '-');
         }
+
         return appName != null ? $"{appName}_" : null;
     }
 
