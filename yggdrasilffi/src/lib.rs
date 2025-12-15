@@ -16,7 +16,8 @@ use unleash_yggdrasil::{
     state::EnrichedContext, Context, EngineState, EvalWarning, ExtendedVariantDef,
     ToggleDefinition, UpdateMessage, CORE_VERSION, KNOWN_STRATEGIES,
 };
-
+#[cfg(target_os = "linux")]
+mod compat_glibc;
 pub mod flat;
 
 static CORE_VERSION_CSTRING: std::sync::LazyLock<CString> =
