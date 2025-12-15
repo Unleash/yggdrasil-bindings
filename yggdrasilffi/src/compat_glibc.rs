@@ -7,7 +7,7 @@
 ///
 /// Note: This does NOT introduce GLIBC_2.28/2.30 by itself. On the contrary, it is designed so that zigbuild is able to build our binaries while only requiring GLIBC_2.25.
 ///
-use core::ffi::{c_long, c_void, c_int};
+use core::ffi::{c_int, c_long, c_void};
 use std::ffi::c_char;
 
 // Minimal C-ish types without the libc crate
@@ -31,7 +31,6 @@ const SYS_STATX: c_long = 332;
 const SYS_GETTID: c_long = 178;
 #[cfg(target_arch = "aarch64")]
 const SYS_STATX: c_long = 291;
-
 
 #[no_mangle]
 pub unsafe extern "C" fn gettid() -> pid_t {
