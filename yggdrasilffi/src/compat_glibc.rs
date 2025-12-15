@@ -1,5 +1,12 @@
 #![allow(non_camel_case_types)]
 
+/// Adds support for `gettid` and `statx` syscalls.
+///
+/// This module provides a minimal implementation of the `gettid` and `statx` syscalls for Linux.
+/// It uses the `syscall` function to make the system calls directly.
+///
+/// Note: This does NOT introduce GLIBC_2.28/2.30 by itself. On the contrary, it is designed so that zigbuild is able to build our binaries while only requiring GLIBC_2.25.
+///
 use core::ffi::c_void;
 use std::ffi::c_char;
 
