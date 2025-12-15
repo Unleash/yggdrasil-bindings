@@ -23,6 +23,7 @@ jobs:
           #linux arm64
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
+            zigTarget: aarch64-linux-gnu.2.25
             output: libyggdrasilffi.so
             name: libyggdrasilffi_arm64.so
 
@@ -86,7 +87,7 @@ jobs:
         run: cargo zigbuild -p yggdrasilffi --release --target ${{ matrix.target }};
 
       - name: Build Rust library (zigbuild/gnu, ${{ matrix.zigTarget }})
-        if: startsWith(matrix.target, 'x86_64-unknown-linux-gnu')
+        if: contains(matrix.target, 'linux-gnu')
         run: cargo zigbuild -p yggdrasilffi --release --target ${{ matrix.target }}
         env:
           ZIG_TARGET: ${{ matrix.zigTarget }}
