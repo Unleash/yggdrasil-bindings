@@ -15,9 +15,18 @@ extern "C" {
     fn __errno_location() -> *mut c_int;
 }
 
-// x86_64 syscall numbers (stable for Linux x86_64)
+// x86_64 syscall numbers
+#[cfg(target_arch = "x86_64")]
 const SYS_GETTID: c_long = 186;
+#[cfg(target_arch = "x86_64")]
 const SYS_STATX: c_long = 332;
+
+// aarch64 syscall numbers
+#[cfg(target_arch = "aarch64")]
+const SYS_GETTID: c_long = 178;
+#[cfg(target_arch = "aarch64")]
+const SYS_STATX: c_long = 291;
+
 
 #[no_mangle]
 pub unsafe extern "C" fn gettid() -> pid_t {
