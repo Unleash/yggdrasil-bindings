@@ -53,7 +53,7 @@ jobs:
           cargo install git-cliff
 
           if [[ "${{ steps.latest_tag.outputs.latest_tag }}" != "" ]]; then
-            CHANGELOG=$(git cliff --tag "${{ steps.tag.outputs.full_tag }}" --range "${{ steps.latest_tag.outputs.latest_tag }}..HEAD" --strip all)
+            CHANGELOG=$(git cliff --tag "${{ steps.tag.outputs.full_tag }}" --strip all "${{ steps.latest_tag.outputs.latest_tag }}..HEAD")
           else
             CHANGELOG=$(git cliff --tag "${{ steps.tag.outputs.full_tag }}" --strip all)
           fi
@@ -181,4 +181,3 @@ jobs:
         run: |
           TAG="${{ needs.create-tag-and-release.outputs.full_tag }}"
           gh release upload "$TAG" assets/* --clobber
-
