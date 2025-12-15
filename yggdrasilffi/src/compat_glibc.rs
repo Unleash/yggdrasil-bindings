@@ -1,6 +1,5 @@
 #![allow(non_camel_case_types)]
 
-
 use core::ffi::c_void;
 use std::ffi::c_char;
 
@@ -19,8 +18,6 @@ extern "C" {
 // x86_64 syscall numbers (stable for Linux x86_64)
 const SYS_GETTID: c_long = 186;
 const SYS_STATX: c_long = 332;
-
-
 
 #[no_mangle]
 pub unsafe extern "C" fn gettid() -> pid_t {
@@ -70,14 +67,7 @@ pub unsafe extern "C" fn statx(
     mask: u32,
     buf: *mut statx,
 ) -> c_int {
-    let ret = syscall(
-        SYS_STATX,
-        dirfd,
-        pathname,
-        flags,
-        mask,
-        buf as *mut c_void,
-    );
+    let ret = syscall(SYS_STATX, dirfd, pathname, flags, mask, buf as *mut c_void);
 
     if ret < 0 {
         // syscall returns -errno
