@@ -7,12 +7,10 @@
 ///
 /// Note: This does NOT introduce GLIBC_2.28/2.30 by itself. On the contrary, it is designed so that zigbuild is able to build our binaries while only requiring GLIBC_2.25.
 ///
-use core::ffi::c_void;
+use core::ffi::{c_long, c_void, c_int};
 use std::ffi::c_char;
 
 // Minimal C-ish types without the libc crate
-type c_int = i32;
-type c_long = i64;
 type pid_t = i32;
 
 // Pull in syscall + errno location from the C runtime (glibc),
