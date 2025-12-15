@@ -45,10 +45,6 @@ jobs:
             target: i686-pc-windows-msvc
             output: yggdrasilffi.dll
             name: yggdrasilffi_i686.dll
-          - os: macos-13
-            target: x86_64-apple-darwin
-            output: libyggdrasilffi.dylib
-            name: libyggdrasilffi_x86_64.dylib
           - os: macos-latest
             target: aarch64-apple-darwin
             output: libyggdrasilffi.dylib
