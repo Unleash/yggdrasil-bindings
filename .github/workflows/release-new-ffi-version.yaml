@@ -114,7 +114,7 @@ jobs:
             target: aarch64-apple-darwin
             output: libyggdrasilffi.dylib
             name: libyggdrasilffi_arm64.dylib
-          - os: macos15-intel
+          - os: macos-15-intel
             target: x86_64-apple-darwin
             output: libyggdrasilffi.dylib
             name: libyggdrasilffi_x86_64.dylib
