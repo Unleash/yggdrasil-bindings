@@ -9,7 +9,7 @@ jobs:
 
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Read yggdrasilCoreVersion from gradle.properties
         id: read_ygg
         shell: bash

@@ -16,13 +16,13 @@ jobs:
   build-javascript:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
 
       - name: Get client spec
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: Unleash/client-specification
           ref: v5.2.2

@@ -24,7 +24,7 @@ jobs:
           - os: macos-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install rust
         run: |
@@ -52,14 +52,14 @@ jobs:
           dir target\release
 
       - name: Get client spec
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: Unleash/client-specification
           ref: v5.1.9
           path: client-specification
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "6.0.x"
 
