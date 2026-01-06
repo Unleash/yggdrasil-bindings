@@ -10,7 +10,7 @@ jobs:
       core_version: ${{ steps.read_gem_data.outputs.CORE_VERSION }}
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Extract Yggdrasil Engine Version
         id: read_gem_data
         working-directory: ./ruby-engine
@@ -42,7 +42,7 @@ jobs:
             platform: arm64-darwin
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         name: Checkout repository
 
       - name: Overwrite Build Platform
