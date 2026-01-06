@@ -93,4 +93,6 @@ jobs:
           ZIG_TARGET: ${{ matrix.zigTarget }}
       - name: Build Rust library (zigbuild/darwin)
         if: contains(matrix.target, 'darwin')
-        run: cargo zigbuild -p yggdrasilffi --release --target ${{ matrix.target }}
+        run: |
+          export SDKROOT=$(xcrun --show-sdk-path)
+          cargo zigbuild -p yggdrasilffi --release --target ${{ matrix.target }}
