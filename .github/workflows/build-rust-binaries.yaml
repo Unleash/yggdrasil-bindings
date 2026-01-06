@@ -66,10 +66,10 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
       - name: Install zig
-        if: contains(matrix.target, 'linux')
+        if: ${{ !contains(matrix.target, 'windows') }}
         uses: mlugg/setup-zig@v2
       - name: Install zigbuild
-        if: contains(matrix.target, 'linux')
+        if: ${{ !contains(matrix.target, 'windows') }}
         run: cargo install cargo-zigbuild
       # Linux MUSL toolchain (native, not cross)
       - name: Install musl tools (Linux)
@@ -79,7 +79,7 @@ jobs:
           sudo apt-get install -y musl-tools pkg-config build-essential
 
       - name: Build Rust Library (Cargo)
-        if: ${{ !contains(matrix.target, 'linux') }}
+        if: contains(matrix.target, 'windows')
         run: cargo build -p yggdrasilffi --release --target ${{ matrix.target }};
 
       - name: Build Rust library (zigbuild/musl)
@@ -91,3 +91,6 @@ jobs:
         run: cargo zigbuild -p yggdrasilffi --release --target ${{ matrix.target }}
         env:
           ZIG_TARGET: ${{ matrix.zigTarget }}
+      - name: Build Rust library (zigbuild/darwin)
+        if: contains(matrix.target, 'darwin')
+        run: cargo zigbuild -p yggdrasilffi --release --target ${{ matrix.target }}
