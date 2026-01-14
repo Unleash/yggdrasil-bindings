@@ -91,3 +91,8 @@ jobs:
         run: cargo zigbuild -p yggdrasilffi --release --target ${{ matrix.target }}
         env:
           ZIG_TARGET: ${{ matrix.zigTarget }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.name }}
+          path: release/target/${{ matrix.output }}
