@@ -6,6 +6,7 @@ using Yggdrasil;
 using StrategyDefinition = Yggdrasil.StrategyDefinition;
 using Variant = Yggdrasil.Variant;
 using FlatVariant = yggdrasil.messaging.Variant;
+using System.Net;
 
 public static class Flatbuffers
 {
@@ -26,6 +27,7 @@ public static class Flatbuffers
         var currentTimeOffset = builder.CreateString(context.CurrentTime.HasValue ? context.CurrentTime.Value.ToString("O") : null);
         var environment = builder.CreateString(context.Environment);
         var remoteAddress = builder.CreateString(context.RemoteAddress);
+        var hostname = builder.CreateString(Environment.GetEnvironmentVariable("hostname") ?? Dns.GetHostName());
         var sessionId = builder.CreateString(context.SessionId);
         var userId = builder.CreateString(context.UserId);
         var propertiesVector = CreatePropertiesVector(builder, context);
@@ -38,6 +40,7 @@ public static class Flatbuffers
         ContextMessage.AddEnvironment(builder, environment);
         ContextMessage.AddCustomStrategiesResults(builder, customStrategiesVector);
         ContextMessage.AddRemoteAddress(builder, remoteAddress);
+        ContextMessage.AddRuntimeHostname(builder, hostname);
         ContextMessage.AddSessionId(builder, sessionId);
         ContextMessage.AddUserId(builder, userId);
         ContextMessage.AddProperties(builder, propertiesVector);
