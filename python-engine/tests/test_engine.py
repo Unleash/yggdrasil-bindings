@@ -216,12 +216,6 @@ def test_get_state_and_roundtrip():
     assert 'error_message' not in retrieved_state
 
 
-def test_define_counter():
-    engine = UnleashEngine()
-    engine.define_counter("test_counter", "Test counter metric")
-    # Just verify it doesn't crash
-
-
 def test_inc_counter_increments_value():
     engine = UnleashEngine()
     engine.define_counter("test_counter", "Test counter")
@@ -272,6 +266,7 @@ def test_restore_impact_metrics():
     # Restore should not crash
     engine.restore_impact_metrics(metrics)
 
-    # After restore, collect should still work
+    # After restore, collect should still work and values should be preserved
     restored_metrics = engine.collect_impact_metrics()
     assert len(restored_metrics) == 1
+    assert restored_metrics[0]["samples"][0]["value"] == 10
