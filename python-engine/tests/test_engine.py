@@ -214,3 +214,64 @@ def test_get_state_and_roundtrip():
     assert '"name": "default"' in retrieved_state
     assert 'status_code' not in retrieved_state
     assert 'error_message' not in retrieved_state
+
+
+def test_define_counter():
+    engine = UnleashEngine()
+    engine.define_counter("test_counter", "Test counter metric")
+    # Just verify it doesn't crash
+
+
+def test_inc_counter_increments_value():
+    engine = UnleashEngine()
+    engine.define_counter("test_counter", "Test counter")
+    engine.inc_counter("test_counter", 5)
+    engine.inc_counter("test_counter", 3)
+
+    metrics = engine.collect_impact_metrics()
+    counter = next((m for m in metrics if m["name"] == "test_counter"), None)
+
+    assert counter is not None
+    assert counter["help"] == "Test counter"
+    assert len(counter["samples"]) == 1
+    assert counter["samples"][0]["value"] == 8
+
+
+def test_inc_counter_with_labels():
+    engine = UnleashEngine()
+    engine.define_counter("test_counter", "Test counter")
+    engine.inc_counter("test_counter", 5, {"env": "test"})
+    engine.inc_counter("test_counter", 3, {"env": "prod"})
+
+    metrics = engine.collect_impact_metrics()
+    counter = next((m for m in metrics if m["name"] == "test_counter"), None)
+
+    assert counter is not None
+    assert len(counter["samples"]) == 2
+    test_sample = next((s for s in counter["samples"] if s["labels"].get("env") == "test"), None)
+    prod_sample = next((s for s in counter["samples"] if s["labels"].get("env") == "prod"), None)
+    assert test_sample["value"] == 5
+    assert prod_sample["value"] == 3
+
+
+def test_collect_impact_metrics_returns_empty_list_when_no_metrics():
+    engine = UnleashEngine()
+    metrics = engine.collect_impact_metrics()
+    assert metrics == []
+
+
+def test_restore_impact_metrics():
+    engine = UnleashEngine()
+    engine.define_counter("test_counter", "Test counter")
+    engine.inc_counter("test_counter", 10)
+
+    metrics = engine.collect_impact_metrics()
+    assert len(metrics) == 1
+    assert metrics[0]["samples"][0]["value"] == 10
+
+    # Restore should not crash
+    engine.restore_impact_metrics(metrics)
+
+    # After restore, collect should still work
+    restored_metrics = engine.collect_impact_metrics()
+    assert len(restored_metrics) == 1
