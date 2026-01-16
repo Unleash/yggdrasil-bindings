@@ -263,10 +263,8 @@ def test_restore_impact_metrics():
     assert len(metrics) == 1
     assert metrics[0]["samples"][0]["value"] == 10
 
-    # Restore should not crash
     engine.restore_impact_metrics(metrics)
 
-    # After restore, collect should still work and values should be preserved
     restored_metrics = engine.collect_impact_metrics()
     assert len(restored_metrics) == 1
     assert restored_metrics[0]["samples"][0]["value"] == 10
