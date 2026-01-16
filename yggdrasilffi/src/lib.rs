@@ -548,13 +548,13 @@ pub unsafe extern "C" fn inc_counter(
         let engine = recover_lock(&guard);
 
         let name = get_str(name_ptr)?;
-        
+
         if labels_ptr.is_null() {
             engine.inc_counter_by(name, value);
         } else {
             let labels: MetricLabels = get_json(labels_ptr)?;
             engine.inc_counter_with_labels(name, value, &labels);
-        }        
+        }
         Ok(Some(()))
     });
 
