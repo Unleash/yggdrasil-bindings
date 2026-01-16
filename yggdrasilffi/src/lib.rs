@@ -510,7 +510,7 @@ pub unsafe extern "C" fn define_counter(
     engine_ptr: *mut c_void,
     name_ptr: *const c_char,
     help_ptr: *const c_char,
-) -> *const c_char {
+) -> *mut c_char {
     let result = guard_result::<(), _>(|| {
         let guard = get_engine(engine_ptr)?;
         let engine = recover_lock(&guard);
@@ -542,7 +542,7 @@ pub unsafe extern "C" fn inc_counter(
     name_ptr: *const c_char,
     value: i64,
     labels_ptr: *const c_char,
-) -> *const c_char {
+) -> *mut c_char {
     let result = guard_result::<(), _>(|| {
         let guard = get_engine(engine_ptr)?;
         let engine = recover_lock(&guard);
@@ -600,7 +600,7 @@ pub unsafe extern "C" fn collect_impact_metrics(engine_ptr: *mut c_void) -> *mut
 pub unsafe extern "C" fn restore_impact_metrics(
     engine_ptr: *mut c_void,
     metrics_ptr: *const c_char,
-) -> *const c_char {
+) -> *mut c_char {
     let result = guard_result::<(), _>(|| {
         let guard = get_engine(engine_ptr)?;
         let engine = recover_lock(&guard);
