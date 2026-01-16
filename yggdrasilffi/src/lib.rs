@@ -554,12 +554,15 @@ pub unsafe extern "C" fn inc_counter(
             Some(get_json(labels_ptr)?)
         };
 
-        if let Some(labels) = labels {
-            engine.inc_counter_with_labels(&name, value, &labels);
-        } else if value == 0 {
-            engine.inc_counter(&name);
-        } else {
-            engine.inc_counter_by(&name, value);
+        #[allow(clippy::needless_borrow)]
+        {
+            if let Some(ref labels) = labels {
+                engine.inc_counter_with_labels(&name, value, labels);
+            } else if value == 0 {
+                engine.inc_counter(&name);
+            } else {
+                engine.inc_counter_by(&name, value);
+            }
         }
         Ok(Some(()))
     });
