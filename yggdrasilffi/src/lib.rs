@@ -525,7 +525,7 @@ pub unsafe extern "C" fn define_counter(
     result_to_json_ptr(result)
 }
 
-/// Increments a counter metric by the given value (defaults to 1 if value is 0).
+/// Increments a counter metric by the given value.
 ///
 /// # Safety
 ///
@@ -556,8 +556,6 @@ pub unsafe extern "C" fn inc_counter(
 
         if let Some(ref labels) = labels {
             engine.inc_counter_with_labels(name, value, labels);
-        } else if value == 0 {
-            engine.inc_counter(name);
         } else {
             engine.inc_counter_by(name, value);
         }

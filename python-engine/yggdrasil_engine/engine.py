@@ -306,11 +306,10 @@ class UnleashEngine:
         self, name: str, value: int = 1, labels: Optional[Dict[str, str]] = None
     ) -> None:
         labels_json = json.dumps(labels).encode("utf-8") if labels else None
-        actual_value = value if (labels or value != 1) else 0
         response_ptr = self.lib.inc_counter(
             self.state,
             name.encode("utf-8"),
-            actual_value,
+            value,
             labels_json,
         )
         with self.materialize_pointer(response_ptr, type(None)) as response:
