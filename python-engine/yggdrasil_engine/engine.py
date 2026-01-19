@@ -183,6 +183,21 @@ class UnleashEngine:
         ]
         self.lib.restore_impact_metrics.restype = ctypes.POINTER(ctypes.c_char)
 
+        self.lib.define_gauge.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_char_p,
+            ctypes.c_char_p,
+        ]
+        self.lib.define_gauge.restype = ctypes.POINTER(ctypes.c_char)
+
+        self.lib.set_gauge.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_char_p,
+            ctypes.c_int64,
+            ctypes.c_char_p,
+        ]
+        self.lib.set_gauge.restype = ctypes.POINTER(ctypes.c_char)
+
         self.state = self.lib.new_engine()
         self.custom_strategy_handler = CustomStrategyHandler()
 
@@ -328,6 +343,30 @@ class UnleashEngine:
         response_ptr = self.lib.restore_impact_metrics(
             self.state,
             metrics_json,
+        )
+        with self.materialize_pointer(response_ptr, type(None)) as response:
+            if response.status_code == StatusCode.ERROR:
+                raise YggdrasilError(response.error_message)
+
+    def define_gauge(self, name: str, help_text: str) -> None:
+        response_ptr = self.lib.define_gauge(
+            self.state,
+            name.encode("utf-8"),
+            help_text.encode("utf-8"),
+        )
+        with self.materialize_pointer(response_ptr, type(None)) as response:
+            if response.status_code == StatusCode.ERROR:
+                raise YggdrasilError(response.error_message)
+
+    def set_gauge(
+        self, name: str, value: int, labels: Optional[Dict[str, str]] = None
+    ) -> None:
+        labels_json = json.dumps(labels).encode("utf-8") if labels else None
+        response_ptr = self.lib.set_gauge(
+            self.state,
+            name.encode("utf-8"),
+            value,
+            labels_json,
         )
         with self.materialize_pointer(response_ptr, type(None)) as response:
             if response.status_code == StatusCode.ERROR:
