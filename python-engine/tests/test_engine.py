@@ -290,13 +290,21 @@ def test_restore_impact_metrics():
     engine = UnleashEngine()
     engine.define_counter("test_counter", "Test counter")
     engine.inc_counter("test_counter", 10)
+    engine.define_gauge("test_gauge", "Test gauge")
+    engine.set_gauge("test_gauge", 42)
 
     metrics = engine.collect_impact_metrics()
-    assert len(metrics) == 1
-    assert metrics[0]["samples"][0]["value"] == 10
+    assert len(metrics) == 2
+    counter = next((m for m in metrics if m["name"] == "test_counter"), None)
+    gauge = next((m for m in metrics if m["name"] == "test_gauge"), None)
+    assert counter["samples"][0]["value"] == 10
+    assert gauge["samples"][0]["value"] == 42
 
     engine.restore_impact_metrics(metrics)
 
     restored_metrics = engine.collect_impact_metrics()
-    assert len(restored_metrics) == 1
-    assert restored_metrics[0]["samples"][0]["value"] == 10
+    assert len(restored_metrics) == 2
+    restored_counter = next((m for m in restored_metrics if m["name"] == "test_counter"), None)
+    restored_gauge = next((m for m in restored_metrics if m["name"] == "test_gauge"), None)
+    assert restored_counter["samples"][0]["value"] == 10
+    assert restored_gauge["samples"][0]["value"] == 42
