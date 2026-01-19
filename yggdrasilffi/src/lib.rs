@@ -12,7 +12,7 @@ use chrono::Utc;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::MetricBucket;
-use unleash_yggdrasil::impact_metrics::{CollectedMetric, MetricLabels, MetricOptions};
+use unleash_yggdrasil::impact_metrics::{BucketMetricOptions, CollectedMetric, MetricLabels, MetricOptions};
 use unleash_yggdrasil::{
     state::EnrichedContext, Context, EngineState, EvalWarning, ExtendedVariantDef,
     ToggleDefinition, UpdateMessage, CORE_VERSION, KNOWN_STRATEGIES,
@@ -669,6 +669,81 @@ pub unsafe extern "C" fn set_gauge(
         } else {
             let labels: MetricLabels = get_json(labels_ptr)?;
             engine.set_gauge_with_labels(name, value, &labels);
+        }
+        Ok(Some(()))
+    });
+
+    result_to_json_ptr(result)
+}
+
+/// Defines a histogram metric with the given name, help text, and optional bucket boundaries.
+/// If buckets_ptr is null, default Prometheus buckets will be used.
+///
+/// # Safety
+///
+/// The caller is responsible for ensuring all arguments are valid pointers.
+/// Null pointers for buckets_ptr will use default buckets,
+/// but null pointers for other arguments will result in an error message.
+/// Any invalid pointers will result in undefined behavior.
+/// These pointers should not be dropped for the lifetime of this function call.
+///
+/// The caller is responsible for freeing the allocated memory. This can be done by calling
+/// `free_response` and passing in the pointer returned by this method. Failure to do so will result in a leak.
+#[no_mangle]
+pub unsafe extern "C" fn define_histogram(
+    engine_ptr: *mut c_void,
+    name_ptr: *const c_char,
+    help_ptr: *const c_char,
+    buckets_ptr: *const c_char,
+) -> *mut c_char {
+    let result = guard_result::<(), _>(|| {
+        let guard = get_engine(engine_ptr)?;
+        let engine = recover_lock(&guard);
+
+        let name = get_str(name_ptr)?;
+        let help = get_str(help_ptr)?;
+        let buckets: Vec<f64> = if buckets_ptr.is_null() {
+            Vec::new()
+        } else {
+            get_json(buckets_ptr)?
+        };
+
+        engine.define_histogram(BucketMetricOptions::new(name, help, buckets));
+        Ok(Some(()))
+    });
+
+    result_to_json_ptr(result)
+}
+
+/// Observes a value for a histogram metric.
+///
+/// # Safety
+///
+/// The caller is responsible for ensuring all arguments are valid pointers.
+/// Null pointers will result in an error message being returned to the caller,
+/// but any invalid pointers will result in undefined behavior.
+/// These pointers should not be dropped for the lifetime of this function call.
+///
+/// The caller is responsible for freeing the allocated memory. This can be done by calling
+/// `free_response` and passing in the pointer returned by this method. Failure to do so will result in a leak.
+#[no_mangle]
+pub unsafe extern "C" fn observe_histogram(
+    engine_ptr: *mut c_void,
+    name_ptr: *const c_char,
+    value: f64,
+    labels_ptr: *const c_char,
+) -> *mut c_char {
+    let result = guard_result::<(), _>(|| {
+        let guard = get_engine(engine_ptr)?;
+        let engine = recover_lock(&guard);
+
+        let name = get_str(name_ptr)?;
+
+        if labels_ptr.is_null() {
+            engine.observe_histogram(name, value);
+        } else {
+            let labels: MetricLabels = get_json(labels_ptr)?;
+            engine.observe_histogram_with_labels(name, value, &labels);
         }
         Ok(Some(()))
     });
