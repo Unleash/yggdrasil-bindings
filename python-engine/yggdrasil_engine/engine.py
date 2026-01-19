@@ -159,6 +159,30 @@ class UnleashEngine:
         self.lib.list_known_toggles.argtypes = [ctypes.c_void_p]
         self.lib.list_known_toggles.restype = ctypes.POINTER(ctypes.c_char)
 
+        self.lib.define_counter.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_char_p,
+            ctypes.c_char_p,
+        ]
+        self.lib.define_counter.restype = ctypes.POINTER(ctypes.c_char)
+
+        self.lib.inc_counter.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_char_p,
+            ctypes.c_int64,
+            ctypes.c_char_p,
+        ]
+        self.lib.inc_counter.restype = ctypes.POINTER(ctypes.c_char)
+
+        self.lib.collect_impact_metrics.argtypes = [ctypes.c_void_p]
+        self.lib.collect_impact_metrics.restype = ctypes.POINTER(ctypes.c_char)
+
+        self.lib.restore_impact_metrics.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_char_p,
+        ]
+        self.lib.restore_impact_metrics.restype = ctypes.POINTER(ctypes.c_char)
+
         self.state = self.lib.new_engine()
         self.custom_strategy_handler = CustomStrategyHandler()
 
@@ -267,3 +291,44 @@ class UnleashEngine:
             if response.status_code == StatusCode.ERROR:
                 raise YggdrasilError(response.error_message)
             return response.value
+
+    def define_counter(self, name: str, help_text: str) -> None:
+        response_ptr = self.lib.define_counter(
+            self.state,
+            name.encode("utf-8"),
+            help_text.encode("utf-8"),
+        )
+        with self.materialize_pointer(response_ptr, type(None)) as response:
+            if response.status_code == StatusCode.ERROR:
+                raise YggdrasilError(response.error_message)
+
+    def inc_counter(
+        self, name: str, value: int = 1, labels: Optional[Dict[str, str]] = None
+    ) -> None:
+        labels_json = json.dumps(labels).encode("utf-8") if labels else None
+        response_ptr = self.lib.inc_counter(
+            self.state,
+            name.encode("utf-8"),
+            value,
+            labels_json,
+        )
+        with self.materialize_pointer(response_ptr, type(None)) as response:
+            if response.status_code == StatusCode.ERROR:
+                raise YggdrasilError(response.error_message)
+
+    def collect_impact_metrics(self) -> List[Dict[str, Any]]:
+        response_ptr = self.lib.collect_impact_metrics(self.state)
+        with self.materialize_pointer(response_ptr, List[Dict[str, Any]]) as response:
+            if response.status_code == StatusCode.ERROR:
+                raise YggdrasilError(response.error_message)
+            return response.value or []
+
+    def restore_impact_metrics(self, metrics: List[Dict[str, Any]]) -> None:
+        metrics_json = json.dumps(metrics).encode("utf-8")
+        response_ptr = self.lib.restore_impact_metrics(
+            self.state,
+            metrics_json,
+        )
+        with self.materialize_pointer(response_ptr, type(None)) as response:
+            if response.status_code == StatusCode.ERROR:
+                raise YggdrasilError(response.error_message)
