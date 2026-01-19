@@ -12,7 +12,9 @@ use chrono::Utc;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::MetricBucket;
-use unleash_yggdrasil::impact_metrics::{BucketMetricOptions, CollectedMetric, MetricLabels, MetricOptions};
+use unleash_yggdrasil::impact_metrics::{
+    BucketMetricOptions, CollectedMetric, MetricLabels, MetricOptions,
+};
 use unleash_yggdrasil::{
     state::EnrichedContext, Context, EngineState, EvalWarning, ExtendedVariantDef,
     ToggleDefinition, UpdateMessage, CORE_VERSION, KNOWN_STRATEGIES,
