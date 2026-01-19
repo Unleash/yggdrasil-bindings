@@ -609,6 +609,73 @@ pub unsafe extern "C" fn restore_impact_metrics(
     result_to_json_ptr(result)
 }
 
+/// Defines a gauge metric with the given name and help text.
+///
+/// # Safety
+///
+/// The caller is responsible for ensuring all arguments are valid pointers.
+/// Null pointers will result in an error message being returned to the caller,
+/// but any invalid pointers will result in undefined behavior.
+/// These pointers should not be dropped for the lifetime of this function call.
+///
+/// The caller is responsible for freeing the allocated memory. This can be done by calling
+/// `free_response` and passing in the pointer returned by this method. Failure to do so will result in a leak.
+#[no_mangle]
+pub unsafe extern "C" fn define_gauge(
+    engine_ptr: *mut c_void,
+    name_ptr: *const c_char,
+    help_ptr: *const c_char,
+) -> *mut c_char {
+    let result = guard_result::<(), _>(|| {
+        let guard = get_engine(engine_ptr)?;
+        let engine = recover_lock(&guard);
+
+        let name = get_str(name_ptr)?;
+        let help = get_str(help_ptr)?;
+
+        engine.define_gauge(MetricOptions::new(name, help));
+        Ok(Some(()))
+    });
+
+    result_to_json_ptr(result)
+}
+
+/// Sets a gauge metric to the given value.
+///
+/// # Safety
+///
+/// The caller is responsible for ensuring all arguments are valid pointers.
+/// Null pointers will result in an error message being returned to the caller,
+/// but any invalid pointers will result in undefined behavior.
+/// These pointers should not be dropped for the lifetime of this function call.
+///
+/// The caller is responsible for freeing the allocated memory. This can be done by calling
+/// `free_response` and passing in the pointer returned by this method. Failure to do so will result in a leak.
+#[no_mangle]
+pub unsafe extern "C" fn set_gauge(
+    engine_ptr: *mut c_void,
+    name_ptr: *const c_char,
+    value: i64,
+    labels_ptr: *const c_char,
+) -> *mut c_char {
+    let result = guard_result::<(), _>(|| {
+        let guard = get_engine(engine_ptr)?;
+        let engine = recover_lock(&guard);
+
+        let name = get_str(name_ptr)?;
+
+        if labels_ptr.is_null() {
+            engine.set_gauge(name, value);
+        } else {
+            let labels: MetricLabels = get_json(labels_ptr)?;
+            engine.set_gauge_with_labels(name, value, &labels);
+        }
+        Ok(Some(()))
+    });
+
+    result_to_json_ptr(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

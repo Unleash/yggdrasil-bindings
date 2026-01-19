@@ -248,6 +248,38 @@ def test_inc_counter_with_labels():
     assert prod_sample["value"] == 3
 
 
+def test_set_gauge_sets_value():
+    engine = UnleashEngine()
+    engine.define_gauge("test_gauge", "Test gauge")
+    engine.set_gauge("test_gauge", 5)
+    engine.set_gauge("test_gauge", 10)
+
+    metrics = engine.collect_impact_metrics()
+    gauge = next((m for m in metrics if m["name"] == "test_gauge"), None)
+
+    assert gauge is not None
+    assert gauge["help"] == "Test gauge"
+    assert len(gauge["samples"]) == 1
+    assert gauge["samples"][0]["value"] == 10
+
+
+def test_set_gauge_with_labels():
+    engine = UnleashEngine()
+    engine.define_gauge("test_gauge", "Test gauge")
+    engine.set_gauge("test_gauge", 5, {"env": "test"})
+    engine.set_gauge("test_gauge", 3, {"env": "prod"})
+
+    metrics = engine.collect_impact_metrics()
+    gauge = next((m for m in metrics if m["name"] == "test_gauge"), None)
+
+    assert gauge is not None
+    assert len(gauge["samples"]) == 2
+    test_sample = next((s for s in gauge["samples"] if s["labels"].get("env") == "test"), None)
+    prod_sample = next((s for s in gauge["samples"] if s["labels"].get("env") == "prod"), None)
+    assert test_sample["value"] == 5
+    assert prod_sample["value"] == 3
+
+
 def test_collect_impact_metrics_returns_empty_list_when_no_metrics():
     engine = UnleashEngine()
     metrics = engine.collect_impact_metrics()
@@ -258,13 +290,21 @@ def test_restore_impact_metrics():
     engine = UnleashEngine()
     engine.define_counter("test_counter", "Test counter")
     engine.inc_counter("test_counter", 10)
+    engine.define_gauge("test_gauge", "Test gauge")
+    engine.set_gauge("test_gauge", 42)
 
     metrics = engine.collect_impact_metrics()
-    assert len(metrics) == 1
-    assert metrics[0]["samples"][0]["value"] == 10
+    assert len(metrics) == 2
+    counter = next((m for m in metrics if m["name"] == "test_counter"), None)
+    gauge = next((m for m in metrics if m["name"] == "test_gauge"), None)
+    assert counter["samples"][0]["value"] == 10
+    assert gauge["samples"][0]["value"] == 42
 
     engine.restore_impact_metrics(metrics)
 
     restored_metrics = engine.collect_impact_metrics()
-    assert len(restored_metrics) == 1
-    assert restored_metrics[0]["samples"][0]["value"] == 10
+    assert len(restored_metrics) == 2
+    restored_counter = next((m for m in restored_metrics if m["name"] == "test_counter"), None)
+    restored_gauge = next((m for m in restored_metrics if m["name"] == "test_gauge"), None)
+    assert restored_counter["samples"][0]["value"] == 10
+    assert restored_gauge["samples"][0]["value"] == 42
