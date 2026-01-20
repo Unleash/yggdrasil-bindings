@@ -198,6 +198,22 @@ class UnleashEngine:
         ]
         self.lib.set_gauge.restype = ctypes.POINTER(ctypes.c_char)
 
+        self.lib.define_histogram.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_char_p,
+            ctypes.c_char_p,
+            ctypes.c_char_p,
+        ]
+        self.lib.define_histogram.restype = ctypes.POINTER(ctypes.c_char)
+
+        self.lib.observe_histogram.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_char_p,
+            ctypes.c_double,
+            ctypes.c_char_p,
+        ]
+        self.lib.observe_histogram.restype = ctypes.POINTER(ctypes.c_char)
+
         self.state = self.lib.new_engine()
         self.custom_strategy_handler = CustomStrategyHandler()
 
@@ -363,6 +379,34 @@ class UnleashEngine:
     ) -> None:
         labels_json = json.dumps(labels).encode("utf-8") if labels else None
         response_ptr = self.lib.set_gauge(
+            self.state,
+            name.encode("utf-8"),
+            value,
+            labels_json,
+        )
+        with self.materialize_pointer(response_ptr, type(None)) as response:
+            if response.status_code == StatusCode.ERROR:
+                raise YggdrasilError(response.error_message)
+
+    def define_histogram(
+        self, name: str, help_text: str, buckets: Optional[List[float]] = None
+    ) -> None:
+        buckets_json = json.dumps(buckets if buckets is not None else []).encode("utf-8")
+        response_ptr = self.lib.define_histogram(
+            self.state,
+            name.encode("utf-8"),
+            help_text.encode("utf-8"),
+            buckets_json,
+        )
+        with self.materialize_pointer(response_ptr, type(None)) as response:
+            if response.status_code == StatusCode.ERROR:
+                raise YggdrasilError(response.error_message)
+
+    def observe_histogram(
+        self, name: str, value: float, labels: Optional[Dict[str, str]] = None
+    ) -> None:
+        labels_json = json.dumps(labels).encode("utf-8") if labels else None
+        response_ptr = self.lib.observe_histogram(
             self.state,
             name.encode("utf-8"),
             value,

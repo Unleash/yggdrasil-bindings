@@ -280,6 +280,52 @@ def test_set_gauge_with_labels():
     assert prod_sample["value"] == 3
 
 
+def test_observe_histogram_observes_values():
+    engine = UnleashEngine()
+    engine.define_histogram("request_duration", "Request duration", [0.1, 0.5, 1.0, 5.0])
+    engine.observe_histogram("request_duration", 0.05)
+    engine.observe_histogram("request_duration", 0.75)
+    engine.observe_histogram("request_duration", 3.0)
+
+    metrics = engine.collect_impact_metrics()
+    histogram = next((m for m in metrics if m["name"] == "request_duration"), None)
+
+    assert histogram is not None
+    assert histogram["help"] == "Request duration"
+    assert histogram["type"] == "histogram"
+    assert len(histogram["samples"]) == 1
+
+
+def test_observe_histogram_with_labels():
+    engine = UnleashEngine()
+    engine.define_histogram("request_duration", "Request duration", [0.1, 0.5, 1.0, 5.0])
+    engine.observe_histogram("request_duration", 0.05, {"env": "test"})
+    engine.observe_histogram("request_duration", 0.75, {"env": "prod"})
+
+    metrics = engine.collect_impact_metrics()
+    histogram = next((m for m in metrics if m["name"] == "request_duration"), None)
+
+    assert histogram is not None
+    assert len(histogram["samples"]) == 2
+    test_sample = next((s for s in histogram["samples"] if s["labels"].get("env") == "test"), None)
+    prod_sample = next((s for s in histogram["samples"] if s["labels"].get("env") == "prod"), None)
+    assert test_sample is not None
+    assert prod_sample is not None
+
+
+def test_define_histogram_with_default_buckets():
+    engine = UnleashEngine()
+    engine.define_histogram("request_duration", "Request duration")
+    engine.observe_histogram("request_duration", 0.05)
+
+    metrics = engine.collect_impact_metrics()
+    histogram = next((m for m in metrics if m["name"] == "request_duration"), None)
+
+    assert histogram is not None
+    assert histogram["type"] == "histogram"
+    assert len(histogram["samples"]) == 1
+
+
 def test_collect_impact_metrics_returns_empty_list_when_no_metrics():
     engine = UnleashEngine()
     metrics = engine.collect_impact_metrics()
@@ -292,19 +338,25 @@ def test_restore_impact_metrics():
     engine.inc_counter("test_counter", 10)
     engine.define_gauge("test_gauge", "Test gauge")
     engine.set_gauge("test_gauge", 42)
+    engine.define_histogram("test_histogram", "Test histogram", [0.1, 0.5, 1.0])
+    engine.observe_histogram("test_histogram", 0.25)
 
     metrics = engine.collect_impact_metrics()
-    assert len(metrics) == 2
+    assert len(metrics) == 3
     counter = next((m for m in metrics if m["name"] == "test_counter"), None)
     gauge = next((m for m in metrics if m["name"] == "test_gauge"), None)
+    histogram = next((m for m in metrics if m["name"] == "test_histogram"), None)
     assert counter["samples"][0]["value"] == 10
     assert gauge["samples"][0]["value"] == 42
+    assert histogram is not None
 
     engine.restore_impact_metrics(metrics)
 
     restored_metrics = engine.collect_impact_metrics()
-    assert len(restored_metrics) == 2
+    assert len(restored_metrics) == 3
     restored_counter = next((m for m in restored_metrics if m["name"] == "test_counter"), None)
     restored_gauge = next((m for m in restored_metrics if m["name"] == "test_gauge"), None)
+    restored_histogram = next((m for m in restored_metrics if m["name"] == "test_histogram"), None)
     assert restored_counter["samples"][0]["value"] == 10
     assert restored_gauge["samples"][0]["value"] == 42
+    assert restored_histogram is not None
