@@ -391,7 +391,7 @@ class UnleashEngine:
     def define_histogram(
         self, name: str, help_text: str, buckets: Optional[List[float]] = None
     ) -> None:
-        buckets_json = json.dumps(buckets).encode("utf-8") if buckets else None
+        buckets_json = json.dumps(buckets if buckets is not None else []).encode("utf-8")
         response_ptr = self.lib.define_histogram(
             self.state,
             name.encode("utf-8"),

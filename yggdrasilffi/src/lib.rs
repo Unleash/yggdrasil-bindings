@@ -678,14 +678,13 @@ pub unsafe extern "C" fn set_gauge(
     result_to_json_ptr(result)
 }
 
-/// Defines a histogram metric with the given name, help text, and optional bucket boundaries.
-/// If buckets_ptr is null, default Prometheus buckets will be used.
+/// Defines a histogram metric with the given name, help text, and bucket boundaries.
+/// Pass an empty array for default Prometheus buckets.
 ///
 /// # Safety
 ///
 /// The caller is responsible for ensuring all arguments are valid pointers.
-/// Null pointers for buckets_ptr will use default buckets,
-/// but null pointers for other arguments will result in an error message.
+/// Null pointers will result in an error message being returned to the caller.
 /// Any invalid pointers will result in undefined behavior.
 /// These pointers should not be dropped for the lifetime of this function call.
 ///
@@ -704,11 +703,7 @@ pub unsafe extern "C" fn define_histogram(
 
         let name = get_str(name_ptr)?;
         let help = get_str(help_ptr)?;
-        let buckets: Vec<f64> = if buckets_ptr.is_null() {
-            Vec::new()
-        } else {
-            get_json(buckets_ptr)?
-        };
+        let buckets: Vec<f64> = get_json(buckets_ptr)?;
 
         engine.define_histogram(BucketMetricOptions::new(name, help, buckets));
         Ok(Some(()))
