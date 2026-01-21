@@ -70,6 +70,16 @@ class YggdrasilEngine
 
   attach_function :list_known_toggles, [:pointer], :pointer
 
+  # Impact metrics FFI functions
+  attach_function :define_counter, %i[pointer string string], :pointer
+  attach_function :inc_counter, %i[pointer string int64 string], :pointer
+  attach_function :collect_impact_metrics, [:pointer], :pointer
+  attach_function :restore_impact_metrics, %i[pointer string], :pointer
+  attach_function :define_gauge, %i[pointer string string], :pointer
+  attach_function :set_gauge, %i[pointer string int64 string], :pointer
+  attach_function :define_histogram, %i[pointer string string string], :pointer
+  attach_function :observe_histogram, %i[pointer string double string], :pointer
+
   class << self
     attr_accessor :logger
   end
@@ -166,5 +176,68 @@ class YggdrasilEngine
 
   def register_custom_strategies(strategies)
     @custom_strategy_handler.register_custom_strategies(strategies)
+  end
+
+  def define_counter(name, help_text)
+    response_ptr = YggdrasilEngine.define_counter(@engine, name, help_text)
+    handle_response(response_ptr)
+  end
+
+  def inc_counter(name, value = 1, labels = nil)
+    labels_json = labels ? labels.to_json : nil
+    response_ptr = YggdrasilEngine.inc_counter(@engine, name, value, labels_json)
+    handle_response(response_ptr)
+  end
+
+  def collect_impact_metrics
+    response_ptr = YggdrasilEngine.collect_impact_metrics(@engine)
+    response_json = response_ptr.read_string
+    YggdrasilEngine.free_response(response_ptr)
+    response = JSON.parse(response_json, symbolize_names: false)
+
+    raise "Error: #{response['error_message']}" if response['status_code'] == ERROR_RESPONSE
+
+    response['value'] || []
+  end
+
+  def restore_impact_metrics(metrics)
+    metrics_json = metrics.to_json
+    response_ptr = YggdrasilEngine.restore_impact_metrics(@engine, metrics_json)
+    handle_response(response_ptr)
+  end
+
+  def define_gauge(name, help_text)
+    response_ptr = YggdrasilEngine.define_gauge(@engine, name, help_text)
+    handle_response(response_ptr)
+  end
+
+  def set_gauge(name, value, labels = nil)
+    labels_json = labels ? labels.to_json : nil
+    response_ptr = YggdrasilEngine.set_gauge(@engine, name, value, labels_json)
+    handle_response(response_ptr)
+  end
+
+  def define_histogram(name, help_text, buckets = nil)
+    buckets_json = (buckets || []).to_json
+    response_ptr = YggdrasilEngine.define_histogram(@engine, name, help_text, buckets_json)
+    handle_response(response_ptr)
+  end
+
+  def observe_histogram(name, value, labels = nil)
+    labels_json = labels ? labels.to_json : nil
+    response_ptr = YggdrasilEngine.observe_histogram(@engine, name, value, labels_json)
+    handle_response(response_ptr)
+  end
+
+  private
+
+  def handle_response(response_ptr)
+    response_json = response_ptr.read_string
+    YggdrasilEngine.free_response(response_ptr)
+    response = JSON.parse(response_json, symbolize_names: true)
+
+    raise "Error: #{response[:error_message]}" if response[:status_code] == ERROR_RESPONSE
+
+    nil
   end
 end

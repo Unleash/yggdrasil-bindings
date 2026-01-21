@@ -28,7 +28,7 @@ case "$ARCH" in
     ARCH_SUFFIX="x86_64"
     ;;
   arm*|aarch64)
-    ARCH_SUFFIX="arm"
+    ARCH_SUFFIX="arm64"
     ;;
   *)
     echo "Unsupported architecture: $ARCH"
