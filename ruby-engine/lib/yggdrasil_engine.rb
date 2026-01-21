@@ -70,7 +70,6 @@ class YggdrasilEngine
 
   attach_function :list_known_toggles, [:pointer], :pointer
 
-  # Impact metrics FFI functions
   attach_function :define_counter, %i[pointer string string], :pointer
   attach_function :inc_counter, %i[pointer string int64 string], :pointer
   attach_function :collect_impact_metrics, [:pointer], :pointer
