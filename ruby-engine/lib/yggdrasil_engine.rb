@@ -192,11 +192,11 @@ class YggdrasilEngine
     response_ptr = YggdrasilEngine.collect_impact_metrics(@engine)
     response_json = response_ptr.read_string
     YggdrasilEngine.free_response(response_ptr)
-    response = JSON.parse(response_json, symbolize_names: false)
+    response = JSON.parse(response_json, symbolize_names: true)
 
-    raise "Error: #{response['error_message']}" if response['status_code'] == ERROR_RESPONSE
+    raise "Error: #{response[:error_message]}" if response[:status_code] == ERROR_RESPONSE
 
-    response['value'] || []
+    response[:value] || []
   end
 
   def restore_impact_metrics(metrics)

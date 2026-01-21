@@ -12,12 +12,12 @@ RSpec.describe YggdrasilEngine do
       yggdrasil_engine.inc_counter('test_counter', 3)
 
       metrics = yggdrasil_engine.collect_impact_metrics()
-      counter = metrics.find { |m| m['name'] == 'test_counter' }
+      counter = metrics.find { |m| m[:name] == 'test_counter' }
 
       expect(counter).not_to be_nil
-      expect(counter['help']).to eq('Test counter')
-      expect(counter['samples'].length).to eq(1)
-      expect(counter['samples'][0]['value']).to eq(8)
+      expect(counter[:help]).to eq('Test counter')
+      expect(counter[:samples].length).to eq(1)
+      expect(counter[:samples][0][:value]).to eq(8)
     end
 
     it 'should increment counter with labels' do
@@ -26,16 +26,16 @@ RSpec.describe YggdrasilEngine do
       yggdrasil_engine.inc_counter('test_counter', 3, { 'env' => 'prod' })
 
       metrics = yggdrasil_engine.collect_impact_metrics()
-      counter = metrics.find { |m| m['name'] == 'test_counter' }
+      counter = metrics.find { |m| m[:name] == 'test_counter' }
 
       expect(counter).not_to be_nil
-      expect(counter['samples'].length).to eq(2)
+      expect(counter[:samples].length).to eq(2)
 
-      test_sample = counter['samples'].find { |s| s['labels']['env'] == 'test' }
-      prod_sample = counter['samples'].find { |s| s['labels']['env'] == 'prod' }
+      test_sample = counter[:samples].find { |s| s[:labels][:env] == 'test' }
+      prod_sample = counter[:samples].find { |s| s[:labels][:env] == 'prod' }
 
-      expect(test_sample['value']).to eq(5)
-      expect(prod_sample['value']).to eq(3)
+      expect(test_sample[:value]).to eq(5)
+      expect(prod_sample[:value]).to eq(3)
     end
   end
 
@@ -46,12 +46,12 @@ RSpec.describe YggdrasilEngine do
       yggdrasil_engine.set_gauge('test_gauge', 10)
 
       metrics = yggdrasil_engine.collect_impact_metrics()
-      gauge = metrics.find { |m| m['name'] == 'test_gauge' }
+      gauge = metrics.find { |m| m[:name] == 'test_gauge' }
 
       expect(gauge).not_to be_nil
-      expect(gauge['help']).to eq('Test gauge')
-      expect(gauge['samples'].length).to eq(1)
-      expect(gauge['samples'][0]['value']).to eq(10)
+      expect(gauge[:help]).to eq('Test gauge')
+      expect(gauge[:samples].length).to eq(1)
+      expect(gauge[:samples][0][:value]).to eq(10)
     end
 
     it 'should set gauge with labels' do
@@ -60,16 +60,16 @@ RSpec.describe YggdrasilEngine do
       yggdrasil_engine.set_gauge('test_gauge', 3, { 'env' => 'prod' })
 
       metrics = yggdrasil_engine.collect_impact_metrics()
-      gauge = metrics.find { |m| m['name'] == 'test_gauge' }
+      gauge = metrics.find { |m| m[:name] == 'test_gauge' }
 
       expect(gauge).not_to be_nil
-      expect(gauge['samples'].length).to eq(2)
+      expect(gauge[:samples].length).to eq(2)
 
-      test_sample = gauge['samples'].find { |s| s['labels']['env'] == 'test' }
-      prod_sample = gauge['samples'].find { |s| s['labels']['env'] == 'prod' }
+      test_sample = gauge[:samples].find { |s| s[:labels][:env] == 'test' }
+      prod_sample = gauge[:samples].find { |s| s[:labels][:env] == 'prod' }
 
-      expect(test_sample['value']).to eq(5)
-      expect(prod_sample['value']).to eq(3)
+      expect(test_sample[:value]).to eq(5)
+      expect(prod_sample[:value]).to eq(3)
     end
   end
 
@@ -81,12 +81,12 @@ RSpec.describe YggdrasilEngine do
       yggdrasil_engine.observe_histogram('request_duration', 3.0)
 
       metrics = yggdrasil_engine.collect_impact_metrics()
-      histogram = metrics.find { |m| m['name'] == 'request_duration' }
+      histogram = metrics.find { |m| m[:name] == 'request_duration' }
 
       expect(histogram).not_to be_nil
-      expect(histogram['help']).to eq('Request duration')
-      expect(histogram['type']).to eq('histogram')
-      expect(histogram['samples'].length).to eq(1)
+      expect(histogram[:help]).to eq('Request duration')
+      expect(histogram[:type]).to eq('histogram')
+      expect(histogram[:samples].length).to eq(1)
     end
 
     it 'should observe histogram with labels' do
@@ -95,13 +95,13 @@ RSpec.describe YggdrasilEngine do
       yggdrasil_engine.observe_histogram('request_duration', 0.75, { 'env' => 'prod' })
 
       metrics = yggdrasil_engine.collect_impact_metrics()
-      histogram = metrics.find { |m| m['name'] == 'request_duration' }
+      histogram = metrics.find { |m| m[:name] == 'request_duration' }
 
       expect(histogram).not_to be_nil
-      expect(histogram['samples'].length).to eq(2)
+      expect(histogram[:samples].length).to eq(2)
 
-      test_sample = histogram['samples'].find { |s| s['labels']['env'] == 'test' }
-      prod_sample = histogram['samples'].find { |s| s['labels']['env'] == 'prod' }
+      test_sample = histogram[:samples].find { |s| s[:labels][:env] == 'test' }
+      prod_sample = histogram[:samples].find { |s| s[:labels][:env] == 'prod' }
 
       expect(test_sample).not_to be_nil
       expect(prod_sample).not_to be_nil
@@ -114,11 +114,11 @@ RSpec.describe YggdrasilEngine do
       yggdrasil_engine.observe_histogram('request_duration', 0.05)
 
       metrics = yggdrasil_engine.collect_impact_metrics()
-      histogram = metrics.find { |m| m['name'] == 'request_duration' }
+      histogram = metrics.find { |m| m[:name] == 'request_duration' }
 
       expect(histogram).not_to be_nil
-      expect(histogram['type']).to eq('histogram')
-      expect(histogram['samples'].length).to eq(1)
+      expect(histogram[:type]).to eq('histogram')
+      expect(histogram[:samples].length).to eq(1)
     end
   end
 
@@ -141,12 +141,12 @@ RSpec.describe YggdrasilEngine do
       metrics = yggdrasil_engine.collect_impact_metrics()
       expect(metrics.length).to eq(3)
 
-      counter = metrics.find { |m| m['name'] == 'test_counter' }
-      gauge = metrics.find { |m| m['name'] == 'test_gauge' }
-      histogram = metrics.find { |m| m['name'] == 'test_histogram' }
+      counter = metrics.find { |m| m[:name] == 'test_counter' }
+      gauge = metrics.find { |m| m[:name] == 'test_gauge' }
+      histogram = metrics.find { |m| m[:name] == 'test_histogram' }
 
-      expect(counter['samples'][0]['value']).to eq(10)
-      expect(gauge['samples'][0]['value']).to eq(42)
+      expect(counter[:samples][0][:value]).to eq(10)
+      expect(gauge[:samples][0][:value]).to eq(42)
       expect(histogram).not_to be_nil
 
       yggdrasil_engine.restore_impact_metrics(metrics)
@@ -154,12 +154,12 @@ RSpec.describe YggdrasilEngine do
       restored_metrics = yggdrasil_engine.collect_impact_metrics()
       expect(restored_metrics.length).to eq(3)
 
-      restored_counter = restored_metrics.find { |m| m['name'] == 'test_counter' }
-      restored_gauge = restored_metrics.find { |m| m['name'] == 'test_gauge' }
-      restored_histogram = restored_metrics.find { |m| m['name'] == 'test_histogram' }
+      restored_counter = restored_metrics.find { |m| m[:name] == 'test_counter' }
+      restored_gauge = restored_metrics.find { |m| m[:name] == 'test_gauge' }
+      restored_histogram = restored_metrics.find { |m| m[:name] == 'test_histogram' }
 
-      expect(restored_counter['samples'][0]['value']).to eq(10)
-      expect(restored_gauge['samples'][0]['value']).to eq(42)
+      expect(restored_counter[:samples][0][:value]).to eq(10)
+      expect(restored_gauge[:samples][0][:value]).to eq(42)
       expect(restored_histogram).not_to be_nil
     end
   end
