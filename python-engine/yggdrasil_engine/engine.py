@@ -193,7 +193,7 @@ class UnleashEngine:
         self.lib.set_gauge.argtypes = [
             ctypes.c_void_p,
             ctypes.c_char_p,
-            ctypes.c_int64,
+            ctypes.c_double,
             ctypes.c_char_p,
         ]
         self.lib.set_gauge.restype = ctypes.POINTER(ctypes.c_char)
@@ -375,7 +375,7 @@ class UnleashEngine:
                 raise YggdrasilError(response.error_message)
 
     def set_gauge(
-        self, name: str, value: int, labels: Optional[Dict[str, str]] = None
+        self, name: str, value: float, labels: Optional[Dict[str, str]] = None
     ) -> None:
         labels_json = json.dumps(labels).encode("utf-8") if labels else None
         response_ptr = self.lib.set_gauge(
