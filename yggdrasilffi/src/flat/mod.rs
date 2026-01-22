@@ -62,20 +62,22 @@ fn recover_lock<T>(lock: &Mutex<T>) -> MutexGuard<'_, T> {
     lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
-fn context_from_message(msg: &ContextMessage<'_>) -> Context {
-    Context {
-        user_id: msg.user_id().map(|s| s.to_string()),
-        session_id: msg.session_id().map(|s| s.to_string()),
-        environment: msg.environment().map(|s| s.to_string()),
-        app_name: msg.app_name().map(|s| s.to_string()),
-        current_time: msg.current_time().map(|s| s.to_string()),
-        remote_address: msg.remote_address().map(|s| s.to_string()),
-        properties: msg.properties().map(|entries| {
-            entries
-                .iter()
-                .filter_map(|entry| Some((entry.key().to_string(), entry.value()?.to_string())))
-                .collect()
-        }),
+impl From<&ContextMessage<'_>> for Context {
+    fn from(msg: &ContextMessage<'_>) -> Self {
+        Context {
+            user_id: msg.user_id().map(|s| s.to_string()),
+            session_id: msg.session_id().map(|s| s.to_string()),
+            environment: msg.environment().map(|s| s.to_string()),
+            app_name: msg.app_name().map(|s| s.to_string()),
+            current_time: msg.current_time().map(|s| s.to_string()),
+            remote_address: msg.remote_address().map(|s| s.to_string()),
+            properties: msg.properties().map(|entries| {
+                entries
+                    .iter()
+                    .filter_map(|entry| Some((entry.key().to_string(), entry.value()?.to_string())))
+                    .collect()
+            }),
+        }
     }
 }
 
@@ -156,7 +158,7 @@ pub unsafe extern "C" fn flat_check_enabled(
         let ctx =
             root::<ContextMessage>(bytes).map_err(|e| FlatError::InvalidContext(e.to_string()))?;
         let toggle_name = ctx.toggle_name().ok_or(FlatError::MissingFlagName)?;
-        let context = context_from_message(&ctx);
+        let context = Context::from(&ctx);
         let external_results: Option<HashMap<String, bool>> =
             ctx.custom_strategies_results().map(|entries| {
                 entries
@@ -199,7 +201,7 @@ pub unsafe extern "C" fn flat_check_variant(
         let ctx =
             root::<ContextMessage>(bytes).map_err(|e| FlatError::InvalidContext(e.to_string()))?;
         let toggle_name = ctx.toggle_name().ok_or(FlatError::MissingFlagName)?;
-        let context = context_from_message(&ctx);
+        let context = Context::from(&ctx);
         let external_results: Option<HashMap<String, bool>> =
             ctx.custom_strategies_results().map(|entries| {
                 entries
