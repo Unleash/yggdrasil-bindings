@@ -158,7 +158,7 @@ pub unsafe extern "C" fn flat_check_enabled(
         let ctx =
             root::<ContextMessage>(bytes).map_err(|e| FlatError::InvalidContext(e.to_string()))?;
         let toggle_name = ctx.toggle_name().ok_or(FlatError::MissingFlagName)?;
-        let context = Context::from(&ctx);
+        let base_context = Context::from(&ctx);
         let external_results: Option<HashMap<String, bool>> =
             ctx.custom_strategies_results().map(|entries| {
                 entries
@@ -166,14 +166,14 @@ pub unsafe extern "C" fn flat_check_enabled(
                     .map(|entry| (entry.key().to_string(), entry.value()))
                     .collect()
             });
-        let enriched = EnrichedContext::from(&context, toggle_name, external_results.as_ref());
+        let context = EnrichedContext::from(&base_context, toggle_name, external_results.as_ref());
 
         let lock = get_engine(engine_ptr)?;
         let engine = recover_lock(&lock);
 
-        let enabled = engine.check_enabled(&enriched);
-        let impression_data = engine.should_emit_impression_event(toggle_name);
-        engine.count_toggle(toggle_name, enabled.unwrap_or(false));
+        let enabled = engine.check_enabled(&context);
+        let impression_data = engine.should_emit_impression_event(&context.toggle_name);
+        engine.count_toggle(&context.toggle_name, enabled.unwrap_or(false));
 
         Ok(Some(ResponseMessage {
             message: enabled,
@@ -201,7 +201,7 @@ pub unsafe extern "C" fn flat_check_variant(
         let ctx =
             root::<ContextMessage>(bytes).map_err(|e| FlatError::InvalidContext(e.to_string()))?;
         let toggle_name = ctx.toggle_name().ok_or(FlatError::MissingFlagName)?;
-        let context = Context::from(&ctx);
+        let base_context = Context::from(&ctx);
         let external_results: Option<HashMap<String, bool>> =
             ctx.custom_strategies_results().map(|entries| {
                 entries
@@ -209,15 +209,15 @@ pub unsafe extern "C" fn flat_check_variant(
                     .map(|entry| (entry.key().to_string(), entry.value()))
                     .collect()
             });
-        let enriched = EnrichedContext::from(&context, toggle_name, external_results.as_ref());
+        let context = EnrichedContext::from(&base_context, toggle_name, external_results.as_ref());
         let lock = get_engine(engine_ptr)?;
         let engine = recover_lock(&lock);
-        let base_variant = engine.check_variant(&enriched);
-        let toggle_enabled = engine.check_enabled(&enriched).unwrap_or_default();
-        let impression_data = engine.should_emit_impression_event(toggle_name);
-        engine.count_toggle(toggle_name, toggle_enabled);
+        let base_variant = engine.check_variant(&context);
+        let toggle_enabled = engine.check_enabled(&context).unwrap_or_default();
+        let impression_data = engine.should_emit_impression_event(&context.toggle_name);
+        engine.count_toggle(&context.toggle_name, toggle_enabled);
         if let Some(v) = base_variant.clone() {
-            engine.count_variant(toggle_name, &v.name);
+            engine.count_variant(&context.toggle_name, &v.name);
         }
         let message = base_variant.map(|variant| variant.to_enriched_response(toggle_enabled));
         Ok(Some(ResponseMessage {
