@@ -1,0 +1,70 @@
+---
+name: Python build
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'python-engine/**'
+      - 'yggdrasilffi/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'Cross.toml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'python-engine/**'
+      - 'yggdrasilffi/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'Cross.toml'
+  workflow_dispatch:
+
+jobs:
+  build-python:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install rust
+        run: |
+          rustup set auto-self-update disable
+          rustup toolchain install stable --profile default
+          rustup show
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Get client spec
+        uses: actions/checkout@v6
+        with:
+          repository: Unleash/client-specification
+          ref: v5.2.2
+          path: client-specification
+
+      - name: Run cargo tests
+        run: cargo test --all-features
+
+      - name: Build ffi binaries for Python
+        run: bash ./python-engine/build.sh
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install Poetry
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install poetry
+
+      - name: Install Python dependencies
+        working-directory: python-engine
+        run: poetry install --with dev
+
+      - name: Run Python tests
+        working-directory: python-engine
+        run: poetry run pytest
