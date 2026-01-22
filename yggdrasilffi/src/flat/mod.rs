@@ -24,7 +24,9 @@ use std::panic::AssertUnwindSafe;
 use std::sync::{Arc, Mutex, MutexGuard};
 use unleash_types::client_metrics::MetricBucket;
 use unleash_yggdrasil::state::EnrichedContext;
-use unleash_yggdrasil::{Context, ExtendedVariantDef, ToggleDefinition, UpdateMessage, KNOWN_STRATEGIES};
+use unleash_yggdrasil::{
+    Context, ExtendedVariantDef, ToggleDefinition, UpdateMessage, KNOWN_STRATEGIES,
+};
 
 mod jni_bridge;
 mod serialisation;
