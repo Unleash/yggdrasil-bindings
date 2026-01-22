@@ -24,7 +24,7 @@ use std::panic::AssertUnwindSafe;
 use std::sync::{Arc, Mutex, MutexGuard};
 use unleash_types::client_metrics::MetricBucket;
 use unleash_yggdrasil::state::EnrichedContext;
-use unleash_yggdrasil::{ExtendedVariantDef, ToggleDefinition, UpdateMessage, KNOWN_STRATEGIES};
+use unleash_yggdrasil::{Context, ExtendedVariantDef, ToggleDefinition, UpdateMessage, KNOWN_STRATEGIES};
 
 mod jni_bridge;
 mod serialisation;
@@ -62,36 +62,20 @@ fn recover_lock<T>(lock: &Mutex<T>) -> MutexGuard<'_, T> {
     lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
-impl TryFrom<ContextMessage<'_>> for EnrichedContext {
-    type Error = FlatError;
-
-    fn try_from(value: ContextMessage) -> Result<Self, Self::Error> {
-        let toggle_name = value.toggle_name().ok_or(FlatError::MissingFlagName)?;
-
-        let context = EnrichedContext {
-            toggle_name: toggle_name.to_string(),
-            runtime_hostname: value.runtime_hostname().map(|f| f.to_string()),
-            user_id: value.user_id().map(|f| f.to_string()),
-            session_id: value.session_id().map(|f| f.to_string()),
-            environment: value.environment().map(|f| f.to_string()),
-            app_name: value.app_name().map(|f| f.to_string()),
-            current_time: value.current_time().map(|f| f.to_string()),
-            remote_address: value.remote_address().map(|f| f.to_string()),
-            properties: value.properties().map(|entries| {
-                entries
-                    .iter()
-                    .filter_map(|entry| Some((entry.key().to_string(), entry.value()?.to_string())))
-                    .collect::<HashMap<String, String>>()
-            }),
-            external_results: value.custom_strategies_results().map(|entries| {
-                entries
-                    .iter()
-                    .map(|entry| (entry.key().to_string(), entry.value()))
-                    .collect::<HashMap<String, bool>>()
-            }),
-        };
-
-        Ok(context)
+fn context_from_message(msg: &ContextMessage<'_>) -> Context {
+    Context {
+        user_id: msg.user_id().map(|s| s.to_string()),
+        session_id: msg.session_id().map(|s| s.to_string()),
+        environment: msg.environment().map(|s| s.to_string()),
+        app_name: msg.app_name().map(|s| s.to_string()),
+        current_time: msg.current_time().map(|s| s.to_string()),
+        remote_address: msg.remote_address().map(|s| s.to_string()),
+        properties: msg.properties().map(|entries| {
+            entries
+                .iter()
+                .filter_map(|entry| Some((entry.key().to_string(), entry.value()?.to_string())))
+                .collect()
+        }),
     }
 }
 
@@ -171,16 +155,23 @@ pub unsafe extern "C" fn flat_check_enabled(
             unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
         let ctx =
             root::<ContextMessage>(bytes).map_err(|e| FlatError::InvalidContext(e.to_string()))?;
-        let context: EnrichedContext = ctx
-            .try_into()
-            .map_err(|e: FlatError| FlatError::InvalidContext(e.to_string()))?;
+        let toggle_name = ctx.toggle_name().ok_or(FlatError::MissingFlagName)?;
+        let context = context_from_message(&ctx);
+        let external_results: Option<HashMap<String, bool>> =
+            ctx.custom_strategies_results().map(|entries| {
+                entries
+                    .iter()
+                    .map(|entry| (entry.key().to_string(), entry.value()))
+                    .collect()
+            });
+        let enriched = EnrichedContext::from(&context, toggle_name, external_results.as_ref());
 
         let lock = get_engine(engine_ptr)?;
         let engine = recover_lock(&lock);
 
-        let enabled = engine.check_enabled(&context);
-        let impression_data = engine.should_emit_impression_event(&context.toggle_name);
-        engine.count_toggle(&context.toggle_name, enabled.unwrap_or(false));
+        let enabled = engine.check_enabled(&enriched);
+        let impression_data = engine.should_emit_impression_event(toggle_name);
+        engine.count_toggle(toggle_name, enabled.unwrap_or(false));
 
         Ok(Some(ResponseMessage {
             message: enabled,
@@ -207,17 +198,24 @@ pub unsafe extern "C" fn flat_check_variant(
             unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
         let ctx =
             root::<ContextMessage>(bytes).map_err(|e| FlatError::InvalidContext(e.to_string()))?;
-        let context: EnrichedContext = ctx
-            .try_into()
-            .map_err(|e: FlatError| FlatError::InvalidContext(e.to_string()))?;
+        let toggle_name = ctx.toggle_name().ok_or(FlatError::MissingFlagName)?;
+        let context = context_from_message(&ctx);
+        let external_results: Option<HashMap<String, bool>> =
+            ctx.custom_strategies_results().map(|entries| {
+                entries
+                    .iter()
+                    .map(|entry| (entry.key().to_string(), entry.value()))
+                    .collect()
+            });
+        let enriched = EnrichedContext::from(&context, toggle_name, external_results.as_ref());
         let lock = get_engine(engine_ptr)?;
         let engine = recover_lock(&lock);
-        let base_variant = engine.check_variant(&context);
-        let toggle_enabled = engine.check_enabled(&context).unwrap_or_default();
-        let impression_data = engine.should_emit_impression_event(&context.toggle_name);
-        engine.count_toggle(&context.toggle_name, toggle_enabled);
+        let base_variant = engine.check_variant(&enriched);
+        let toggle_enabled = engine.check_enabled(&enriched).unwrap_or_default();
+        let impression_data = engine.should_emit_impression_event(toggle_name);
+        engine.count_toggle(toggle_name, toggle_enabled);
         if let Some(v) = base_variant.clone() {
-            engine.count_variant(&context.toggle_name, &v.name);
+            engine.count_variant(toggle_name, &v.name);
         }
         let message = base_variant.map(|variant| variant.to_enriched_response(toggle_enabled));
         Ok(Some(ResponseMessage {
