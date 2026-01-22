@@ -67,12 +67,12 @@ fn recover_lock<T>(lock: &Mutex<T>) -> MutexGuard<'_, T> {
 impl From<&ContextMessage<'_>> for Context {
     fn from(msg: &ContextMessage<'_>) -> Self {
         Context {
-            user_id: msg.user_id().map(|s| s.to_string()),
-            session_id: msg.session_id().map(|s| s.to_string()),
-            environment: msg.environment().map(|s| s.to_string()),
-            app_name: msg.app_name().map(|s| s.to_string()),
-            current_time: msg.current_time().map(|s| s.to_string()),
-            remote_address: msg.remote_address().map(|s| s.to_string()),
+            user_id: msg.user_id().map(|f| f.to_string()),
+            session_id: msg.session_id().map(|f| f.to_string()),
+            environment: msg.environment().map(|f| f.to_string()),
+            app_name: msg.app_name().map(|f| f.to_string()),
+            current_time: msg.current_time().map(|f| f.to_string()),
+            remote_address: msg.remote_address().map(|f| f.to_string()),
             properties: msg.properties().map(|entries| {
                 entries
                     .iter()
