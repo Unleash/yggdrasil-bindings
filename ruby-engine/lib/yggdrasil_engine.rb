@@ -75,7 +75,7 @@ class YggdrasilEngine
   attach_function :collect_impact_metrics, [:pointer], :pointer
   attach_function :restore_impact_metrics, %i[pointer string], :pointer
   attach_function :define_gauge, %i[pointer string string], :pointer
-  attach_function :set_gauge, %i[pointer string int64 string], :pointer
+  attach_function :set_gauge, %i[pointer string double string], :pointer
   attach_function :define_histogram, %i[pointer string string string], :pointer
   attach_function :observe_histogram, %i[pointer string double string], :pointer
 
