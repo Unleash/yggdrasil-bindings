@@ -271,11 +271,8 @@ pub unsafe extern "C" fn check_enabled(
         let toggle_name = get_str(toggle_name_ptr)?;
         let context: Context = get_json(context_ptr)?;
         let custom_strategy_results = parse_custom_results(custom_strategy_results_ptr)?;
-        let enriched_context = EnrichedContext::from(
-            &context,
-            toggle_name.into(),
-            custom_strategy_results.as_ref(),
-        );
+        let enriched_context =
+            EnrichedContext::from(&context, toggle_name, custom_strategy_results.as_ref());
 
         Ok(engine.check_enabled(&enriched_context))
     });
@@ -308,11 +305,8 @@ pub unsafe extern "C" fn check_variant(
         let toggle_name = get_str(toggle_name_ptr)?;
         let context: Context = get_json(context_ptr)?;
         let custom_strategy_results = parse_custom_results(custom_strategy_results_ptr)?;
-        let enriched_context = EnrichedContext::from(
-            &context,
-            toggle_name.into(),
-            custom_strategy_results.as_ref(),
-        );
+        let enriched_context =
+            EnrichedContext::from(&context, toggle_name, custom_strategy_results.as_ref());
 
         let base_variant = engine.check_variant(&enriched_context);
         let toggle_enabled = engine.check_enabled(&enriched_context).unwrap_or_default();
