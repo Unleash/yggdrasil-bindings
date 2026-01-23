@@ -7,6 +7,7 @@
 )]
 
 use flatbuffers::root;
+use std::borrow::Cow;
 use std::ffi::{c_char, c_void};
 
 use crate::flat::serialisation::{Buf, TakeStateResult};
@@ -23,7 +24,9 @@ use std::panic;
 use std::panic::AssertUnwindSafe;
 use std::sync::{Arc, Mutex, MutexGuard};
 use unleash_types::client_metrics::MetricBucket;
-use unleash_yggdrasil::state::EnrichedContext;
+use unleash_yggdrasil::state::{
+    EnrichedContext, ExternalResultsCow, ExternalResultsRef, PropertiesCow, PropertiesRef,
+};
 use unleash_yggdrasil::{ExtendedVariantDef, ToggleDefinition, UpdateMessage, KNOWN_STRATEGIES};
 
 mod jni_bridge;
@@ -123,6 +126,30 @@ pub unsafe fn flat_take_state(engine_pointer: *mut c_void, toggles_pointer: *con
     TakeStateResponse::build_response(result)
 }
 
+fn extract_context_properties<'a>(buffer: &ContextMessage<'a>) -> Option<PropertiesCow<'a>> {
+    let props_buffer = buffer.properties()?;
+    let mut properties = PropertiesCow::with_capacity(props_buffer.len());
+
+    for p in props_buffer.iter() {
+        if let Some(v) = p.value() {
+            properties.insert(Cow::Borrowed(p.key()), Cow::Borrowed(v));
+        }
+    }
+
+    Some(properties)
+}
+
+fn extract_external_results<'a>(buffer: &ContextMessage<'a>) -> Option<ExternalResultsCow<'a>> {
+    let entries = buffer.custom_strategies_results()?;
+    let mut external_results = HashMap::with_capacity(entries.len());
+
+    for entry in entries.iter() {
+        external_results.insert(Cow::Borrowed(entry.key()), entry.value());
+    }
+
+    Some(external_results)
+}
+
 #[no_mangle]
 /// # Safety
 ///
@@ -138,20 +165,9 @@ pub unsafe extern "C" fn flat_check_enabled(
             unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
         let ctx =
             root::<ContextMessage>(bytes).map_err(|e| FlatError::InvalidContext(e.to_string()))?;
-        let external_results: Option<HashMap<String, bool>> =
-            ctx.custom_strategies_results().map(|entries| {
-                entries
-                    .iter()
-                    .map(|entry| (entry.key().to_string(), entry.value()))
-                    .collect()
-            });
 
-        let properties: Option<HashMap<String, String>> = ctx.properties().map(|entries| {
-            entries
-                .iter()
-                .filter_map(|entry| Some((entry.key().to_string(), entry.value()?.to_string())))
-                .collect()
-        });
+        let properties = extract_context_properties(&ctx);
+        let external_results = extract_external_results(&ctx);
 
         let context = EnrichedContext {
             toggle_name: ctx.toggle_name().ok_or(FlatError::MissingFlagName)?,
@@ -161,8 +177,8 @@ pub unsafe extern "C" fn flat_check_enabled(
             app_name: ctx.app_name(),
             current_time: ctx.current_time(),
             remote_address: ctx.remote_address(),
-            properties: properties.as_ref(),
-            external_results: external_results.as_ref(),
+            properties: properties.as_ref().map(PropertiesRef::Cows),
+            external_results: external_results.as_ref().map(ExternalResultsRef::Cows),
             runtime_hostname: ctx.runtime_hostname(),
         };
 
@@ -198,20 +214,9 @@ pub unsafe extern "C" fn flat_check_variant(
             unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
         let ctx =
             root::<ContextMessage>(bytes).map_err(|e| FlatError::InvalidContext(e.to_string()))?;
-        let external_results: Option<HashMap<String, bool>> =
-            ctx.custom_strategies_results().map(|entries| {
-                entries
-                    .iter()
-                    .map(|entry| (entry.key().to_string(), entry.value()))
-                    .collect()
-            });
 
-        let properties: Option<HashMap<String, String>> = ctx.properties().map(|entries| {
-            entries
-                .iter()
-                .filter_map(|entry| Some((entry.key().to_string(), entry.value()?.to_string())))
-                .collect()
-        });
+        let properties = extract_context_properties(&ctx);
+        let external_results = extract_external_results(&ctx);
 
         let context = EnrichedContext {
             toggle_name: ctx.toggle_name().ok_or(FlatError::MissingFlagName)?,
@@ -221,8 +226,8 @@ pub unsafe extern "C" fn flat_check_variant(
             app_name: ctx.app_name(),
             current_time: ctx.current_time(),
             remote_address: ctx.remote_address(),
-            properties: properties.as_ref(),
-            external_results: external_results.as_ref(),
+            properties: properties.as_ref().map(PropertiesRef::Cows),
+            external_results: external_results.as_ref().map(ExternalResultsRef::Cows),
             runtime_hostname: ctx.runtime_hostname(),
         };
 
