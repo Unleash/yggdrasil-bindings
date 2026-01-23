@@ -47,7 +47,8 @@ jobs:
         run: cargo test --all-features
 
       - name: Build ffi binaries for Ruby
-        run: bash ./ruby-engine/build.sh
+        working-directory: ruby-engine
+        run: bash ./build.sh
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
