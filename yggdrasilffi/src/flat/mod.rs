@@ -24,9 +24,7 @@ use std::panic::AssertUnwindSafe;
 use std::sync::{Arc, Mutex, MutexGuard};
 use unleash_types::client_metrics::MetricBucket;
 use unleash_yggdrasil::state::EnrichedContext;
-use unleash_yggdrasil::{
-    Context, ExtendedVariantDef, ToggleDefinition, UpdateMessage, KNOWN_STRATEGIES,
-};
+use unleash_yggdrasil::{ExtendedVariantDef, ToggleDefinition, UpdateMessage, KNOWN_STRATEGIES};
 
 mod jni_bridge;
 mod serialisation;
@@ -62,25 +60,6 @@ unsafe fn get_engine(engine_ptr: *mut c_void) -> Result<ManagedEngine, FlatError
 
 fn recover_lock<T>(lock: &Mutex<T>) -> MutexGuard<'_, T> {
     lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
-}
-
-impl From<&ContextMessage<'_>> for Context {
-    fn from(msg: &ContextMessage<'_>) -> Self {
-        Context {
-            user_id: msg.user_id().map(|f| f.to_string()),
-            session_id: msg.session_id().map(|f| f.to_string()),
-            environment: msg.environment().map(|f| f.to_string()),
-            app_name: msg.app_name().map(|f| f.to_string()),
-            current_time: msg.current_time().map(|f| f.to_string()),
-            remote_address: msg.remote_address().map(|f| f.to_string()),
-            properties: msg.properties().map(|entries| {
-                entries
-                    .iter()
-                    .filter_map(|entry| Some((entry.key().to_string(), entry.value()?.to_string())))
-                    .collect()
-            }),
-        }
-    }
 }
 
 #[no_mangle]
@@ -159,8 +138,6 @@ pub unsafe extern "C" fn flat_check_enabled(
             unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
         let ctx =
             root::<ContextMessage>(bytes).map_err(|e| FlatError::InvalidContext(e.to_string()))?;
-        let toggle_name = ctx.toggle_name().ok_or(FlatError::MissingFlagName)?;
-        let base_context = Context::from(&ctx);
         let external_results: Option<HashMap<String, bool>> =
             ctx.custom_strategies_results().map(|entries| {
                 entries
@@ -168,7 +145,26 @@ pub unsafe extern "C" fn flat_check_enabled(
                     .map(|entry| (entry.key().to_string(), entry.value()))
                     .collect()
             });
-        let context = EnrichedContext::from(&base_context, toggle_name, external_results.as_ref());
+
+        let properties: Option<HashMap<String, String>> = ctx.properties().map(|entries| {
+            entries
+                .iter()
+                .filter_map(|entry| Some((entry.key().to_string(), entry.value()?.to_string())))
+                .collect()
+        });
+
+        let context = EnrichedContext {
+            toggle_name: ctx.toggle_name().ok_or(FlatError::MissingFlagName)?,
+            user_id: ctx.user_id(),
+            session_id: ctx.session_id(),
+            environment: ctx.environment(),
+            app_name: ctx.app_name(),
+            current_time: ctx.current_time(),
+            remote_address: ctx.remote_address(),
+            properties: properties.as_ref(),
+            external_results: external_results.as_ref(),
+            runtime_hostname: ctx.runtime_hostname(),
+        };
 
         let lock = get_engine(engine_ptr)?;
         let engine = recover_lock(&lock);
@@ -202,8 +198,6 @@ pub unsafe extern "C" fn flat_check_variant(
             unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
         let ctx =
             root::<ContextMessage>(bytes).map_err(|e| FlatError::InvalidContext(e.to_string()))?;
-        let toggle_name = ctx.toggle_name().ok_or(FlatError::MissingFlagName)?;
-        let base_context = Context::from(&ctx);
         let external_results: Option<HashMap<String, bool>> =
             ctx.custom_strategies_results().map(|entries| {
                 entries
@@ -211,7 +205,27 @@ pub unsafe extern "C" fn flat_check_variant(
                     .map(|entry| (entry.key().to_string(), entry.value()))
                     .collect()
             });
-        let context = EnrichedContext::from(&base_context, toggle_name, external_results.as_ref());
+
+        let properties: Option<HashMap<String, String>> = ctx.properties().map(|entries| {
+            entries
+                .iter()
+                .filter_map(|entry| Some((entry.key().to_string(), entry.value()?.to_string())))
+                .collect()
+        });
+
+        let context = EnrichedContext {
+            toggle_name: ctx.toggle_name().ok_or(FlatError::MissingFlagName)?,
+            user_id: ctx.user_id(),
+            session_id: ctx.session_id(),
+            environment: ctx.environment(),
+            app_name: ctx.app_name(),
+            current_time: ctx.current_time(),
+            remote_address: ctx.remote_address(),
+            properties: properties.as_ref(),
+            external_results: external_results.as_ref(),
+            runtime_hostname: ctx.runtime_hostname(),
+        };
+
         let lock = get_engine(engine_ptr)?;
         let engine = recover_lock(&lock);
         let base_variant = engine.check_variant(&context);

@@ -25,7 +25,6 @@ thread_local! {
 pub enum FlatError {
     InvalidContext(String),
     InvalidState(String),
-    InvalidPointer,
     MissingFlagName,
     Panic,
     NullError,
@@ -54,7 +53,6 @@ impl Display for FlatError {
         match self {
             FlatError::InvalidContext(msg) => write!(f, "Invalid context: {}", msg),
             FlatError::InvalidState(msg) => write!(f, "Invalid state: {}", msg),
-            FlatError::InvalidPointer => write!(f, "Invalid pointer encountered"),
             FlatError::MissingFlagName => {
                 write!(f, "Flag name was missing when building extended context")
             }
