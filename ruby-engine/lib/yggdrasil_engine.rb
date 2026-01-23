@@ -183,7 +183,7 @@ class YggdrasilEngine
   end
 
   def inc_counter(name, value = 1, labels = nil)
-    labels_json = labels ? labels.to_json : nil
+    labels_json = labels&.to_json
     response_ptr = YggdrasilEngine.inc_counter(@engine, name, value, labels_json)
     handle_response(response_ptr)
   end
@@ -211,7 +211,7 @@ class YggdrasilEngine
   end
 
   def set_gauge(name, value, labels = nil)
-    labels_json = labels ? labels.to_json : nil
+    labels_json = labels&.to_json
     response_ptr = YggdrasilEngine.set_gauge(@engine, name, value, labels_json)
     handle_response(response_ptr)
   end
@@ -223,7 +223,7 @@ class YggdrasilEngine
   end
 
   def observe_histogram(name, value, labels = nil)
-    labels_json = labels ? labels.to_json : nil
+    labels_json = labels&.to_json
     response_ptr = YggdrasilEngine.observe_histogram(@engine, name, value, labels_json)
     handle_response(response_ptr)
   end

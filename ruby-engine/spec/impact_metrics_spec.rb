@@ -42,8 +42,8 @@ RSpec.describe YggdrasilEngine do
   describe '#set_gauge' do
     it 'should set gauge value' do
       yggdrasil_engine.define_gauge('test_gauge', 'Test gauge')
-      yggdrasil_engine.set_gauge('test_gauge', 5)
-      yggdrasil_engine.set_gauge('test_gauge', 10)
+      yggdrasil_engine.set_gauge('test_gauge', 5.5)
+      yggdrasil_engine.set_gauge('test_gauge', 10.7)
 
       metrics = yggdrasil_engine.collect_impact_metrics()
       gauge = metrics.find { |m| m[:name] == 'test_gauge' }
@@ -51,13 +51,13 @@ RSpec.describe YggdrasilEngine do
       expect(gauge).not_to be_nil
       expect(gauge[:help]).to eq('Test gauge')
       expect(gauge[:samples].length).to eq(1)
-      expect(gauge[:samples][0][:value]).to eq(10)
+      expect(gauge[:samples][0][:value]).to eq(10.7)
     end
 
     it 'should set gauge with labels' do
       yggdrasil_engine.define_gauge('test_gauge', 'Test gauge')
-      yggdrasil_engine.set_gauge('test_gauge', 5, { 'env' => 'test' })
-      yggdrasil_engine.set_gauge('test_gauge', 3, { 'env' => 'prod' })
+      yggdrasil_engine.set_gauge('test_gauge', 5.25, { 'env' => 'test' })
+      yggdrasil_engine.set_gauge('test_gauge', 3.14, { 'env' => 'prod' })
 
       metrics = yggdrasil_engine.collect_impact_metrics()
       gauge = metrics.find { |m| m[:name] == 'test_gauge' }
@@ -68,8 +68,8 @@ RSpec.describe YggdrasilEngine do
       test_sample = gauge[:samples].find { |s| s[:labels][:env] == 'test' }
       prod_sample = gauge[:samples].find { |s| s[:labels][:env] == 'prod' }
 
-      expect(test_sample[:value]).to eq(5)
-      expect(prod_sample[:value]).to eq(3)
+      expect(test_sample[:value]).to eq(5.25)
+      expect(prod_sample[:value]).to eq(3.14)
     end
   end
 
