@@ -69,11 +69,52 @@ table ToggleEntry {
   value: ToggleStats;
 }
 
+union BucketLessEqualValue { float, string }
+
+table HistogramSampleBucketStats {
+  le: BucketLessEqualValue;
+  count: long;
+}
+
+table SampleLabelEntry {
+  key: string (key);
+  value: string;
+}
+
+table ImpactMetricHistogramStats {
+  labels: [SampleLabelEntry];
+  count: long;
+  sum: float;
+  buckets: [HistogramSampleBucketStats];
+}
+
+table ImpactMetricCounterStats {
+  labels: [SampleLabelEntry];
+  value: long;
+}
+
+table ImpactMetricCounterEntry {
+  name: string;
+  help: string;
+  type: string;
+  samples: [ImpactMetricCounterStats];
+}
+
+table ImpactMetricHistogramEntry {
+  name: string;
+  help: string;
+  type: string;
+  samples: [ImpactMetricHistogramStats];
+}
+
+union ImpactMetricEntry { ImpactMetricCounterEntry, ImpactMetricHistogramEntry }
+
 table MetricsResponse {
   // Representing DateTime<Utc> as UNIX timestamp in milliseconds
   start: long;
   stop: long;
   toggles: [ToggleEntry];
+  impact_metrics: [ImpactMetricEntry];
 }
 
 table TakeStateResponse {
