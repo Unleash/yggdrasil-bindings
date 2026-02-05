@@ -69,19 +69,8 @@ table ToggleEntry {
   value: ToggleStats;
 }
 
-table FloatValue {
-  value: float;
-}
-
-table StringValue {
-  value: string;
-}
-
-// unions can only contain structs or tables
-union BucketLessEqualValue { FloatValue, StringValue }
-
 table HistogramSampleBucketStats {
-  le: BucketLessEqualValue;
+  le: double;
   count: long;
 }
 
@@ -93,7 +82,7 @@ table SampleLabelEntry {
 table ImpactMetricHistogramStats {
   labels: [SampleLabelEntry];
   count: long;
-  sum: float;
+  sum: double;
   buckets: [HistogramSampleBucketStats];
 }
 
@@ -105,7 +94,6 @@ table ImpactMetricCounterStats {
 table ImpactMetricCounterEntry {
   name: string;
   help: string;
-  type: string;
   samples: [ImpactMetricCounterStats];
 }
 
