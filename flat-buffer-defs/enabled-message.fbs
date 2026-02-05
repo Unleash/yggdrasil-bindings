@@ -69,7 +69,16 @@ table ToggleEntry {
   value: ToggleStats;
 }
 
-union BucketLessEqualValue { float, string }
+table FloatValue {
+  value: float;
+}
+
+table StringValue {
+  value: string;
+}
+
+// unions can only contain structs or tables
+union BucketLessEqualValue { FloatValue, StringValue }
 
 table HistogramSampleBucketStats {
   le: BucketLessEqualValue;
