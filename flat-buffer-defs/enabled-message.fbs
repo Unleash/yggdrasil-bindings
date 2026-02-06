@@ -86,9 +86,20 @@ table ImpactMetricHistogramStats {
   buckets: [HistogramSampleBucketStats];
 }
 
+table ImpactMetricGaugeStats {
+  labels: [SampleLabelEntry];
+  value: double;
+}
+
 table ImpactMetricCounterStats {
   labels: [SampleLabelEntry];
   value: long;
+}
+
+table ImpactMetricGaugeEntry {
+  name: string;
+  help: string;
+  samples: [ImpactMetricGaugeStats];
 }
 
 table ImpactMetricCounterEntry {
@@ -100,11 +111,14 @@ table ImpactMetricCounterEntry {
 table ImpactMetricHistogramEntry {
   name: string;
   help: string;
-  type: string;
   samples: [ImpactMetricHistogramStats];
 }
 
-union ImpactMetricEntry { ImpactMetricCounterEntry, ImpactMetricHistogramEntry }
+union ImpactMetricEntryUnion { ImpactMetricCounterEntry, ImpactMetricGaugeEntry, ImpactMetricHistogramEntry }
+
+table ImpactMetricEntry {
+    entry: ImpactMetricEntryUnion;
+}
 
 table MetricsResponse {
   // Representing DateTime<Utc> as UNIX timestamp in milliseconds
