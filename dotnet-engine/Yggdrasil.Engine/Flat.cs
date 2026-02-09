@@ -16,6 +16,7 @@ internal static class Flat
         list_known_toggles = Marshal.GetDelegateForFunctionPointer<ListKnownTogglesDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_list_known_toggles"));
         built_in_strategies = Marshal.GetDelegateForFunctionPointer<BuiltInStrategiesDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_built_in_strategies"));
         get_metrics = Marshal.GetDelegateForFunctionPointer<GetMetricsDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_get_metrics"));
+        define_counter = Marshal.GetDelegateForFunctionPointer<DefineCounterDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_define_counter"));
     }
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -37,6 +38,10 @@ internal static class Flat
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate Buf GetMetricsDelegate(IntPtr enginePtr);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate Buf DefineCounterDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
+
     private static readonly TakeStateDelegate take_state;
     private static readonly FreeBufferDelegate free_buffer;
     private static readonly CheckEnabledDelegate check_enabled;
@@ -44,6 +49,8 @@ internal static class Flat
     private static readonly ListKnownTogglesDelegate list_known_toggles;
     private static readonly BuiltInStrategiesDelegate built_in_strategies;
     private static readonly GetMetricsDelegate get_metrics;
+
+    private static readonly DefineCounterDelegate define_counter;
 
     public static Buf TakeState(IntPtr ptr, string json)
     {
@@ -92,6 +99,21 @@ internal static class Flat
     public static Buf GetMetrics(IntPtr ptr)
     {
         return get_metrics(ptr);
+    }
+
+    public static Buf DefineCounter(IntPtr ptr, byte[] message)
+    {
+        nuint len = (nuint)message.Length;
+        GCHandle handle = GCHandle.Alloc(message, GCHandleType.Pinned);
+        try
+        {
+            IntPtr msgPtr = handle.AddrOfPinnedObject();
+            return define_counter(ptr, msgPtr, len);
+        }
+        finally
+        {
+            handle.Free();
+        }
     }
 
     public static void FreeBuf(Buf buf)

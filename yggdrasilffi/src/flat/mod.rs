@@ -7,9 +7,11 @@
 )]
 
 use flatbuffers::root;
+use unleash_yggdrasil::impact_metrics::MetricOptions;
 use std::borrow::Cow;
 use std::ffi::{c_char, c_void};
 
+use crate::flat::messaging::yggdrasil::messaging::{DefineCounter, VoidResponse};
 use crate::flat::serialisation::{Buf, TakeStateResult};
 use crate::{get_json, ManagedEngine, RawPointerDataType};
 use chrono::Utc;
@@ -303,6 +305,44 @@ where
 {
     panic::catch_unwind(AssertUnwindSafe(action)).unwrap_or_else(|_| Err(FlatError::Panic))
 }
+
+/// Defines a counter metric with the given name and help text.
+///
+/// # Safety
+///
+/// passing an invalid engine_ptr will cause UB
+/// the returned Buf should be freed by calling flat_buf_free, otherwise you're leaking memory
+///
+#[no_mangle]
+pub unsafe extern "C" fn flat_define_counter(
+    engine_ptr: *mut c_void,
+    message_ptr: u64,
+    message_len: u64,
+) -> Buf {
+    let result = guard_result::<(), _>(|| {
+        let bytes =
+            unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
+        let define_counter_message =
+            root::<DefineCounter>(bytes).map_err(|e| FlatError::InvalidContext(e.to_string()))?;
+
+        let guard = get_engine(engine_ptr)?;
+        let engine = recover_lock(&guard);
+
+        let Some(name) = define_counter_message.name() else {
+            return Err(FlatError::MissingRequiredParameter("name".to_owned()));
+        };
+
+        let Some(help) = define_counter_message.help() else {
+            return Err(FlatError::MissingRequiredParameter("help".to_owned()));
+        };
+
+        engine.define_counter(MetricOptions::new(name, help));
+        Ok(Some(()))
+    });
+
+    VoidResponse::build_response(result)
+}
+
 
 #[cfg(test)]
 mod tests {

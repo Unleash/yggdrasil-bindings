@@ -50,6 +50,19 @@ public static class Flatbuffers
         return builder.SizedByteArray();
     }
 
+    public static byte[] CreateDefineCounterBuffer(FlatBufferBuilder builder, string name, string help)
+    {
+        var nameOffset = builder.CreateString(name);
+        var helpOffset = builder.CreateString(help);
+
+        DefineCounter.AddName(builder, nameOffset);
+        DefineCounter.AddHelp(builder, helpOffset);
+
+        var defineCounterMessage = DefineCounter.EndDefineCounter(builder);
+        builder.Finish(defineCounterMessage.Value);
+        return builder.SizedByteArray();
+    }
+
     internal static VectorOffset CreatePropertiesVector(FlatBufferBuilder builder, Context context)
     {
         var propertyEntries = new Offset<PropertyEntry>[context.Properties?.Count ?? 0];
@@ -113,6 +126,7 @@ public static class Flatbuffers
         return Enumerable.Range(0, builtInStrategies.ValuesLength)
             .Select(i => builtInStrategies.Values(i)).ToArray();
     }
+
     internal static Dictionary<string, List<StrategyDefinition>> GetTakeStateResponse(Buf buf)
     {
         var response = ReadBuffer(buf);
@@ -174,6 +188,16 @@ public static class Flatbuffers
             DateTimeOffset.FromUnixTimeMilliseconds(metricsResponse.Start),
             DateTimeOffset.FromUnixTimeMilliseconds(metricsResponse.Stop)
         );
+    }
+
+    public static void ParseVoidAndThrow(Buf buf)
+    {
+        var response = ReadBuffer(buf);
+        var voidResponse = VoidResponse.GetRootAsVoidResponse(new ByteBuffer(response));
+        if (voidResponse.Error != null)
+        {
+            throw new YggdrasilEngineException(voidResponse.Error);
+        }
     }
 
     private static Dictionary<string, FeatureCount> GetMetricsFeatureCounts(MetricsResponse response)

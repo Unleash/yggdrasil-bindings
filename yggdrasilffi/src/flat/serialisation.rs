@@ -8,12 +8,7 @@ use unleash_types::client_metrics::MetricBucket;
 use unleash_yggdrasil::{EvalWarning, ExtendedVariantDef, ToggleDefinition};
 
 use crate::flat::messaging::yggdrasil::messaging::{
-    BuiltInStrategies, BuiltInStrategiesBuilder, CoreVersion, CoreVersionBuilder,
-    FeatureDefBuilder, FeatureDefs, FeatureDefsBuilder, MetricsResponse, MetricsResponseBuilder,
-    Response, ResponseBuilder, StrategyDefinition, StrategyDefinitionArgs, StrategyFeature,
-    StrategyFeatureArgs, StrategyParameter, StrategyParameterArgs, TakeStateResponse,
-    TakeStateResponseArgs, TakeStateResponseBuilder, ToggleEntryBuilder, ToggleStatsBuilder,
-    Variant, VariantBuilder, VariantEntryBuilder, VariantPayloadBuilder,
+    BuiltInStrategies, BuiltInStrategiesBuilder, CoreVersion, CoreVersionBuilder, FeatureDefBuilder, FeatureDefs, FeatureDefsBuilder, VoidResponse, VoidResponseBuilder, MetricsResponse, MetricsResponseBuilder, Response, ResponseBuilder, StrategyDefinition, StrategyDefinitionArgs, StrategyFeature, StrategyFeatureArgs, StrategyParameter, StrategyParameterArgs, TakeStateResponse, TakeStateResponseArgs, TakeStateResponseBuilder, ToggleEntryBuilder, ToggleStatsBuilder, Variant, VariantBuilder, VariantEntryBuilder, VariantPayloadBuilder
 };
 
 thread_local! {
@@ -28,6 +23,7 @@ pub enum FlatError {
     MissingFlagName,
     Panic,
     NullError,
+    MissingRequiredParameter(String),
 }
 
 pub struct ResponseMessage<T> {
@@ -57,7 +53,8 @@ impl Display for FlatError {
                 write!(f, "Flag name was missing when building extended context")
             }
             FlatError::Panic => write!(f, "Engine panicked while processing the request. Please report this as a bug with the accompanying stack trace if available."),
-            FlatError::NullError => write!(f, "Null error detected, this is a serious issue and you should report this as a bug.")
+            FlatError::NullError => write!(f, "Null error detected, this is a serious issue and you should report this as a bug."),
+            FlatError::MissingRequiredParameter(msg) => write!(f, "Missing parameter: {}", msg),
         }
     }
 }
@@ -233,6 +230,21 @@ impl FlatMessage<Result<Option<TakeStateResult>, FlatError>> for TakeStateRespon
                     },
                 )
             }
+        }
+    }
+}
+
+impl FlatMessage<Result<Option<()>, FlatError>> for VoidResponse<'static> {
+    fn as_flat_buffer(builder: &mut FlatBufferBuilder<'static>, from: Result<Option<()>, FlatError>) -> WIPOffset<Self> {
+        if let Err(error) = from {
+            let error_offset = builder.create_string(&error.to_string());
+            let mut response_builder = VoidResponseBuilder::new(builder);
+            response_builder.add_error(error_offset);
+            response_builder.finish()
+        }
+        else {
+            let response_builder = VoidResponseBuilder::new(builder);
+            response_builder.finish()
         }
     }
 }
