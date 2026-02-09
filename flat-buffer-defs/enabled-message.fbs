@@ -30,6 +30,10 @@ table Response {
   error: string;
 }
 
+table ImpactMetricResponse {
+  error: string;
+}
+
 table Variant {
   enabled: bool;
   impression_data: bool;
@@ -163,3 +167,5 @@ table FeatureDefs {
 root_type Response;
 root_type ContextMessage;
 root_type MetricsResponse;
+root_type TakeStateResponse;
+root_type ImpactMetricResponse;
