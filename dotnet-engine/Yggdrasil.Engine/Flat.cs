@@ -17,6 +17,11 @@ internal static class Flat
         built_in_strategies = Marshal.GetDelegateForFunctionPointer<BuiltInStrategiesDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_built_in_strategies"));
         get_metrics = Marshal.GetDelegateForFunctionPointer<GetMetricsDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_get_metrics"));
         define_counter = Marshal.GetDelegateForFunctionPointer<DefineCounterDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_define_counter"));
+        inc_counter = Marshal.GetDelegateForFunctionPointer<IncCounterDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_inc_counter"));
+        define_gauge = Marshal.GetDelegateForFunctionPointer<DefineGaugeDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_define_gauge"));
+        set_gauge = Marshal.GetDelegateForFunctionPointer<SetGaugeDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_set_gauge"));
+        define_histogram = Marshal.GetDelegateForFunctionPointer<DefineHistogramDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_define_histogram"));
+        observe_histogram = Marshal.GetDelegateForFunctionPointer<ObserveHistogramDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_observe_histogram"));
     }
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -41,6 +46,16 @@ internal static class Flat
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate Buf DefineCounterDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate Buf IncCounterDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate Buf DefineGaugeDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate Buf SetGaugeDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate Buf DefineHistogramDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate Buf ObserveHistogramDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
 
     private static readonly TakeStateDelegate take_state;
     private static readonly FreeBufferDelegate free_buffer;
@@ -51,6 +66,11 @@ internal static class Flat
     private static readonly GetMetricsDelegate get_metrics;
 
     private static readonly DefineCounterDelegate define_counter;
+    private static readonly IncCounterDelegate inc_counter;
+    private static readonly DefineGaugeDelegate define_gauge;
+    private static readonly SetGaugeDelegate set_gauge;
+    private static readonly DefineHistogramDelegate define_histogram;
+    private static readonly ObserveHistogramDelegate observe_histogram;
 
     public static Buf TakeState(IntPtr ptr, string json)
     {
@@ -86,6 +106,7 @@ internal static class Flat
             handle.Free();
         }
     }
+
     public static Buf ListKnownToggles(IntPtr ptr)
     {
         return list_known_toggles(ptr);
@@ -109,6 +130,81 @@ internal static class Flat
         {
             IntPtr msgPtr = handle.AddrOfPinnedObject();
             return define_counter(ptr, msgPtr, len);
+        }
+        finally
+        {
+            handle.Free();
+        }
+    }
+
+    public static Buf IncCounter(IntPtr ptr, byte[] message)
+    {
+        nuint len = (nuint)message.Length;
+        GCHandle handle = GCHandle.Alloc(message, GCHandleType.Pinned);
+        try
+        {
+            IntPtr msgPtr = handle.AddrOfPinnedObject();
+            return inc_counter(ptr, msgPtr, len);
+        }
+        finally
+        {
+            handle.Free();
+        }
+    }
+
+    public static Buf DefineGauge(IntPtr ptr, byte[] message)
+    {
+        nuint len = (nuint)message.Length;
+        GCHandle handle = GCHandle.Alloc(message, GCHandleType.Pinned);
+        try
+        {
+            IntPtr msgPtr = handle.AddrOfPinnedObject();
+            return define_gauge(ptr, msgPtr, len);
+        }
+        finally
+        {
+            handle.Free();
+        }
+    }
+
+    public static Buf SetGauge(IntPtr ptr, byte[] message)
+    {
+        nuint len = (nuint)message.Length;
+        GCHandle handle = GCHandle.Alloc(message, GCHandleType.Pinned);
+        try
+        {
+            IntPtr msgPtr = handle.AddrOfPinnedObject();
+            return set_gauge(ptr, msgPtr, len);
+        }
+        finally
+        {
+            handle.Free();
+        }
+    }
+
+    public static Buf DefineHistogram(IntPtr ptr, byte[] message)
+    {
+        nuint len = (nuint)message.Length;
+        GCHandle handle = GCHandle.Alloc(message, GCHandleType.Pinned);
+        try
+        {
+            IntPtr msgPtr = handle.AddrOfPinnedObject();
+            return define_histogram(ptr, msgPtr, len);
+        }
+        finally
+        {
+            handle.Free();
+        }
+    }
+
+    public static Buf ObserveHistogram(IntPtr ptr, byte[] message)
+    {
+        nuint len = (nuint)message.Length;
+        GCHandle handle = GCHandle.Alloc(message, GCHandleType.Pinned);
+        try
+        {
+            IntPtr msgPtr = handle.AddrOfPinnedObject();
+            return observe_histogram(ptr, msgPtr, len);
         }
         finally
         {

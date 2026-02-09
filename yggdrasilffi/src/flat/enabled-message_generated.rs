@@ -3894,6 +3894,644 @@ impl core::fmt::Debug for DefineCounter<'_> {
       ds.finish()
   }
 }
+pub enum IncCounterOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct IncCounter<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for IncCounter<'a> {
+  type Inner = IncCounter<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> IncCounter<'a> {
+  pub const VT_NAME: flatbuffers::VOffsetT = 4;
+  pub const VT_VALUE: flatbuffers::VOffsetT = 6;
+  pub const VT_LABELS: flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    IncCounter { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args IncCounterArgs<'args>
+  ) -> flatbuffers::WIPOffset<IncCounter<'bldr>> {
+    let mut builder = IncCounterBuilder::new(_fbb);
+    builder.add_value(args.value);
+    if let Some(x) = args.labels { builder.add_labels(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(IncCounter::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn value(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(IncCounter::VT_VALUE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn labels(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry>>>>(IncCounter::VT_LABELS, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for IncCounter<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<i64>("value", Self::VT_VALUE, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<SampleLabelEntry>>>>("labels", Self::VT_LABELS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct IncCounterArgs<'a> {
+    pub name: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub value: i64,
+    pub labels: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry<'a>>>>>,
+}
+impl<'a> Default for IncCounterArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    IncCounterArgs {
+      name: None,
+      value: 0,
+      labels: None,
+    }
+  }
+}
+
+pub struct IncCounterBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> IncCounterBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_name(&mut self, name: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(IncCounter::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_value(&mut self, value: i64) {
+    self.fbb_.push_slot::<i64>(IncCounter::VT_VALUE, value, 0);
+  }
+  #[inline]
+  pub fn add_labels(&mut self, labels: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<SampleLabelEntry<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(IncCounter::VT_LABELS, labels);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> IncCounterBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    IncCounterBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<IncCounter<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for IncCounter<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("IncCounter");
+      ds.field("name", &self.name());
+      ds.field("value", &self.value());
+      ds.field("labels", &self.labels());
+      ds.finish()
+  }
+}
+pub enum DefineGaugeOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct DefineGauge<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for DefineGauge<'a> {
+  type Inner = DefineGauge<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> DefineGauge<'a> {
+  pub const VT_NAME: flatbuffers::VOffsetT = 4;
+  pub const VT_HELP: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    DefineGauge { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args DefineGaugeArgs<'args>
+  ) -> flatbuffers::WIPOffset<DefineGauge<'bldr>> {
+    let mut builder = DefineGaugeBuilder::new(_fbb);
+    if let Some(x) = args.help { builder.add_help(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(DefineGauge::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn help(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(DefineGauge::VT_HELP, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for DefineGauge<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("help", Self::VT_HELP, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct DefineGaugeArgs<'a> {
+    pub name: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub help: Option<flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for DefineGaugeArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    DefineGaugeArgs {
+      name: None,
+      help: None,
+    }
+  }
+}
+
+pub struct DefineGaugeBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> DefineGaugeBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_name(&mut self, name: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(DefineGauge::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_help(&mut self, help: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(DefineGauge::VT_HELP, help);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> DefineGaugeBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    DefineGaugeBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<DefineGauge<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for DefineGauge<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("DefineGauge");
+      ds.field("name", &self.name());
+      ds.field("help", &self.help());
+      ds.finish()
+  }
+}
+pub enum SetGaugeOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SetGauge<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for SetGauge<'a> {
+  type Inner = SetGauge<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> SetGauge<'a> {
+  pub const VT_NAME: flatbuffers::VOffsetT = 4;
+  pub const VT_VALUE: flatbuffers::VOffsetT = 6;
+  pub const VT_LABELS: flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    SetGauge { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SetGaugeArgs<'args>
+  ) -> flatbuffers::WIPOffset<SetGauge<'bldr>> {
+    let mut builder = SetGaugeBuilder::new(_fbb);
+    builder.add_value(args.value);
+    if let Some(x) = args.labels { builder.add_labels(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(SetGauge::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn value(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(SetGauge::VT_VALUE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn labels(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry>>>>(SetGauge::VT_LABELS, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for SetGauge<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<f64>("value", Self::VT_VALUE, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<SampleLabelEntry>>>>("labels", Self::VT_LABELS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SetGaugeArgs<'a> {
+    pub name: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub value: f64,
+    pub labels: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry<'a>>>>>,
+}
+impl<'a> Default for SetGaugeArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SetGaugeArgs {
+      name: None,
+      value: 0.0,
+      labels: None,
+    }
+  }
+}
+
+pub struct SetGaugeBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> SetGaugeBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_name(&mut self, name: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetGauge::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_value(&mut self, value: f64) {
+    self.fbb_.push_slot::<f64>(SetGauge::VT_VALUE, value, 0.0);
+  }
+  #[inline]
+  pub fn add_labels(&mut self, labels: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<SampleLabelEntry<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetGauge::VT_LABELS, labels);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> SetGaugeBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SetGaugeBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<SetGauge<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for SetGauge<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("SetGauge");
+      ds.field("name", &self.name());
+      ds.field("value", &self.value());
+      ds.field("labels", &self.labels());
+      ds.finish()
+  }
+}
+pub enum DefineHistogramOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct DefineHistogram<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for DefineHistogram<'a> {
+  type Inner = DefineHistogram<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> DefineHistogram<'a> {
+  pub const VT_NAME: flatbuffers::VOffsetT = 4;
+  pub const VT_HELP: flatbuffers::VOffsetT = 6;
+  pub const VT_BUCKETS: flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    DefineHistogram { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args DefineHistogramArgs<'args>
+  ) -> flatbuffers::WIPOffset<DefineHistogram<'bldr>> {
+    let mut builder = DefineHistogramBuilder::new(_fbb);
+    if let Some(x) = args.buckets { builder.add_buckets(x); }
+    if let Some(x) = args.help { builder.add_help(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(DefineHistogram::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn help(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(DefineHistogram::VT_HELP, None)}
+  }
+  #[inline]
+  pub fn buckets(&self) -> Option<flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, f64>>>(DefineHistogram::VT_BUCKETS, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for DefineHistogram<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("help", Self::VT_HELP, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, f64>>>("buckets", Self::VT_BUCKETS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct DefineHistogramArgs<'a> {
+    pub name: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub help: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub buckets: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, f64>>>,
+}
+impl<'a> Default for DefineHistogramArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    DefineHistogramArgs {
+      name: None,
+      help: None,
+      buckets: None,
+    }
+  }
+}
+
+pub struct DefineHistogramBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> DefineHistogramBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_name(&mut self, name: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(DefineHistogram::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_help(&mut self, help: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(DefineHistogram::VT_HELP, help);
+  }
+  #[inline]
+  pub fn add_buckets(&mut self, buckets: flatbuffers::WIPOffset<flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(DefineHistogram::VT_BUCKETS, buckets);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> DefineHistogramBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    DefineHistogramBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<DefineHistogram<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for DefineHistogram<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("DefineHistogram");
+      ds.field("name", &self.name());
+      ds.field("help", &self.help());
+      ds.field("buckets", &self.buckets());
+      ds.finish()
+  }
+}
+pub enum ObserveHistogramOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ObserveHistogram<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for ObserveHistogram<'a> {
+  type Inner = ObserveHistogram<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> ObserveHistogram<'a> {
+  pub const VT_NAME: flatbuffers::VOffsetT = 4;
+  pub const VT_VALUE: flatbuffers::VOffsetT = 6;
+  pub const VT_LABELS: flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    ObserveHistogram { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ObserveHistogramArgs<'args>
+  ) -> flatbuffers::WIPOffset<ObserveHistogram<'bldr>> {
+    let mut builder = ObserveHistogramBuilder::new(_fbb);
+    builder.add_value(args.value);
+    if let Some(x) = args.labels { builder.add_labels(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(ObserveHistogram::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn value(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(ObserveHistogram::VT_VALUE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn labels(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry>>>>(ObserveHistogram::VT_LABELS, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for ObserveHistogram<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<f64>("value", Self::VT_VALUE, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<SampleLabelEntry>>>>("labels", Self::VT_LABELS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ObserveHistogramArgs<'a> {
+    pub name: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub value: f64,
+    pub labels: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry<'a>>>>>,
+}
+impl<'a> Default for ObserveHistogramArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    ObserveHistogramArgs {
+      name: None,
+      value: 0.0,
+      labels: None,
+    }
+  }
+}
+
+pub struct ObserveHistogramBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ObserveHistogramBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_name(&mut self, name: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ObserveHistogram::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_value(&mut self, value: f64) {
+    self.fbb_.push_slot::<f64>(ObserveHistogram::VT_VALUE, value, 0.0);
+  }
+  #[inline]
+  pub fn add_labels(&mut self, labels: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<SampleLabelEntry<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ObserveHistogram::VT_LABELS, labels);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> ObserveHistogramBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ObserveHistogramBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<ObserveHistogram<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for ObserveHistogram<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("ObserveHistogram");
+      ds.field("name", &self.name());
+      ds.field("value", &self.value());
+      ds.field("labels", &self.labels());
+      ds.finish()
+  }
+}
 #[inline]
 /// Verifies that a buffer of bytes contains a `VoidResponse`
 /// and returns it.
