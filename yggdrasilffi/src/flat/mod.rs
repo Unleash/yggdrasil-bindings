@@ -310,7 +310,7 @@ where
 ///
 /// # Safety
 ///
-/// passing an invalid engine_ptr will cause UB
+/// passing an invalid engine_ptr, message_ptr, or improper message_len will cause UB
 /// the returned Buf should be freed by calling flat_buf_free, otherwise you're leaking memory
 ///
 #[no_mangle]
