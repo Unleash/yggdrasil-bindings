@@ -10,7 +10,7 @@ public class YggdrasilImpactMetricsTest
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
-    
+
     [Test]
     public void DefineCounter_Throws_Only_When_Invalid()
     {
