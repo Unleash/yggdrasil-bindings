@@ -769,34 +769,34 @@ impl core::fmt::Debug for Response<'_> {
       ds.finish()
   }
 }
-pub enum ImpactMetricResponseOffset {}
+pub enum VoidResponseOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
-pub struct ImpactMetricResponse<'a> {
+pub struct VoidResponse<'a> {
   pub _tab: flatbuffers::Table<'a>,
 }
 
-impl<'a> flatbuffers::Follow<'a> for ImpactMetricResponse<'a> {
-  type Inner = ImpactMetricResponse<'a>;
+impl<'a> flatbuffers::Follow<'a> for VoidResponse<'a> {
+  type Inner = VoidResponse<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
     Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
-impl<'a> ImpactMetricResponse<'a> {
+impl<'a> VoidResponse<'a> {
   pub const VT_ERROR: flatbuffers::VOffsetT = 4;
 
   #[inline]
   pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-    ImpactMetricResponse { _tab: table }
+    VoidResponse { _tab: table }
   }
   #[allow(unused_mut)]
   pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
     _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args ImpactMetricResponseArgs<'args>
-  ) -> flatbuffers::WIPOffset<ImpactMetricResponse<'bldr>> {
-    let mut builder = ImpactMetricResponseBuilder::new(_fbb);
+    args: &'args VoidResponseArgs<'args>
+  ) -> flatbuffers::WIPOffset<VoidResponse<'bldr>> {
+    let mut builder = VoidResponseBuilder::new(_fbb);
     if let Some(x) = args.error { builder.add_error(x); }
     builder.finish()
   }
@@ -807,11 +807,11 @@ impl<'a> ImpactMetricResponse<'a> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(ImpactMetricResponse::VT_ERROR, None)}
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(VoidResponse::VT_ERROR, None)}
   }
 }
 
-impl flatbuffers::Verifiable for ImpactMetricResponse<'_> {
+impl flatbuffers::Verifiable for VoidResponse<'_> {
   #[inline]
   fn run_verifier(
     v: &mut flatbuffers::Verifier, pos: usize
@@ -823,45 +823,45 @@ impl flatbuffers::Verifiable for ImpactMetricResponse<'_> {
     Ok(())
   }
 }
-pub struct ImpactMetricResponseArgs<'a> {
+pub struct VoidResponseArgs<'a> {
     pub error: Option<flatbuffers::WIPOffset<&'a str>>,
 }
-impl<'a> Default for ImpactMetricResponseArgs<'a> {
+impl<'a> Default for VoidResponseArgs<'a> {
   #[inline]
   fn default() -> Self {
-    ImpactMetricResponseArgs {
+    VoidResponseArgs {
       error: None,
     }
   }
 }
 
-pub struct ImpactMetricResponseBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+pub struct VoidResponseBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
   fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ImpactMetricResponseBuilder<'a, 'b, A> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> VoidResponseBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_error(&mut self, error: flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ImpactMetricResponse::VT_ERROR, error);
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(VoidResponse::VT_ERROR, error);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> ImpactMetricResponseBuilder<'a, 'b, A> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> VoidResponseBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
-    ImpactMetricResponseBuilder {
+    VoidResponseBuilder {
       fbb_: _fbb,
       start_: start,
     }
   }
   #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<ImpactMetricResponse<'a>> {
+  pub fn finish(self) -> flatbuffers::WIPOffset<VoidResponse<'a>> {
     let o = self.fbb_.end_table(self.start_);
     flatbuffers::WIPOffset::new(o.value())
   }
 }
 
-impl core::fmt::Debug for ImpactMetricResponse<'_> {
+impl core::fmt::Debug for VoidResponse<'_> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    let mut ds = f.debug_struct("ImpactMetricResponse");
+    let mut ds = f.debug_struct("VoidResponse");
       ds.field("error", &self.error());
       ds.finish()
   }
@@ -3780,75 +3780,189 @@ impl core::fmt::Debug for FeatureDefs<'_> {
       ds.finish()
   }
 }
+pub enum DefineCounterOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct DefineCounter<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for DefineCounter<'a> {
+  type Inner = DefineCounter<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> DefineCounter<'a> {
+  pub const VT_NAME: flatbuffers::VOffsetT = 4;
+  pub const VT_HELP: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    DefineCounter { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args DefineCounterArgs<'args>
+  ) -> flatbuffers::WIPOffset<DefineCounter<'bldr>> {
+    let mut builder = DefineCounterBuilder::new(_fbb);
+    if let Some(x) = args.help { builder.add_help(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(DefineCounter::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn help(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(DefineCounter::VT_HELP, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for DefineCounter<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("help", Self::VT_HELP, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct DefineCounterArgs<'a> {
+    pub name: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub help: Option<flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for DefineCounterArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    DefineCounterArgs {
+      name: None,
+      help: None,
+    }
+  }
+}
+
+pub struct DefineCounterBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> DefineCounterBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_name(&mut self, name: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(DefineCounter::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_help(&mut self, help: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(DefineCounter::VT_HELP, help);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> DefineCounterBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    DefineCounterBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<DefineCounter<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for DefineCounter<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("DefineCounter");
+      ds.field("name", &self.name());
+      ds.field("help", &self.help());
+      ds.finish()
+  }
+}
 #[inline]
-/// Verifies that a buffer of bytes contains a `ImpactMetricResponse`
+/// Verifies that a buffer of bytes contains a `VoidResponse`
 /// and returns it.
 /// Note that verification is still experimental and may not
 /// catch every error, or be maximally performant. For the
 /// previous, unchecked, behavior use
-/// `root_as_impact_metric_response_unchecked`.
-pub fn root_as_impact_metric_response(buf: &[u8]) -> Result<ImpactMetricResponse, flatbuffers::InvalidFlatbuffer> {
-  flatbuffers::root::<ImpactMetricResponse>(buf)
+/// `root_as_void_response_unchecked`.
+pub fn root_as_void_response(buf: &[u8]) -> Result<VoidResponse, flatbuffers::InvalidFlatbuffer> {
+  flatbuffers::root::<VoidResponse>(buf)
 }
 #[inline]
 /// Verifies that a buffer of bytes contains a size prefixed
-/// `ImpactMetricResponse` and returns it.
+/// `VoidResponse` and returns it.
 /// Note that verification is still experimental and may not
 /// catch every error, or be maximally performant. For the
 /// previous, unchecked, behavior use
-/// `size_prefixed_root_as_impact_metric_response_unchecked`.
-pub fn size_prefixed_root_as_impact_metric_response(buf: &[u8]) -> Result<ImpactMetricResponse, flatbuffers::InvalidFlatbuffer> {
-  flatbuffers::size_prefixed_root::<ImpactMetricResponse>(buf)
+/// `size_prefixed_root_as_void_response_unchecked`.
+pub fn size_prefixed_root_as_void_response(buf: &[u8]) -> Result<VoidResponse, flatbuffers::InvalidFlatbuffer> {
+  flatbuffers::size_prefixed_root::<VoidResponse>(buf)
 }
 #[inline]
 /// Verifies, with the given options, that a buffer of bytes
-/// contains a `ImpactMetricResponse` and returns it.
+/// contains a `VoidResponse` and returns it.
 /// Note that verification is still experimental and may not
 /// catch every error, or be maximally performant. For the
 /// previous, unchecked, behavior use
-/// `root_as_impact_metric_response_unchecked`.
-pub fn root_as_impact_metric_response_with_opts<'b, 'o>(
+/// `root_as_void_response_unchecked`.
+pub fn root_as_void_response_with_opts<'b, 'o>(
   opts: &'o flatbuffers::VerifierOptions,
   buf: &'b [u8],
-) -> Result<ImpactMetricResponse<'b>, flatbuffers::InvalidFlatbuffer> {
-  flatbuffers::root_with_opts::<ImpactMetricResponse<'b>>(opts, buf)
+) -> Result<VoidResponse<'b>, flatbuffers::InvalidFlatbuffer> {
+  flatbuffers::root_with_opts::<VoidResponse<'b>>(opts, buf)
 }
 #[inline]
 /// Verifies, with the given verifier options, that a buffer of
-/// bytes contains a size prefixed `ImpactMetricResponse` and returns
+/// bytes contains a size prefixed `VoidResponse` and returns
 /// it. Note that verification is still experimental and may not
 /// catch every error, or be maximally performant. For the
 /// previous, unchecked, behavior use
-/// `root_as_impact_metric_response_unchecked`.
-pub fn size_prefixed_root_as_impact_metric_response_with_opts<'b, 'o>(
+/// `root_as_void_response_unchecked`.
+pub fn size_prefixed_root_as_void_response_with_opts<'b, 'o>(
   opts: &'o flatbuffers::VerifierOptions,
   buf: &'b [u8],
-) -> Result<ImpactMetricResponse<'b>, flatbuffers::InvalidFlatbuffer> {
-  flatbuffers::size_prefixed_root_with_opts::<ImpactMetricResponse<'b>>(opts, buf)
+) -> Result<VoidResponse<'b>, flatbuffers::InvalidFlatbuffer> {
+  flatbuffers::size_prefixed_root_with_opts::<VoidResponse<'b>>(opts, buf)
 }
 #[inline]
-/// Assumes, without verification, that a buffer of bytes contains a ImpactMetricResponse and returns it.
+/// Assumes, without verification, that a buffer of bytes contains a VoidResponse and returns it.
 /// # Safety
-/// Callers must trust the given bytes do indeed contain a valid `ImpactMetricResponse`.
-pub unsafe fn root_as_impact_metric_response_unchecked(buf: &[u8]) -> ImpactMetricResponse {
-  flatbuffers::root_unchecked::<ImpactMetricResponse>(buf)
+/// Callers must trust the given bytes do indeed contain a valid `VoidResponse`.
+pub unsafe fn root_as_void_response_unchecked(buf: &[u8]) -> VoidResponse {
+  flatbuffers::root_unchecked::<VoidResponse>(buf)
 }
 #[inline]
-/// Assumes, without verification, that a buffer of bytes contains a size prefixed ImpactMetricResponse and returns it.
+/// Assumes, without verification, that a buffer of bytes contains a size prefixed VoidResponse and returns it.
 /// # Safety
-/// Callers must trust the given bytes do indeed contain a valid size prefixed `ImpactMetricResponse`.
-pub unsafe fn size_prefixed_root_as_impact_metric_response_unchecked(buf: &[u8]) -> ImpactMetricResponse {
-  flatbuffers::size_prefixed_root_unchecked::<ImpactMetricResponse>(buf)
+/// Callers must trust the given bytes do indeed contain a valid size prefixed `VoidResponse`.
+pub unsafe fn size_prefixed_root_as_void_response_unchecked(buf: &[u8]) -> VoidResponse {
+  flatbuffers::size_prefixed_root_unchecked::<VoidResponse>(buf)
 }
 #[inline]
-pub fn finish_impact_metric_response_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(
+pub fn finish_void_response_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(
     fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
-    root: flatbuffers::WIPOffset<ImpactMetricResponse<'a>>) {
+    root: flatbuffers::WIPOffset<VoidResponse<'a>>) {
   fbb.finish(root, None);
 }
 
 #[inline]
-pub fn finish_size_prefixed_impact_metric_response_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>, root: flatbuffers::WIPOffset<ImpactMetricResponse<'a>>) {
+pub fn finish_size_prefixed_void_response_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>, root: flatbuffers::WIPOffset<VoidResponse<'a>>) {
   fbb.finish_size_prefixed(root, None);
 }
 }  // pub mod messaging

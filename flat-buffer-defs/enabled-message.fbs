@@ -30,7 +30,7 @@ table Response {
   error: string;
 }
 
-table ImpactMetricResponse {
+table VoidResponse {
   error: string;
 }
 
@@ -164,8 +164,13 @@ table FeatureDefs {
   items: [FeatureDef];
 }
 
+table DefineCounter {
+    name: string;
+    help: string;
+}
+
 root_type Response;
 root_type ContextMessage;
 root_type MetricsResponse;
 root_type TakeStateResponse;
-root_type ImpactMetricResponse;
+root_type VoidResponse;

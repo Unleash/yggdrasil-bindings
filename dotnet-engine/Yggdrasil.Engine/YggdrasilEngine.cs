@@ -82,6 +82,14 @@ public class YggdrasilEngine
         finally { Flat.FreeBuf(buf); }
     }
 
+    public void DefineCounter(string name, string help)
+    {
+        var messageBuffer = Flatbuffers.CreateDefineCounterBuffer(new FlatBufferBuilder(128), name, help);
+        var buf = Flat.DefineCounter(state, messageBuffer);
+        try { Flatbuffers.ParseVoidAndThrow(buf); }
+        finally { Flat.FreeBuf(buf); }
+    }
+
     public ICollection<FeatureDefinition> ListKnownToggles()
     {
         var buf = Flat.ListKnownToggles(state);
