@@ -13,7 +13,7 @@ use std::ffi::{c_char, c_void};
 use crate::flat::serialisation::{Buf, TakeStateResult};
 use crate::{get_json, ManagedEngine, RawPointerDataType};
 use chrono::Utc;
-use messaging::messaging::{
+use messaging::yggdrasil::messaging::{
     BuiltInStrategies, ContextMessage, FeatureDefs, MetricsResponse, Response, TakeStateResponse,
     Variant,
 };
@@ -307,7 +307,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::flat::messaging::messaging::ContextMessageBuilder;
+    use crate::flat::messaging::yggdrasil::messaging::ContextMessageBuilder;
     use crate::{free_engine, free_response, get_state, new_engine, take_state};
     use flatbuffers::{FlatBufferBuilder, WIPOffset};
     use serde_json::Value;

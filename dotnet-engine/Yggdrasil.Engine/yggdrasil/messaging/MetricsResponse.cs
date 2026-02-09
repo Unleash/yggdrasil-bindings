@@ -16,7 +16,6 @@ public struct MetricsResponse : IFlatbufferObject
   public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_2_10(); }
   public static MetricsResponse GetRootAsMetricsResponse(ByteBuffer _bb) { return GetRootAsMetricsResponse(_bb, new MetricsResponse()); }
   public static MetricsResponse GetRootAsMetricsResponse(ByteBuffer _bb, MetricsResponse obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
-  public static bool VerifyMetricsResponse(ByteBuffer _bb) {Google.FlatBuffers.Verifier verifier = new Google.FlatBuffers.Verifier(_bb); return verifier.VerifyBuffer("", false, MetricsResponseVerify.Verify); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
   public MetricsResponse __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
@@ -24,19 +23,23 @@ public struct MetricsResponse : IFlatbufferObject
   public long Stop { get { int o = __p.__offset(6); return o != 0 ? __p.bb.GetLong(o + __p.bb_pos) : (long)0; } }
   public yggdrasil.messaging.ToggleEntry? Toggles(int j) { int o = __p.__offset(8); return o != 0 ? (yggdrasil.messaging.ToggleEntry?)(new yggdrasil.messaging.ToggleEntry()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
   public int TogglesLength { get { int o = __p.__offset(8); return o != 0 ? __p.__vector_len(o) : 0; } }
+  public yggdrasil.messaging.ImpactMetricEntry? ImpactMetrics(int j) { int o = __p.__offset(10); return o != 0 ? (yggdrasil.messaging.ImpactMetricEntry?)(new yggdrasil.messaging.ImpactMetricEntry()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
+  public int ImpactMetricsLength { get { int o = __p.__offset(10); return o != 0 ? __p.__vector_len(o) : 0; } }
 
   public static Offset<yggdrasil.messaging.MetricsResponse> CreateMetricsResponse(FlatBufferBuilder builder,
       long start = 0,
       long stop = 0,
-      VectorOffset togglesOffset = default(VectorOffset)) {
-    builder.StartTable(3);
+      VectorOffset togglesOffset = default(VectorOffset),
+      VectorOffset impact_metricsOffset = default(VectorOffset)) {
+    builder.StartTable(4);
     MetricsResponse.AddStop(builder, stop);
     MetricsResponse.AddStart(builder, start);
+    MetricsResponse.AddImpactMetrics(builder, impact_metricsOffset);
     MetricsResponse.AddToggles(builder, togglesOffset);
     return MetricsResponse.EndMetricsResponse(builder);
   }
 
-  public static void StartMetricsResponse(FlatBufferBuilder builder) { builder.StartTable(3); }
+  public static void StartMetricsResponse(FlatBufferBuilder builder) { builder.StartTable(4); }
   public static void AddStart(FlatBufferBuilder builder, long start) { builder.AddLong(0, start, 0); }
   public static void AddStop(FlatBufferBuilder builder, long stop) { builder.AddLong(1, stop, 0); }
   public static void AddToggles(FlatBufferBuilder builder, VectorOffset togglesOffset) { builder.AddOffset(2, togglesOffset.Value, 0); }
@@ -45,12 +48,16 @@ public struct MetricsResponse : IFlatbufferObject
   public static VectorOffset CreateTogglesVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<yggdrasil.messaging.ToggleEntry>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
   public static VectorOffset CreateTogglesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<yggdrasil.messaging.ToggleEntry>>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartTogglesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
+  public static void AddImpactMetrics(FlatBufferBuilder builder, VectorOffset impactMetricsOffset) { builder.AddOffset(3, impactMetricsOffset.Value, 0); }
+  public static VectorOffset CreateImpactMetricsVector(FlatBufferBuilder builder, Offset<yggdrasil.messaging.ImpactMetricEntry>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
+  public static VectorOffset CreateImpactMetricsVectorBlock(FlatBufferBuilder builder, Offset<yggdrasil.messaging.ImpactMetricEntry>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateImpactMetricsVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<yggdrasil.messaging.ImpactMetricEntry>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateImpactMetricsVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<yggdrasil.messaging.ImpactMetricEntry>>(dataPtr, sizeInBytes); return builder.EndVector(); }
+  public static void StartImpactMetricsVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static Offset<yggdrasil.messaging.MetricsResponse> EndMetricsResponse(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<yggdrasil.messaging.MetricsResponse>(o);
   }
-  public static void FinishMetricsResponseBuffer(FlatBufferBuilder builder, Offset<yggdrasil.messaging.MetricsResponse> offset) { builder.Finish(offset.Value); }
-  public static void FinishSizePrefixedMetricsResponseBuffer(FlatBufferBuilder builder, Offset<yggdrasil.messaging.MetricsResponse> offset) { builder.FinishSizePrefixed(offset.Value); }
 }
 
 
@@ -62,6 +69,7 @@ static public class MetricsResponseVerify
       && verifier.VerifyField(tablePos, 4 /*Start*/, 8 /*long*/, 8, false)
       && verifier.VerifyField(tablePos, 6 /*Stop*/, 8 /*long*/, 8, false)
       && verifier.VerifyVectorOfTables(tablePos, 8 /*Toggles*/, yggdrasil.messaging.ToggleEntryVerify.Verify, false)
+      && verifier.VerifyVectorOfTables(tablePos, 10 /*ImpactMetrics*/, yggdrasil.messaging.ImpactMetricEntryVerify.Verify, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

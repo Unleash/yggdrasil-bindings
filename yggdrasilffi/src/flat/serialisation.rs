@@ -7,7 +7,7 @@ use std::{
 use unleash_types::client_metrics::MetricBucket;
 use unleash_yggdrasil::{EvalWarning, ExtendedVariantDef, ToggleDefinition};
 
-use crate::flat::messaging::messaging::{
+use crate::flat::messaging::yggdrasil::messaging::{
     BuiltInStrategies, BuiltInStrategiesBuilder, CoreVersion, CoreVersionBuilder,
     FeatureDefBuilder, FeatureDefs, FeatureDefsBuilder, MetricsResponse, MetricsResponseBuilder,
     Response, ResponseBuilder, StrategyDefinition, StrategyDefinitionArgs, StrategyFeature,
