@@ -30,6 +30,7 @@ pub enum FlatError {
     Panic,
     NullError,
     MissingRequiredParameter(String),
+    InvalidBuffer(String),
 }
 
 pub struct ResponseMessage<T> {
@@ -61,6 +62,7 @@ impl Display for FlatError {
             FlatError::Panic => write!(f, "Engine panicked while processing the request. Please report this as a bug with the accompanying stack trace if available."),
             FlatError::NullError => write!(f, "Null error detected, this is a serious issue and you should report this as a bug."),
             FlatError::MissingRequiredParameter(msg) => write!(f, "Missing parameter: {}", msg),
+            FlatError::InvalidBuffer(msg) => write!(f, "Invalid buffer error: {}", msg),
         }
     }
 }

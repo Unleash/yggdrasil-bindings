@@ -323,7 +323,7 @@ pub unsafe extern "C" fn flat_define_counter(
         let bytes =
             unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
         let define_counter_message =
-            root::<DefineCounter>(bytes).map_err(|e| FlatError::InvalidContext(e.to_string()))?;
+            root::<DefineCounter>(bytes).map_err(|e| FlatError::InvalidBuffer(e.to_string()))?;
 
         let guard = get_engine(engine_ptr)?;
         let engine = recover_lock(&guard);
