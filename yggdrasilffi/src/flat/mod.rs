@@ -7,9 +7,9 @@
 )]
 
 use flatbuffers::root;
-use unleash_yggdrasil::impact_metrics::MetricOptions;
 use std::borrow::Cow;
 use std::ffi::{c_char, c_void};
+use unleash_yggdrasil::impact_metrics::MetricOptions;
 
 use crate::flat::messaging::yggdrasil::messaging::{DefineCounter, VoidResponse};
 use crate::flat::serialisation::{Buf, TakeStateResult};
@@ -342,7 +342,6 @@ pub unsafe extern "C" fn flat_define_counter(
 
     VoidResponse::build_response(result)
 }
-
 
 #[cfg(test)]
 mod tests {
