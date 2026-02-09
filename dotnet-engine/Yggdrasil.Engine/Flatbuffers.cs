@@ -55,6 +55,7 @@ public static class Flatbuffers
         var nameOffset = builder.CreateString(name);
         var helpOffset = builder.CreateString(help);
 
+        DefineCounter.StartDefineCounter(builder);
         DefineCounter.AddName(builder, nameOffset);
         DefineCounter.AddHelp(builder, helpOffset);
 
