@@ -119,13 +119,15 @@ public static class Flatbuffers
         var nameOffset = builder.CreateString(name);
         var helpOffset = builder.CreateString(help);
         var bucketArray = (buckets ?? Enumerable.Empty<double>()).ToArray();
+        var bucketsOffset = bucketArray.Length > 0
+            ? DefineHistogram.CreateBucketsVector(builder, bucketArray)
+            : default(VectorOffset);
 
         DefineHistogram.StartDefineHistogram(builder);
         DefineHistogram.AddName(builder, nameOffset);
         DefineHistogram.AddHelp(builder, helpOffset);
         if (bucketArray.Length > 0)
         {
-            var bucketsOffset = DefineHistogram.CreateBucketsVector(builder, bucketArray);
             DefineHistogram.AddBuckets(builder, bucketsOffset);
         }
 
