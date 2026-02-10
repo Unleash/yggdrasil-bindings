@@ -34,7 +34,7 @@ internal static class Flat
     public delegate Buf ListKnownTogglesDelegate(IntPtr enginePtr);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate Buf BuiltInStrategiesDelegate(IntPtr enginePtr);
+    public delegate Buf BuiltInStrategiesDelegate();
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate Buf GetMetricsDelegate(IntPtr enginePtr);
@@ -91,9 +91,9 @@ internal static class Flat
         return list_known_toggles(ptr);
     }
 
-    public static Buf BuiltInStrategies(IntPtr ptr)
+    public static Buf BuiltInStrategies()
     {
-        return built_in_strategies(ptr);
+        return built_in_strategies();
     }
 
     public static Buf GetMetrics(IntPtr ptr)
