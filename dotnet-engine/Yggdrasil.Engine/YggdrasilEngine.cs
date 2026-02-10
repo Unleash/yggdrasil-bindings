@@ -19,7 +19,7 @@ public class YggdrasilEngine
     {
         state = FFI.NewEngine();
 
-        var buf = Flat.BuiltInStrategies(state);
+        var buf = Flat.BuiltInStrategies();
         try
         {
             var knownStrategies = Flatbuffers.GetBuiltInStrategiesResponse(buf);
