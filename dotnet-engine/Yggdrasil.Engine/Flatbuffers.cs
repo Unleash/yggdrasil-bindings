@@ -160,14 +160,15 @@ public static class Flatbuffers
         }
 
         var labelEntries = new Offset<SampleLabelEntry>[labels.Count];
-        for (var i = 0; i < labels.Count; i++)
+        var index = 0;
+        foreach (var kvp in labels)
         {
-            var kvp = labels.ElementAt(i);
-            labelEntries[i] = SampleLabelEntry.CreateSampleLabelEntry(
+            labelEntries[index] = SampleLabelEntry.CreateSampleLabelEntry(
                 builder,
                 builder.CreateString(kvp.Key),
                 builder.CreateString(kvp.Value)
             );
+            index++;
         }
 
         return IncCounter.CreateLabelsVector(builder, labelEntries);
