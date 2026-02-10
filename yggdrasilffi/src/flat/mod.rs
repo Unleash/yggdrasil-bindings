@@ -348,14 +348,22 @@ pub unsafe extern "C" fn flat_define_counter(
 
 fn parse_labels(
     labels: Option<
-        flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<messaging::yggdrasil::messaging::SampleLabelEntry<'_>>>,
+        flatbuffers::Vector<
+            '_,
+            flatbuffers::ForwardsUOffset<messaging::yggdrasil::messaging::SampleLabelEntry<'_>>,
+        >,
     >,
 ) -> MetricLabels {
     labels
         .map(|entries| {
             entries
                 .iter()
-                .map(|entry| (entry.key().to_owned(), entry.value().unwrap_or_default().to_owned()))
+                .map(|entry| {
+                    (
+                        entry.key().to_owned(),
+                        entry.value().unwrap_or_default().to_owned(),
+                    )
+                })
                 .collect()
         })
         .unwrap_or_default()
