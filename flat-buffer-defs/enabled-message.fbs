@@ -169,6 +169,35 @@ table DefineCounter {
     help: string;
 }
 
+table IncCounter {
+    name: string;
+    value: long;
+    labels: [SampleLabelEntry];
+}
+
+table DefineGauge {
+    name: string;
+    help: string;
+}
+
+table SetGauge {
+    name: string;
+    value: double;
+    labels: [SampleLabelEntry];
+}
+
+table DefineHistogram {
+    name: string;
+    help: string;
+    buckets: [double];
+}
+
+table ObserveHistogram {
+    name: string;
+    value: double;
+    labels: [SampleLabelEntry];
+}
+
 root_type Response;
 root_type ContextMessage;
 root_type MetricsResponse;
