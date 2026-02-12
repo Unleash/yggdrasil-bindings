@@ -1,20 +1,23 @@
+use chrono::{DateTime, Utc};
 use flatbuffers::{FlatBufferBuilder, Follow, WIPOffset};
-use std::collections::BTreeMap;
+use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, HashMap};
 use std::{
     cell::RefCell,
     fmt::{Display, Formatter},
 };
-use unleash_types::client_metrics::MetricBucket;
+use unleash_types::client_metrics::{MetricBucket, ToggleStats};
+use unleash_yggdrasil::impact_metrics::CollectedMetric;
 use unleash_yggdrasil::{EvalWarning, ExtendedVariantDef, ToggleDefinition};
 
 use crate::flat::messaging::yggdrasil::messaging::{
-    BuiltInStrategies, BuiltInStrategiesBuilder, CoreVersion, CoreVersionBuilder,
-    FeatureDefBuilder, FeatureDefs, FeatureDefsBuilder, MetricsResponse, MetricsResponseBuilder,
-    Response, ResponseBuilder, StrategyDefinition, StrategyDefinitionArgs, StrategyFeature,
-    StrategyFeatureArgs, StrategyParameter, StrategyParameterArgs, TakeStateResponse,
-    TakeStateResponseArgs, TakeStateResponseBuilder, ToggleEntryBuilder, ToggleStatsBuilder,
-    Variant, VariantBuilder, VariantEntryBuilder, VariantPayloadBuilder, VoidResponse,
-    VoidResponseBuilder,
+    BuiltInStrategies, BuiltInStrategiesBuilder, CollectMetricsResponse,
+    CollectMetricsResponseBuilder, CoreVersion, CoreVersionBuilder, FeatureDefBuilder, FeatureDefs,
+    FeatureDefsBuilder, MetricsResponse, MetricsResponseBuilder, Response, ResponseBuilder,
+    StrategyDefinition, StrategyDefinitionArgs, StrategyFeature, StrategyFeatureArgs,
+    StrategyParameter, StrategyParameterArgs, TakeStateResponse, TakeStateResponseArgs,
+    TakeStateResponseBuilder, ToggleEntryBuilder, ToggleStatsBuilder, Variant, VariantBuilder,
+    VariantEntryBuilder, VariantPayloadBuilder, VoidResponse, VoidResponseBuilder,
 };
 
 thread_local! {
@@ -42,6 +45,20 @@ pub struct TakeStateResult {
     pub warnings: Vec<EvalWarning>,
     pub error: Option<String>,
     pub feature_strategies_map: BTreeMap<String, BTreeMap<String, BTreeMap<String, String>>>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct MetricsBucket {
+    pub start: Option<DateTime<Utc>>,
+    pub stop: Option<DateTime<Utc>>,
+    pub toggles: Option<HashMap<String, ToggleStats>>,
+    pub impact_metrics: Vec<CollectedMetric>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct MetricMeasurement {
+    pub metrics: Option<MetricBucket>,
+    pub impact_metrics: Vec<CollectedMetric>,
 }
 
 #[repr(C)]
@@ -255,6 +272,33 @@ impl FlatMessage<Result<Option<()>, FlatError>> for VoidResponse<'static> {
         } else {
             let response_builder = VoidResponseBuilder::new(builder);
             response_builder.finish()
+        }
+    }
+}
+
+impl FlatMessage<Result<Option<MetricMeasurement>, FlatError>> for CollectMetricsResponse<'static> {
+    fn as_flat_buffer(
+        builder: &mut FlatBufferBuilder<'static>,
+        from: Result<Option<MetricMeasurement>, FlatError>,
+    ) -> WIPOffset<Self> {
+        match from {
+            Err(error) => {
+                let error_offset = builder.create_string(&error.to_string());
+                let mut response_builder = CollectMetricsResponseBuilder::new(builder);
+                response_builder.add_error(error_offset);
+                response_builder.finish()
+            }
+            Ok(Some(measurement)) => {
+                let metrics_str = serde_json::to_string(&measurement).unwrap();
+                let collect_response = builder.create_string(&metrics_str);
+                let mut response_builder = CollectMetricsResponseBuilder::new(builder);
+                response_builder.add_response(collect_response);
+                response_builder.finish()
+            }
+            Ok(None) => {
+                let resp_builder = CollectMetricsResponseBuilder::new(builder);
+                resp_builder.finish()
+            }
         }
     }
 }

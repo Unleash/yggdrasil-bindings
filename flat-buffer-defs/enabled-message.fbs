@@ -198,6 +198,11 @@ table ObserveHistogram {
     labels: [SampleLabelEntry];
 }
 
+table CollectMetricsResponse {
+  response: string;
+  error: string;
+}
+
 root_type Response;
 root_type ContextMessage;
 root_type MetricsResponse;
