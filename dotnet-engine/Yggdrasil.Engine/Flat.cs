@@ -1,39 +1,54 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
+
 namespace Yggdrasil;
 
 internal static class Flat
 {
-    private readonly static IntPtr _libHandle;
+    private static readonly IntPtr _libHandle;
 
     static Flat()
     {
         _libHandle = NativeLibLoader.LoadNativeLibrary();
-        take_state = Marshal.GetDelegateForFunctionPointer<TakeStateDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_take_state"));
-        free_buffer = Marshal.GetDelegateForFunctionPointer<FreeBufferDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_buf_free"));
-        check_enabled = Marshal.GetDelegateForFunctionPointer<CheckEnabledDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_check_enabled"));
-        check_variant = Marshal.GetDelegateForFunctionPointer<CheckVariantDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_check_variant"));
-        list_known_toggles = Marshal.GetDelegateForFunctionPointer<ListKnownTogglesDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_list_known_toggles"));
-        built_in_strategies = Marshal.GetDelegateForFunctionPointer<BuiltInStrategiesDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_built_in_strategies"));
-        get_metrics = Marshal.GetDelegateForFunctionPointer<GetMetricsDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_get_metrics"));
-        define_counter = Marshal.GetDelegateForFunctionPointer<DefineCounterDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_define_counter"));
-        inc_counter = Marshal.GetDelegateForFunctionPointer<IncCounterDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_inc_counter"));
-        define_gauge = Marshal.GetDelegateForFunctionPointer<DefineGaugeDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_define_gauge"));
-        set_gauge = Marshal.GetDelegateForFunctionPointer<SetGaugeDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_set_gauge"));
-        define_histogram = Marshal.GetDelegateForFunctionPointer<DefineHistogramDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_define_histogram"));
-        observe_histogram = Marshal.GetDelegateForFunctionPointer<ObserveHistogramDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_observe_histogram"));
+
+        // standard ygg messages, these require a buffer and return one
+        check_enabled = LoadMsgCall("flat_check_enabled");
+        check_variant = LoadMsgCall("flat_check_variant");
+        define_counter = LoadMsgCall("flat_define_counter");
+        inc_counter = LoadMsgCall("flat_inc_counter");
+        define_gauge = LoadMsgCall("flat_define_gauge");
+        set_gauge = LoadMsgCall("flat_set_gauge");
+        define_histogram = LoadMsgCall("flat_define_histogram");
+        observe_histogram = LoadMsgCall("flat_observe_histogram");
+
+        // everything else has some special details to it
+        // if these get out of hand they'll need some refactor but for now 5 is fine
+        take_state = Marshal.GetDelegateForFunctionPointer<TakeStateDelegate>(
+            NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_take_state"));
+
+        free_buffer = Marshal.GetDelegateForFunctionPointer<FreeBufferDelegate>(
+            NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_buf_free"));
+
+        list_known_toggles = Marshal.GetDelegateForFunctionPointer<ListKnownTogglesDelegate>(
+            NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_list_known_toggles"));
+
+        built_in_strategies = Marshal.GetDelegateForFunctionPointer<BuiltInStrategiesDelegate>(
+            NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_built_in_strategies"));
+
+        get_metrics = Marshal.GetDelegateForFunctionPointer<GetMetricsDelegate>(
+            NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_get_metrics"));
     }
+
+    // one delegate type to rule them all, lets us not have to deal with a ton of delegate types in the higher layers
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate Buf MsgCallDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate Buf TakeStateDelegate(IntPtr ptr, byte[] json);
 
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate void FreeBufferDelegate(Buf buf);
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate Buf CheckEnabledDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate Buf CheckVariantDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate Buf ListKnownTogglesDelegate(IntPtr enginePtr);
@@ -44,101 +59,71 @@ internal static class Flat
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate Buf GetMetricsDelegate(IntPtr enginePtr);
 
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate Buf DefineCounterDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate Buf IncCounterDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate Buf DefineGaugeDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate Buf SetGaugeDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate Buf DefineHistogramDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate Buf ObserveHistogramDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
     private static readonly TakeStateDelegate take_state;
     private static readonly FreeBufferDelegate free_buffer;
-    private static readonly CheckEnabledDelegate check_enabled;
-    private static readonly CheckVariantDelegate check_variant;
+
+    private static readonly MsgCallDelegate check_enabled;
+    private static readonly MsgCallDelegate check_variant;
+
+    private static readonly MsgCallDelegate define_counter;
+    private static readonly MsgCallDelegate inc_counter;
+    private static readonly MsgCallDelegate define_gauge;
+    private static readonly MsgCallDelegate set_gauge;
+    private static readonly MsgCallDelegate define_histogram;
+    private static readonly MsgCallDelegate observe_histogram;
+
     private static readonly ListKnownTogglesDelegate list_known_toggles;
     private static readonly BuiltInStrategiesDelegate built_in_strategies;
     private static readonly GetMetricsDelegate get_metrics;
-    private static readonly DefineCounterDelegate define_counter;
-    private static readonly IncCounterDelegate inc_counter;
-    private static readonly DefineGaugeDelegate define_gauge;
-    private static readonly SetGaugeDelegate set_gauge;
-    private static readonly DefineHistogramDelegate define_histogram;
-    private static readonly ObserveHistogramDelegate observe_histogram;
 
     public static Buf TakeState(IntPtr ptr, string json)
-    {
-        return take_state(ptr, ToUtf8Bytes(json));
-    }
+        => take_state(ptr, ToUtf8NullTerminated(json));
 
     public static Buf CheckEnabled(IntPtr ptr, byte[] message)
-    {
-        return CallWithPinnedBytes(message, (msgPtr, len) => check_enabled(ptr, msgPtr, len));
-    }
+        => CallWithPinnedBytes(message, ptr, check_enabled);
 
     public static Buf CheckVariant(IntPtr ptr, byte[] message)
-    {
-        return CallWithPinnedBytes(message, (msgPtr, len) => check_variant(ptr, msgPtr, len));
-    }
-
-    public static Buf ListKnownToggles(IntPtr ptr)
-    {
-        return list_known_toggles(ptr);
-    }
-
-    public static Buf BuiltInStrategies()
-    {
-        return built_in_strategies();
-    }
-
-    public static Buf GetMetrics(IntPtr ptr)
-    {
-        return get_metrics(ptr);
-    }
+        => CallWithPinnedBytes(message, ptr, check_variant);
 
     public static Buf DefineCounter(IntPtr ptr, byte[] message)
-    {
-        return CallWithPinnedBytes(message, (msgPtr, len) => define_counter(ptr, msgPtr, len));
-    }
+        => CallWithPinnedBytes(message, ptr, define_counter);
 
     public static Buf IncCounter(IntPtr ptr, byte[] message)
-    {
-        return CallWithPinnedBytes(message, (msgPtr, len) => inc_counter(ptr, msgPtr, len));
-    }
+        => CallWithPinnedBytes(message, ptr, inc_counter);
 
     public static Buf DefineGauge(IntPtr ptr, byte[] message)
-    {
-        return CallWithPinnedBytes(message, (msgPtr, len) => define_gauge(ptr, msgPtr, len));
-    }
+        => CallWithPinnedBytes(message, ptr, define_gauge);
 
     public static Buf SetGauge(IntPtr ptr, byte[] message)
-    {
-        return CallWithPinnedBytes(message, (msgPtr, len) => set_gauge(ptr, msgPtr, len));
-    }
+        => CallWithPinnedBytes(message, ptr, set_gauge);
 
     public static Buf DefineHistogram(IntPtr ptr, byte[] message)
-    {
-        return CallWithPinnedBytes(message, (msgPtr, len) => define_histogram(ptr, msgPtr, len));
-    }
+        => CallWithPinnedBytes(message, ptr, define_histogram);
 
     public static Buf ObserveHistogram(IntPtr ptr, byte[] message)
-    {
-        return CallWithPinnedBytes(message, (msgPtr, len) => observe_histogram(ptr, msgPtr, len));
-    }
+        => CallWithPinnedBytes(message, ptr, observe_histogram);
 
-    private static Buf CallWithPinnedBytes(byte[] message, Func<IntPtr, nuint, Buf> invoker)
+    public static Buf ListKnownToggles(IntPtr ptr) => list_known_toggles(ptr);
+    public static Buf BuiltInStrategies() => built_in_strategies();
+    public static Buf GetMetrics(IntPtr ptr) => get_metrics(ptr);
+
+    public static void FreeBuf(Buf buf) => free_buffer(buf);
+
+
+    private static MsgCallDelegate LoadMsgCall(string symbol)
+        => Marshal.GetDelegateForFunctionPointer<MsgCallDelegate>(
+            NativeLibLoader.LoadFunctionPointer(_libHandle, symbol));
+
+    private static Buf CallWithPinnedBytes(byte[] message, IntPtr enginePtr, MsgCallDelegate nativeCall)
     {
         if (message is null) throw new ArgumentNullException(nameof(message));
+        if (message.Length == 0) return nativeCall(enginePtr, IntPtr.Zero, 0);
 
         var len = (nuint)message.Length;
         var handle = GCHandle.Alloc(message, GCHandleType.Pinned);
         try
         {
-            return invoker(handle.AddrOfPinnedObject(), len);
+            return nativeCall(enginePtr, handle.AddrOfPinnedObject(), len);
         }
         finally
         {
@@ -146,14 +131,11 @@ internal static class Flat
         }
     }
 
-    public static void FreeBuf(Buf buf)
+    private static byte[] ToUtf8NullTerminated(string input)
     {
-        free_buffer(buf);
-    }
+        if (input is null) throw new ArgumentNullException(nameof(input));
 
-    private static byte[] ToUtf8Bytes(string input)
-    {
-        byte[] utf8Bytes = System.Text.Encoding.UTF8.GetBytes(input);
+        byte[] utf8Bytes = Encoding.UTF8.GetBytes(input);
         Array.Resize(ref utf8Bytes, utf8Bytes.Length + 1);
         return utf8Bytes;
     }
