@@ -4,7 +4,7 @@ namespace Yggdrasil;
 
 internal static class Flat
 {
-    private static IntPtr _libHandle;
+    private readonly static IntPtr _libHandle;
 
     static Flat()
     {
@@ -33,30 +33,29 @@ internal static class Flat
     private delegate Buf CheckEnabledDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate Buf CheckVariantDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
+    private delegate Buf CheckVariantDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate Buf ListKnownTogglesDelegate(IntPtr enginePtr);
+    private delegate Buf ListKnownTogglesDelegate(IntPtr enginePtr);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate Buf BuiltInStrategiesDelegate();
+    private delegate Buf BuiltInStrategiesDelegate();
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate Buf GetMetricsDelegate(IntPtr enginePtr);
+    private delegate Buf GetMetricsDelegate(IntPtr enginePtr);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate Buf DefineCounterDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
+    private delegate Buf DefineCounterDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate Buf IncCounterDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
+    private delegate Buf IncCounterDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate Buf DefineGaugeDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
+    private delegate Buf DefineGaugeDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate Buf SetGaugeDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
+    private delegate Buf SetGaugeDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate Buf DefineHistogramDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
+    private delegate Buf DefineHistogramDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate Buf ObserveHistogramDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
-
+    private delegate Buf ObserveHistogramDelegate(IntPtr enginePtr, IntPtr messagePtr, nuint messageLen);
     private static readonly TakeStateDelegate take_state;
     private static readonly FreeBufferDelegate free_buffer;
     private static readonly CheckEnabledDelegate check_enabled;
@@ -64,7 +63,6 @@ internal static class Flat
     private static readonly ListKnownTogglesDelegate list_known_toggles;
     private static readonly BuiltInStrategiesDelegate built_in_strategies;
     private static readonly GetMetricsDelegate get_metrics;
-
     private static readonly DefineCounterDelegate define_counter;
     private static readonly IncCounterDelegate inc_counter;
     private static readonly DefineGaugeDelegate define_gauge;
@@ -79,32 +77,12 @@ internal static class Flat
 
     public static Buf CheckEnabled(IntPtr ptr, byte[] message)
     {
-        nuint len = (nuint)message.Length;
-        GCHandle handle = GCHandle.Alloc(message, GCHandleType.Pinned);
-        try
-        {
-            IntPtr msgPtr = handle.AddrOfPinnedObject();
-            return check_enabled(ptr, msgPtr, len);
-        }
-        finally
-        {
-            handle.Free();
-        }
+        return CallWithPinnedBytes(message, (msgPtr, len) => check_enabled(ptr, msgPtr, len));
     }
 
     public static Buf CheckVariant(IntPtr ptr, byte[] message)
     {
-        nuint len = (nuint)message.Length;
-        GCHandle handle = GCHandle.Alloc(message, GCHandleType.Pinned);
-        try
-        {
-            IntPtr msgPtr = handle.AddrOfPinnedObject();
-            return check_variant(ptr, msgPtr, len);
-        }
-        finally
-        {
-            handle.Free();
-        }
+        return CallWithPinnedBytes(message, (msgPtr, len) => check_variant(ptr, msgPtr, len));
     }
 
     public static Buf ListKnownToggles(IntPtr ptr)
@@ -124,87 +102,43 @@ internal static class Flat
 
     public static Buf DefineCounter(IntPtr ptr, byte[] message)
     {
-        nuint len = (nuint)message.Length;
-        GCHandle handle = GCHandle.Alloc(message, GCHandleType.Pinned);
-        try
-        {
-            IntPtr msgPtr = handle.AddrOfPinnedObject();
-            return define_counter(ptr, msgPtr, len);
-        }
-        finally
-        {
-            handle.Free();
-        }
+        return CallWithPinnedBytes(message, (msgPtr, len) => define_counter(ptr, msgPtr, len));
     }
 
     public static Buf IncCounter(IntPtr ptr, byte[] message)
     {
-        nuint len = (nuint)message.Length;
-        GCHandle handle = GCHandle.Alloc(message, GCHandleType.Pinned);
-        try
-        {
-            IntPtr msgPtr = handle.AddrOfPinnedObject();
-            return inc_counter(ptr, msgPtr, len);
-        }
-        finally
-        {
-            handle.Free();
-        }
+        return CallWithPinnedBytes(message, (msgPtr, len) => inc_counter(ptr, msgPtr, len));
     }
 
     public static Buf DefineGauge(IntPtr ptr, byte[] message)
     {
-        nuint len = (nuint)message.Length;
-        GCHandle handle = GCHandle.Alloc(message, GCHandleType.Pinned);
-        try
-        {
-            IntPtr msgPtr = handle.AddrOfPinnedObject();
-            return define_gauge(ptr, msgPtr, len);
-        }
-        finally
-        {
-            handle.Free();
-        }
+        return CallWithPinnedBytes(message, (msgPtr, len) => define_gauge(ptr, msgPtr, len));
     }
 
     public static Buf SetGauge(IntPtr ptr, byte[] message)
     {
-        nuint len = (nuint)message.Length;
-        GCHandle handle = GCHandle.Alloc(message, GCHandleType.Pinned);
-        try
-        {
-            IntPtr msgPtr = handle.AddrOfPinnedObject();
-            return set_gauge(ptr, msgPtr, len);
-        }
-        finally
-        {
-            handle.Free();
-        }
+        return CallWithPinnedBytes(message, (msgPtr, len) => set_gauge(ptr, msgPtr, len));
     }
 
     public static Buf DefineHistogram(IntPtr ptr, byte[] message)
     {
-        nuint len = (nuint)message.Length;
-        GCHandle handle = GCHandle.Alloc(message, GCHandleType.Pinned);
-        try
-        {
-            IntPtr msgPtr = handle.AddrOfPinnedObject();
-            return define_histogram(ptr, msgPtr, len);
-        }
-        finally
-        {
-            handle.Free();
-        }
+        return CallWithPinnedBytes(message, (msgPtr, len) => define_histogram(ptr, msgPtr, len));
     }
 
     public static Buf ObserveHistogram(IntPtr ptr, byte[] message)
     {
-        nuint len = (nuint)message.Length;
-        GCHandle handle = GCHandle.Alloc(message, GCHandleType.Pinned);
+        return CallWithPinnedBytes(message, (msgPtr, len) => observe_histogram(ptr, msgPtr, len));
+    }
+
+    private static Buf CallWithPinnedBytes(byte[] message, Func<IntPtr, nuint, Buf> invoker)
+    {
+        if (message is null) throw new ArgumentNullException(nameof(message));
+
+        var len = (nuint)message.Length;
+        var handle = GCHandle.Alloc(message, GCHandleType.Pinned);
         try
         {
-            IntPtr msgPtr = handle.AddrOfPinnedObject();
-            return observe_histogram(ptr, msgPtr, len);
+            return invoker(handle.AddrOfPinnedObject(), len);
         }
         finally
         {
