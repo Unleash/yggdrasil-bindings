@@ -48,14 +48,6 @@ pub struct TakeStateResult {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct MetricsBucket {
-    pub start: Option<DateTime<Utc>>,
-    pub stop: Option<DateTime<Utc>>,
-    pub toggles: Option<HashMap<String, ToggleStats>>,
-    pub impact_metrics: Vec<CollectedMetric>,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MetricMeasurement {
     pub metrics: Option<MetricBucket>,
     pub impact_metrics: Vec<CollectedMetric>,
