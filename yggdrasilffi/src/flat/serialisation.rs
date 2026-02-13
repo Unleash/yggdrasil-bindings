@@ -281,11 +281,21 @@ impl FlatMessage<Result<Option<MetricMeasurement>, FlatError>> for CollectMetric
                 response_builder.finish()
             }
             Ok(Some(measurement)) => {
-                let metrics_str = serde_json::to_string(&measurement).unwrap();
-                let collect_response = builder.create_string(&metrics_str);
-                let mut response_builder = CollectMetricsResponseBuilder::new(builder);
-                response_builder.add_response(collect_response);
-                response_builder.finish()
+                let metrics_str = serde_json::to_string(&measurement);
+                match metrics_str {
+                    Err(error) => {
+                        let error_offset = builder.create_string(&error.to_string());
+                        let mut response_builder = CollectMetricsResponseBuilder::new(builder);
+                        response_builder.add_error(error_offset);
+                        response_builder.finish()
+                    }
+                    Ok(m_str) => {
+                        let collect_response = builder.create_string(&m_str);
+                        let mut response_builder = CollectMetricsResponseBuilder::new(builder);
+                        response_builder.add_response(collect_response);
+                        response_builder.finish()
+                    }
+                }
             }
             Ok(None) => {
                 let resp_builder = CollectMetricsResponseBuilder::new(builder);
