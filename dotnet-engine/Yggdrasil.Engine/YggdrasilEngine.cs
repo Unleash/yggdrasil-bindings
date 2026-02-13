@@ -90,46 +90,6 @@ public class YggdrasilEngine
         finally { Flat.FreeBuf(buf); }
     }
 
-    public void IncCounter(string name, long value = 1, IDictionary<string, string>? labels = null)
-    {
-        var messageBuffer = Flatbuffers.CreateIncCounterBuffer(new FlatBufferBuilder(128), name, value, labels);
-        var buf = Flat.IncCounter(state, messageBuffer);
-        try { Flatbuffers.ParseVoidAndThrow(buf); }
-        finally { Flat.FreeBuf(buf); }
-    }
-
-    public void DefineGauge(string name, string help)
-    {
-        var messageBuffer = Flatbuffers.CreateDefineGaugeBuffer(new FlatBufferBuilder(128), name, help);
-        var buf = Flat.DefineGauge(state, messageBuffer);
-        try { Flatbuffers.ParseVoidAndThrow(buf); }
-        finally { Flat.FreeBuf(buf); }
-    }
-
-    public void SetGauge(string name, double value, IDictionary<string, string>? labels = null)
-    {
-        var messageBuffer = Flatbuffers.CreateSetGaugeBuffer(new FlatBufferBuilder(128), name, value, labels);
-        var buf = Flat.SetGauge(state, messageBuffer);
-        try { Flatbuffers.ParseVoidAndThrow(buf); }
-        finally { Flat.FreeBuf(buf); }
-    }
-
-    public void DefineHistogram(string name, string help, IEnumerable<double>? buckets = null)
-    {
-        var messageBuffer = Flatbuffers.CreateDefineHistogramBuffer(new FlatBufferBuilder(128), name, help, buckets);
-        var buf = Flat.DefineHistogram(state, messageBuffer);
-        try { Flatbuffers.ParseVoidAndThrow(buf); }
-        finally { Flat.FreeBuf(buf); }
-    }
-
-    public void ObserveHistogram(string name, double value, IDictionary<string, string>? labels = null)
-    {
-        var messageBuffer = Flatbuffers.CreateObserveHistogramBuffer(new FlatBufferBuilder(128), name, value, labels);
-        var buf = Flat.ObserveHistogram(state, messageBuffer);
-        try { Flatbuffers.ParseVoidAndThrow(buf); }
-        finally { Flat.FreeBuf(buf); }
-    }
-
     public ICollection<FeatureDefinition> ListKnownToggles()
     {
         var buf = Flat.ListKnownToggles(state);
