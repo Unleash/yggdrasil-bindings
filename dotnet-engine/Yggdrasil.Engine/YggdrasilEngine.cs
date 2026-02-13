@@ -79,15 +79,27 @@ public sealed class YggdrasilEngine : IDisposable
         }
     }
 
+    ~YggdrasilEngine()
+    {
+        DisposeCore();
+    }
+
     public void Dispose()
+    {
+        DisposeCore();
+        GC.SuppressFinalize(this);
+    }
+
+    private void DisposeCore()
     {
         if (disposed) return;
         disposed = true;
 
-        FFI.FreeEngine(state);
-        state = IntPtr.Zero;
-
-        GC.SuppressFinalize(this);
+        if (state != IntPtr.Zero)
+        {
+            FFI.FreeEngine(state);
+            state = IntPtr.Zero;
+        }
     }
 
     public void TakeState(string json)
