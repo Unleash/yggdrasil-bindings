@@ -191,8 +191,8 @@ pub unsafe extern "C" fn flat_check_enabled(
         let engine = recover_lock(&lock);
 
         let enabled = engine.check_enabled(&context);
-        let impression_data = engine.should_emit_impression_event(&context.toggle_name);
-        engine.count_toggle(&context.toggle_name, enabled.unwrap_or(false));
+        let impression_data = engine.should_emit_impression_event(context.toggle_name);
+        engine.count_toggle(context.toggle_name, enabled.unwrap_or(false));
 
         Ok(Some(ResponseMessage {
             message: enabled,
@@ -240,10 +240,10 @@ pub unsafe extern "C" fn flat_check_variant(
         let engine = recover_lock(&lock);
         let base_variant = engine.check_variant(&context);
         let toggle_enabled = engine.check_enabled(&context).unwrap_or_default();
-        let impression_data = engine.should_emit_impression_event(&context.toggle_name);
-        engine.count_toggle(&context.toggle_name, toggle_enabled);
+        let impression_data = engine.should_emit_impression_event(context.toggle_name);
+        engine.count_toggle(context.toggle_name, toggle_enabled);
         if let Some(v) = base_variant.clone() {
-            engine.count_variant(&context.toggle_name, &v.name);
+            engine.count_variant(context.toggle_name, &v.name);
         }
         let message = base_variant.map(|variant| variant.to_enriched_response(toggle_enabled));
         Ok(Some(ResponseMessage {
