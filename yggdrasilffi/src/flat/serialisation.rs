@@ -1,12 +1,11 @@
-use chrono::{DateTime, Utc};
 use flatbuffers::{FlatBufferBuilder, Follow, WIPOffset};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::{
     cell::RefCell,
     fmt::{Display, Formatter},
 };
-use unleash_types::client_metrics::{MetricBucket, ToggleStats};
+use unleash_types::client_metrics::MetricBucket;
 use unleash_yggdrasil::impact_metrics::CollectedMetric;
 use unleash_yggdrasil::{EvalWarning, ExtendedVariantDef, ToggleDefinition};
 
