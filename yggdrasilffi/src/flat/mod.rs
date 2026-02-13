@@ -359,16 +359,13 @@ pub unsafe extern "C" fn flat_collect_metrics(engine_ptr: *mut c_void) -> Buf {
         let mut engine = recover_lock(&guard);
         let impact_metrics = engine.collect_impact_metrics();
         let bucket = engine.get_metrics(Utc::now());
-        match bucket {
-            Some(bucket) => Ok(Some(MetricMeasurement {
-                metrics: Some(bucket),
-                impact_metrics,
-            })),
-            None => Ok(Some(MetricMeasurement {
-                metrics: None,
-                impact_metrics,
-            })),
+        if bucket.is_none() && impact_metrics.is_empty() {
+            return Ok(None);
         }
+        return Ok(Some(MetricMeasurement {
+            metrics: bucket,
+            impact_metrics,
+        }));
     });
 
     CollectMetricsResponse::build_response(result)
