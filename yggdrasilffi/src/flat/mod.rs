@@ -362,10 +362,10 @@ pub unsafe extern "C" fn flat_collect_metrics(engine_ptr: *mut c_void) -> Buf {
         if bucket.is_none() && impact_metrics.is_empty() {
             return Ok(None);
         }
-        return Ok(Some(MetricMeasurement {
+        Ok(Some(MetricMeasurement {
             metrics: bucket,
             impact_metrics,
-        }));
+        }))
     });
 
     CollectMetricsResponse::build_response(result)
