@@ -33,22 +33,6 @@ public sealed class YggdrasilEngine : IDisposable
 
     private delegate Buf NativeCall(IntPtr state, byte[] msg);
 
-    // Cache delegates so we don't have to deal with potential method group conversion
-    private static readonly NativeCall s_checkEnabled = FFI.CheckEnabled;
-    private static readonly NativeCall s_checkVariant = FFI.CheckVariant;
-    private static readonly NativeCall s_defineCounter = FFI.DefineCounter;
-    private static readonly NativeCall s_incCounter = FFI.IncCounter;
-    private static readonly NativeCall s_defineGauge = FFI.DefineGauge;
-    private static readonly NativeCall s_setGauge = FFI.SetGauge;
-    private static readonly NativeCall s_defineHistogram = FFI.DefineHistogram;
-    private static readonly NativeCall s_observeHistogram = FFI.ObserveHistogram;
-
-    // We can cache the parsing delegates too!
-    private static readonly Func<Buf, Response> s_parseEnabled = Flatbuffers.GetCheckEnabledResponse;
-    private static readonly Func<Buf, Variant?> s_parseVariant = Flatbuffers.GetCheckVariantResponse;
-    private static readonly Func<Buf, MetricsBucket?> s_parseMetrics = Flatbuffers.GetMetricsBucket;
-    private static readonly Func<Buf, ICollection<FeatureDefinition>> s_parseKnownToggles = Flatbuffers.GetKnownToggles;
-
     private static readonly JsonSerializerOptions jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -131,26 +115,26 @@ public sealed class YggdrasilEngine : IDisposable
     {
         EnsureNotDisposed();
 
-        var csr = customStrategies.GetCustomStrategyResults(toggleName, context);
-        var msg = Flatbuffers.GetContextMessageBuffer(Builder, toggleName, context, csr);
+        var customStrategies = this.customStrategies.GetCustomStrategyResults(toggleName, context);
+        var msg = Flatbuffers.GetContextMessageBuffer(Builder, toggleName, context, customStrategies);
 
-        return Invoke(s_checkEnabled, msg, s_parseEnabled);
+        return Invoke(FFI.CheckEnabled, msg, Flatbuffers.GetCheckEnabledResponse);
     }
 
     public Variant? GetVariant(string toggleName, Context context)
     {
         EnsureNotDisposed();
 
-        var csr = customStrategies.GetCustomStrategyResults(toggleName, context);
-        var msg = Flatbuffers.GetContextMessageBuffer(Builder, toggleName, context, csr);
+        var customStrategies = this.customStrategies.GetCustomStrategyResults(toggleName, context);
+        var msg = Flatbuffers.GetContextMessageBuffer(Builder, toggleName, context, customStrategies);
 
-        return Invoke(s_checkVariant, msg, s_parseVariant);
+        return Invoke(FFI.CheckVariant, msg, Flatbuffers.GetCheckVariantResponse);
     }
 
     public MetricsBucket? GetMetrics()
     {
         EnsureNotDisposed();
-        return InvokeNoMsg(FFI.GetMetrics, s_parseMetrics);
+        return InvokeNoMsg(FFI.GetMetrics, Flatbuffers.GetMetricsBucket);
     }
 
     public void DefineCounter(string name, string help)
@@ -158,7 +142,7 @@ public sealed class YggdrasilEngine : IDisposable
         EnsureNotDisposed();
 
         var msg = Flatbuffers.CreateDefineCounterBuffer(Builder, name, help);
-        InvokeVoid(s_defineCounter, msg);
+        InvokeVoid(FFI.DefineCounter, msg);
     }
 
     public void IncCounter(string name, long value = 1, IDictionary<string, string>? labels = null)
@@ -166,7 +150,7 @@ public sealed class YggdrasilEngine : IDisposable
         EnsureNotDisposed();
 
         var msg = Flatbuffers.CreateIncCounterBuffer(Builder, name, value, labels);
-        InvokeVoid(s_incCounter, msg);
+        InvokeVoid(FFI.IncCounter, msg);
     }
 
     public void DefineGauge(string name, string help)
@@ -174,7 +158,7 @@ public sealed class YggdrasilEngine : IDisposable
         EnsureNotDisposed();
 
         var msg = Flatbuffers.CreateDefineGaugeBuffer(Builder, name, help);
-        InvokeVoid(s_defineGauge, msg);
+        InvokeVoid(FFI.DefineGauge, msg);
     }
 
     public void SetGauge(string name, double value, IDictionary<string, string>? labels = null)
@@ -182,7 +166,7 @@ public sealed class YggdrasilEngine : IDisposable
         EnsureNotDisposed();
 
         var msg = Flatbuffers.CreateSetGaugeBuffer(Builder, name, value, labels);
-        InvokeVoid(s_setGauge, msg);
+        InvokeVoid(FFI.SetGauge, msg);
     }
 
     public void DefineHistogram(string name, string help, IEnumerable<double>? buckets = null)
@@ -190,7 +174,7 @@ public sealed class YggdrasilEngine : IDisposable
         EnsureNotDisposed();
 
         var msg = Flatbuffers.CreateDefineHistogramBuffer(Builder, name, help, buckets);
-        InvokeVoid(s_defineHistogram, msg);
+        InvokeVoid(FFI.DefineHistogram, msg);
     }
 
     public void ObserveHistogram(string name, double value, IDictionary<string, string>? labels = null)
@@ -198,13 +182,13 @@ public sealed class YggdrasilEngine : IDisposable
         EnsureNotDisposed();
 
         var msg = Flatbuffers.CreateObserveHistogramBuffer(Builder, name, value, labels);
-        InvokeVoid(s_observeHistogram, msg);
+        InvokeVoid(FFI.ObserveHistogram, msg);
     }
 
     public ICollection<FeatureDefinition> ListKnownToggles()
     {
         EnsureNotDisposed();
-        return InvokeNoMsg(FFI.ListKnownToggles, s_parseKnownToggles);
+        return InvokeNoMsg(FFI.ListKnownToggles, Flatbuffers.GetKnownToggles);
     }
 
     private T Invoke<T>(NativeCall call, byte[] messageBuffer, Func<Buf, T> parse)
