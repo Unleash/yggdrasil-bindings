@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Runtime.InteropServices;
+using System.Text.Json;
 using Google.FlatBuffers;
 using yggdrasil.messaging;
 
@@ -48,7 +49,7 @@ public sealed class YggdrasilEngine : IDisposable
     private static readonly Func<Buf, MetricsBucket?> s_parseMetrics = Flatbuffers.GetMetricsBucket;
     private static readonly Func<Buf, ICollection<FeatureDefinition>> s_parseKnownToggles = Flatbuffers.GetKnownToggles;
 
-    private static readonly JsonSerializerOptions s_jsonOptions = new()
+    private static readonly JsonSerializerOptions jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
@@ -110,8 +111,8 @@ public sealed class YggdrasilEngine : IDisposable
         EnsureNotDisposed();
 
         var getStatePtr = FFI.GetState(state);
-        var stateObject = FFIReader.ReadComplex<object>(getStatePtr);
-        return JsonSerializer.Serialize(stateObject, s_jsonOptions);
+        var stateObject = ReadComplex<object>(getStatePtr);
+        return JsonSerializer.Serialize(stateObject, jsonOptions);
     }
 
     public Response IsEnabled(string toggleName, Context context)
@@ -218,5 +219,32 @@ public sealed class YggdrasilEngine : IDisposable
     private void EnsureNotDisposed()
     {
         if (disposed) throw new ObjectDisposedException(nameof(YggdrasilEngine));
+    }
+
+    internal static TRead? ReadComplex<TRead>(IntPtr ptr)
+    where TRead : class
+    {
+        if (ptr == IntPtr.Zero) return null;
+
+        try
+        {
+            string? json = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? Marshal.PtrToStringAnsi(ptr)
+                : Marshal.PtrToStringAuto(ptr);
+
+            if (json is null) return null;
+
+            var engineResponse = JsonSerializer.Deserialize<EngineResponse<TRead>>(json, jsonOptions);
+            if (engineResponse is null) return null;
+
+            if (engineResponse.StatusCode == "Error")
+                throw new YggdrasilEngineException($"Error: {engineResponse.ErrorMessage}");
+
+            return engineResponse.Value;
+        }
+        finally
+        {
+            FFI.FreeResponse(ptr);
+        }
     }
 }
