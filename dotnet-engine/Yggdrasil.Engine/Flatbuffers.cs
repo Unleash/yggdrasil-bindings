@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.Runtime.InteropServices;
 using Google.FlatBuffers;
 using yggdrasil.messaging;
@@ -7,9 +6,8 @@ using StrategyDefinition = Yggdrasil.StrategyDefinition;
 using Variant = Yggdrasil.Variant;
 using FlatVariant = yggdrasil.messaging.Variant;
 using System.Net;
-using System.Linq.Expressions;
 
-public static class Flatbuffers
+internal static class Flatbuffers
 {
     private static readonly string hostname = Environment.GetEnvironmentVariable("hostname") ?? Dns.GetHostName();
 
@@ -300,7 +298,7 @@ public static class Flatbuffers
     }
 
 
-    public static ICollection<FeatureDefinition> GetKnownToggles(Buf buf)
+    internal static ICollection<FeatureDefinition> GetKnownToggles(Buf buf)
     {
         var response = ReadBuffer(buf);
         var knownTogglesResponse = FeatureDefs.GetRootAsFeatureDefs(new ByteBuffer(response));
@@ -312,7 +310,7 @@ public static class Flatbuffers
             }).ToList();
 
     }
-    public static MetricsBucket GetMetricsBucket(Buf buf)
+    internal static MetricsBucket GetMetricsBucket(Buf buf)
     {
         var response = ReadBuffer(buf);
         var metricsResponse = MetricsResponse.GetRootAsMetricsResponse(new ByteBuffer(response));
@@ -323,7 +321,7 @@ public static class Flatbuffers
         );
     }
 
-    public static void ParseVoidAndThrow(Buf buf)
+    internal static void ParseVoidAndThrow(Buf buf)
     {
         var response = ReadBuffer(buf);
         var voidResponse = VoidResponse.GetRootAsVoidResponse(new ByteBuffer(response));
