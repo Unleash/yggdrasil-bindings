@@ -33,14 +33,14 @@ public sealed class YggdrasilEngine : IDisposable
     private delegate Buf NativeCall(IntPtr state, byte[] msg);
 
     // Cache delegates so we don't have to deal with potential method group conversion
-    private static readonly NativeCall s_checkEnabled = Flat.CheckEnabled;
-    private static readonly NativeCall s_checkVariant = Flat.CheckVariant;
-    private static readonly NativeCall s_defineCounter = Flat.DefineCounter;
-    private static readonly NativeCall s_incCounter = Flat.IncCounter;
-    private static readonly NativeCall s_defineGauge = Flat.DefineGauge;
-    private static readonly NativeCall s_setGauge = Flat.SetGauge;
-    private static readonly NativeCall s_defineHistogram = Flat.DefineHistogram;
-    private static readonly NativeCall s_observeHistogram = Flat.ObserveHistogram;
+    private static readonly NativeCall s_checkEnabled = FFI.CheckEnabled;
+    private static readonly NativeCall s_checkVariant = FFI.CheckVariant;
+    private static readonly NativeCall s_defineCounter = FFI.DefineCounter;
+    private static readonly NativeCall s_incCounter = FFI.IncCounter;
+    private static readonly NativeCall s_defineGauge = FFI.DefineGauge;
+    private static readonly NativeCall s_setGauge = FFI.SetGauge;
+    private static readonly NativeCall s_defineHistogram = FFI.DefineHistogram;
+    private static readonly NativeCall s_observeHistogram = FFI.ObserveHistogram;
 
     // We can cache the parsing delegates too!
     private static readonly Func<Buf, Response> s_parseEnabled = Flatbuffers.GetCheckEnabledResponse;
@@ -61,7 +61,7 @@ public sealed class YggdrasilEngine : IDisposable
     {
         state = FFI.NewEngine();
 
-        var buf = Flat.BuiltInStrategies();
+        var buf = FFI.BuiltInStrategies();
         try
         {
             var knownStrategies = Flatbuffers.GetBuiltInStrategiesResponse(buf);
@@ -74,7 +74,7 @@ public sealed class YggdrasilEngine : IDisposable
         }
         finally
         {
-            Flat.FreeBuf(buf);
+            FFI.FreeBuf(buf);
         }
     }
 
@@ -93,7 +93,7 @@ public sealed class YggdrasilEngine : IDisposable
     {
         EnsureNotDisposed();
 
-        var buf = Flat.TakeState(state, json);
+        var buf = FFI.TakeState(state, json);
         try
         {
             var takeStateResponse = Flatbuffers.GetTakeStateResponse(buf);
@@ -101,7 +101,7 @@ public sealed class YggdrasilEngine : IDisposable
         }
         finally
         {
-            Flat.FreeBuf(buf);
+            FFI.FreeBuf(buf);
         }
     }
 
@@ -137,7 +137,7 @@ public sealed class YggdrasilEngine : IDisposable
     public MetricsBucket? GetMetrics()
     {
         EnsureNotDisposed();
-        return InvokeNoMsg(Flat.GetMetrics, s_parseMetrics);
+        return InvokeNoMsg(FFI.GetMetrics, s_parseMetrics);
     }
 
     public void DefineCounter(string name, string help)
@@ -191,28 +191,28 @@ public sealed class YggdrasilEngine : IDisposable
     public ICollection<FeatureDefinition> ListKnownToggles()
     {
         EnsureNotDisposed();
-        return InvokeNoMsg(Flat.ListKnownToggles, s_parseKnownToggles);
+        return InvokeNoMsg(FFI.ListKnownToggles, s_parseKnownToggles);
     }
 
     private T Invoke<T>(NativeCall call, byte[] messageBuffer, Func<Buf, T> parse)
     {
         var buf = call(state, messageBuffer);
         try { return parse(buf); }
-        finally { Flat.FreeBuf(buf); }
+        finally { FFI.FreeBuf(buf); }
     }
 
     private void InvokeVoid(NativeCall call, byte[] messageBuffer)
     {
         var buf = call(state, messageBuffer);
         try { Flatbuffers.ParseVoidAndThrow(buf); }
-        finally { Flat.FreeBuf(buf); }
+        finally { FFI.FreeBuf(buf); }
     }
 
     private T InvokeNoMsg<T>(Func<IntPtr, Buf> call, Func<Buf, T> parse)
     {
         var buf = call(state);
         try { return parse(buf); }
-        finally { Flat.FreeBuf(buf); }
+        finally { FFI.FreeBuf(buf); }
     }
 
     private void EnsureNotDisposed()
