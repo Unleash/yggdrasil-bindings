@@ -7,9 +7,12 @@ using StrategyDefinition = Yggdrasil.StrategyDefinition;
 using Variant = Yggdrasil.Variant;
 using FlatVariant = yggdrasil.messaging.Variant;
 using System.Net;
+using System.Linq.Expressions;
 
 public static class Flatbuffers
 {
+    private static readonly string hostname = Environment.GetEnvironmentVariable("hostname") ?? Dns.GetHostName();
+
     private static byte[] ReadBuffer(Buf buf)
     {
         if (buf.len == 0 || buf.ptr == IntPtr.Zero)
@@ -20,14 +23,14 @@ public static class Flatbuffers
         return managed;
     }
 
-    public static byte[] GetContextMessageBuffer(FlatBufferBuilder builder, string featureName, Context context, Dictionary<string, bool> customStrategyResults)
+    public static byte[] GetContextMessageBuffer(FlatBufferBuilder builder, string featureName, Context context, IReadOnlyDictionary<string, bool> customStrategyResults)
     {
         var toggleName = builder.CreateString(featureName);
         var appName = builder.CreateString(context.AppName);
         var currentTimeOffset = builder.CreateString(context.CurrentTime.HasValue ? context.CurrentTime.Value.ToString("O") : null);
         var environment = builder.CreateString(context.Environment);
         var remoteAddress = builder.CreateString(context.RemoteAddress);
-        var hostname = builder.CreateString(Environment.GetEnvironmentVariable("hostname") ?? Dns.GetHostName());
+        var hostname = builder.CreateString(Flatbuffers.hostname);
         var sessionId = builder.CreateString(context.SessionId);
         var userId = builder.CreateString(context.UserId);
         var propertiesVector = CreatePropertiesVector(builder, context);
@@ -64,28 +67,157 @@ public static class Flatbuffers
         return builder.SizedByteArray();
     }
 
-    internal static VectorOffset CreatePropertiesVector(FlatBufferBuilder builder, Context context)
+    public static byte[] CreateIncCounterBuffer(FlatBufferBuilder builder, string name, long value, IDictionary<string, string>? labels = null)
     {
-        var propertyEntries = new Offset<PropertyEntry>[context.Properties?.Count ?? 0];
+        var nameOffset = builder.CreateString(name);
+        var labelsOffset = CreateSampleLabelsVector(builder, labels);
 
-        for (var i = 0; i < context.Properties?.Count; i++)
+        IncCounter.StartIncCounter(builder);
+        IncCounter.AddName(builder, nameOffset);
+        IncCounter.AddValue(builder, value);
+        if (labelsOffset.HasValue)
         {
-            var kvp = context.Properties.ElementAt(i);
-            propertyEntries[i] = PropertyEntry.CreatePropertyEntry(builder, builder.CreateString(kvp.Key), builder.CreateString(kvp.Value));
+            IncCounter.AddLabels(builder, labelsOffset.Value);
         }
-        return ContextMessage.CreatePropertiesVector(builder, propertyEntries);
+
+        var incCounterMessage = IncCounter.EndIncCounter(builder);
+        builder.Finish(incCounterMessage.Value);
+        return builder.SizedByteArray();
     }
 
-    internal static VectorOffset CreateCustomStrategiesVector(FlatBufferBuilder builder, Dictionary<string, bool> customStrategyResults)
+    public static byte[] CreateDefineGaugeBuffer(FlatBufferBuilder builder, string name, string help)
     {
-        var strategyEntries = new Offset<CustomStrategyResult>[customStrategyResults.Count];
-        for (var i = 0; i < customStrategyResults.Count; i++)
-        {
-            var kvp = customStrategyResults.ElementAt(i);
+        var nameOffset = builder.CreateString(name);
+        var helpOffset = builder.CreateString(help);
 
-            strategyEntries[i] = CustomStrategyResult.CreateCustomStrategyResult(builder, builder.CreateString(kvp.Key), kvp.Value);
+        DefineGauge.StartDefineGauge(builder);
+        DefineGauge.AddName(builder, nameOffset);
+        DefineGauge.AddHelp(builder, helpOffset);
+
+        var defineGaugeMessage = DefineGauge.EndDefineGauge(builder);
+        builder.Finish(defineGaugeMessage.Value);
+        return builder.SizedByteArray();
+    }
+
+    public static byte[] CreateSetGaugeBuffer(FlatBufferBuilder builder, string name, double value, IDictionary<string, string>? labels = null)
+    {
+        var nameOffset = builder.CreateString(name);
+        var labelsOffset = CreateSampleLabelsVector(builder, labels);
+
+        SetGauge.StartSetGauge(builder);
+        SetGauge.AddName(builder, nameOffset);
+        SetGauge.AddValue(builder, value);
+        if (labelsOffset.HasValue)
+        {
+            SetGauge.AddLabels(builder, labelsOffset.Value);
         }
-        return ContextMessage.CreateCustomStrategiesResultsVector(builder, strategyEntries);
+
+        var setGaugeMessage = SetGauge.EndSetGauge(builder);
+        builder.Finish(setGaugeMessage.Value);
+        return builder.SizedByteArray();
+    }
+
+    public static byte[] CreateDefineHistogramBuffer(FlatBufferBuilder builder, string name, string help, IEnumerable<double>? buckets = null)
+    {
+        var nameOffset = builder.CreateString(name);
+        var helpOffset = builder.CreateString(help);
+        var bucketArray = (buckets ?? Enumerable.Empty<double>()).ToArray();
+        var bucketsOffset = bucketArray.Length > 0
+            ? DefineHistogram.CreateBucketsVector(builder, bucketArray)
+            : default(VectorOffset);
+
+        DefineHistogram.StartDefineHistogram(builder);
+        DefineHistogram.AddName(builder, nameOffset);
+        DefineHistogram.AddHelp(builder, helpOffset);
+        if (bucketArray.Length > 0)
+        {
+            DefineHistogram.AddBuckets(builder, bucketsOffset);
+        }
+
+        var defineHistogramMessage = DefineHistogram.EndDefineHistogram(builder);
+        builder.Finish(defineHistogramMessage.Value);
+        return builder.SizedByteArray();
+    }
+
+    public static byte[] CreateObserveHistogramBuffer(FlatBufferBuilder builder, string name, double value, IDictionary<string, string>? labels = null)
+    {
+        var nameOffset = builder.CreateString(name);
+        var labelsOffset = CreateSampleLabelsVector(builder, labels);
+
+        ObserveHistogram.StartObserveHistogram(builder);
+        ObserveHistogram.AddName(builder, nameOffset);
+        ObserveHistogram.AddValue(builder, value);
+        if (labelsOffset.HasValue)
+        {
+            ObserveHistogram.AddLabels(builder, labelsOffset.Value);
+        }
+
+        var observeHistogramMessage = ObserveHistogram.EndObserveHistogram(builder);
+        builder.Finish(observeHistogramMessage.Value);
+        return builder.SizedByteArray();
+    }
+
+    private static VectorOffset? CreateSampleLabelsVector(FlatBufferBuilder builder, IDictionary<string, string>? labels)
+    {
+        if (labels == null || labels.Count == 0)
+        {
+            return null;
+        }
+
+        var labelEntries = new Offset<SampleLabelEntry>[labels.Count];
+        var index = 0;
+        foreach (var kvp in labels)
+        {
+            labelEntries[index] = SampleLabelEntry.CreateSampleLabelEntry(
+                builder,
+                builder.CreateString(kvp.Key),
+                builder.CreateString(kvp.Value)
+            );
+            index++;
+        }
+
+        return IncCounter.CreateLabelsVector(builder, labelEntries);
+    }
+
+    internal static VectorOffset CreatePropertiesVector(FlatBufferBuilder builder, Context context)
+    {
+        var props = context.Properties;
+        if (props is null || props.Count == 0)
+            return default; // no vector
+
+        var entries = new Offset<PropertyEntry>[props.Count];
+        int i = 0;
+
+        foreach (var kvp in props)
+        {
+            entries[i++] = PropertyEntry.CreatePropertyEntry(
+                builder,
+                builder.CreateString(kvp.Key),
+                builder.CreateString(kvp.Value));
+        }
+
+        return ContextMessage.CreatePropertiesVector(builder, entries);
+    }
+
+    internal static VectorOffset CreateCustomStrategiesVector(
+        FlatBufferBuilder builder,
+        IReadOnlyDictionary<string, bool> customStrategyResults)
+    {
+        if (customStrategyResults.Count == 0)
+            return default;
+
+        var entries = new Offset<CustomStrategyResult>[customStrategyResults.Count];
+        int i = 0;
+
+        foreach (var kvp in customStrategyResults)
+        {
+            entries[i++] = CustomStrategyResult.CreateCustomStrategyResult(
+                builder,
+                builder.CreateString(kvp.Key),
+                kvp.Value);
+        }
+
+        return ContextMessage.CreateCustomStrategiesResultsVector(builder, entries);
     }
 
     internal static Variant? GetCheckVariantResponse(Buf buf)
