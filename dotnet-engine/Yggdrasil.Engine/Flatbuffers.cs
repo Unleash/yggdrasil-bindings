@@ -9,7 +9,20 @@ using System.Net;
 
 internal static class Flatbuffers
 {
-    private static readonly string hostname = Environment.GetEnvironmentVariable("hostname") ?? Dns.GetHostName();
+    private static readonly string hostname = GetHostNameSafe();
+
+    private static string GetHostNameSafe()
+    {
+        try
+        {
+            return Environment.GetEnvironmentVariable("hostname")
+                   ?? Dns.GetHostName();
+        }
+        catch
+        {
+            return "unknown";
+        }
+    }
 
     private static byte[] ReadBuffer(Buf buf)
     {

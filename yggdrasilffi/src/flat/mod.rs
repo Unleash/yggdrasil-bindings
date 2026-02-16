@@ -12,10 +12,9 @@ use std::ffi::{c_char, c_void};
 use unleash_yggdrasil::impact_metrics::{BucketMetricOptions, MetricLabels, MetricOptions};
 
 use crate::flat::messaging::yggdrasil::messaging::{
-    DefineCounter, DefineGauge, DefineHistogram, IncCounter, ObserveHistogram, SetGauge,
-    VoidResponse,
+    CollectMetricsResponse, DefineCounter, DefineGauge, DefineHistogram, IncCounter, ObserveHistogram, SetGauge, VoidResponse
 };
-use crate::flat::serialisation::{Buf, TakeStateResult};
+use crate::flat::serialisation::{Buf, MetricMeasurement, TakeStateResult};
 use crate::{get_json, ManagedEngine, RawPointerDataType};
 use chrono::Utc;
 use messaging::yggdrasil::messaging::{
@@ -191,8 +190,8 @@ pub unsafe extern "C" fn flat_check_enabled(
         let engine = recover_lock(&lock);
 
         let enabled = engine.check_enabled(&context);
-        let impression_data = engine.should_emit_impression_event(&context.toggle_name);
-        engine.count_toggle(&context.toggle_name, enabled.unwrap_or(false));
+        let impression_data = engine.should_emit_impression_event(context.toggle_name);
+        engine.count_toggle(context.toggle_name, enabled.unwrap_or(false));
 
         Ok(Some(ResponseMessage {
             message: enabled,
@@ -240,10 +239,10 @@ pub unsafe extern "C" fn flat_check_variant(
         let engine = recover_lock(&lock);
         let base_variant = engine.check_variant(&context);
         let toggle_enabled = engine.check_enabled(&context).unwrap_or_default();
-        let impression_data = engine.should_emit_impression_event(&context.toggle_name);
-        engine.count_toggle(&context.toggle_name, toggle_enabled);
+        let impression_data = engine.should_emit_impression_event(context.toggle_name);
+        engine.count_toggle(context.toggle_name, toggle_enabled);
         if let Some(v) = base_variant.clone() {
-            engine.count_variant(&context.toggle_name, &v.name);
+            engine.count_variant(context.toggle_name, &v.name);
         }
         let message = base_variant.map(|variant| variant.to_enriched_response(toggle_enabled));
         Ok(Some(ResponseMessage {
@@ -560,6 +559,32 @@ pub unsafe extern "C" fn flat_observe_histogram(
     });
 
     VoidResponse::build_response(result)
+}
+
+/// Collects and returns metrics and impact metrics
+///
+/// # Safety
+///
+/// passing an invalid engine_ptr will cause UB
+/// the returned Buf should be freed by calling flat_buf_free, otherwise you're leaking memory
+///
+#[no_mangle]
+pub unsafe extern "C" fn flat_collect_metrics(engine_ptr: *mut c_void) -> Buf {
+    let result = guard_result::<MetricMeasurement, _>(|| {
+        let guard = get_engine(engine_ptr)?;
+        let mut engine = recover_lock(&guard);
+        let impact_metrics = engine.collect_impact_metrics();
+        let bucket = engine.get_metrics(Utc::now());
+        if bucket.is_none() && impact_metrics.is_empty() {
+            return Ok(None);
+        }
+        Ok(Some(MetricMeasurement {
+            metrics: bucket,
+            impact_metrics,
+        }))
+    });
+
+    CollectMetricsResponse::build_response(result)
 }
 
 #[cfg(test)]
