@@ -4532,6 +4532,120 @@ impl core::fmt::Debug for ObserveHistogram<'_> {
       ds.finish()
   }
 }
+pub enum CollectMetricsResponseOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct CollectMetricsResponse<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for CollectMetricsResponse<'a> {
+  type Inner = CollectMetricsResponse<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> CollectMetricsResponse<'a> {
+  pub const VT_RESPONSE: flatbuffers::VOffsetT = 4;
+  pub const VT_ERROR: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    CollectMetricsResponse { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args CollectMetricsResponseArgs<'args>
+  ) -> flatbuffers::WIPOffset<CollectMetricsResponse<'bldr>> {
+    let mut builder = CollectMetricsResponseBuilder::new(_fbb);
+    if let Some(x) = args.error { builder.add_error(x); }
+    if let Some(x) = args.response { builder.add_response(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn response(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(CollectMetricsResponse::VT_RESPONSE, None)}
+  }
+  #[inline]
+  pub fn error(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(CollectMetricsResponse::VT_ERROR, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for CollectMetricsResponse<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("response", Self::VT_RESPONSE, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("error", Self::VT_ERROR, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct CollectMetricsResponseArgs<'a> {
+    pub response: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub error: Option<flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for CollectMetricsResponseArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    CollectMetricsResponseArgs {
+      response: None,
+      error: None,
+    }
+  }
+}
+
+pub struct CollectMetricsResponseBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> CollectMetricsResponseBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_response(&mut self, response: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(CollectMetricsResponse::VT_RESPONSE, response);
+  }
+  #[inline]
+  pub fn add_error(&mut self, error: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(CollectMetricsResponse::VT_ERROR, error);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> CollectMetricsResponseBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    CollectMetricsResponseBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<CollectMetricsResponse<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for CollectMetricsResponse<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("CollectMetricsResponse");
+      ds.field("response", &self.response());
+      ds.field("error", &self.error());
+      ds.finish()
+  }
+}
 #[inline]
 /// Verifies that a buffer of bytes contains a `VoidResponse`
 /// and returns it.
