@@ -9,10 +9,11 @@
 use flatbuffers::root;
 use std::borrow::Cow;
 use std::ffi::{c_char, c_void};
-use unleash_yggdrasil::impact_metrics::MetricOptions;
+use unleash_yggdrasil::impact_metrics::{BucketMetricOptions, MetricLabels, MetricOptions};
 
 use crate::flat::messaging::yggdrasil::messaging::{
-    CollectMetricsResponse, DefineCounter, VoidResponse,
+    CollectMetricsResponse, DefineCounter, DefineGauge, DefineHistogram, IncCounter,
+    ObserveHistogram, SetGauge, VoidResponse,
 };
 use crate::flat::serialisation::{Buf, MetricMeasurement, TakeStateResult};
 use crate::{get_json, ManagedEngine, RawPointerDataType};
@@ -190,8 +191,8 @@ pub unsafe extern "C" fn flat_check_enabled(
         let engine = recover_lock(&lock);
 
         let enabled = engine.check_enabled(&context);
-        let impression_data = engine.should_emit_impression_event(&context.toggle_name);
-        engine.count_toggle(&context.toggle_name, enabled.unwrap_or(false));
+        let impression_data = engine.should_emit_impression_event(context.toggle_name);
+        engine.count_toggle(context.toggle_name, enabled.unwrap_or(false));
 
         Ok(Some(ResponseMessage {
             message: enabled,
@@ -239,10 +240,10 @@ pub unsafe extern "C" fn flat_check_variant(
         let engine = recover_lock(&lock);
         let base_variant = engine.check_variant(&context);
         let toggle_enabled = engine.check_enabled(&context).unwrap_or_default();
-        let impression_data = engine.should_emit_impression_event(&context.toggle_name);
-        engine.count_toggle(&context.toggle_name, toggle_enabled);
+        let impression_data = engine.should_emit_impression_event(context.toggle_name);
+        engine.count_toggle(context.toggle_name, toggle_enabled);
         if let Some(v) = base_variant.clone() {
-            engine.count_variant(&context.toggle_name, &v.name);
+            engine.count_variant(context.toggle_name, &v.name);
         }
         let message = base_variant.map(|variant| variant.to_enriched_response(toggle_enabled));
         Ok(Some(ResponseMessage {
@@ -339,6 +340,222 @@ pub unsafe extern "C" fn flat_define_counter(
         };
 
         engine.define_counter(MetricOptions::new(name, help));
+        Ok(Some(()))
+    });
+
+    VoidResponse::build_response(result)
+}
+
+fn parse_labels(
+    labels: Option<
+        flatbuffers::Vector<
+            '_,
+            flatbuffers::ForwardsUOffset<messaging::yggdrasil::messaging::SampleLabelEntry<'_>>,
+        >,
+    >,
+) -> MetricLabels {
+    labels
+        .map(|entries| {
+            entries
+                .iter()
+                .map(|entry| {
+                    (
+                        entry.key().to_owned(),
+                        entry.value().unwrap_or_default().to_owned(),
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Increments a counter metric by a given value.
+///
+/// # Safety
+///
+/// passing an invalid engine_ptr, message_ptr, or improper message_len will cause UB
+/// the returned Buf should be freed by calling flat_buf_free, otherwise you're leaking memory
+#[no_mangle]
+pub unsafe extern "C" fn flat_inc_counter(
+    engine_ptr: *mut c_void,
+    message_ptr: u64,
+    message_len: u64,
+) -> Buf {
+    let result = guard_result::<(), _>(|| {
+        let bytes =
+            unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
+        let inc_counter_message =
+            root::<IncCounter>(bytes).map_err(|e| FlatError::InvalidBuffer(e.to_string()))?;
+
+        let guard = get_engine(engine_ptr)?;
+        let engine = recover_lock(&guard);
+
+        let Some(name) = inc_counter_message.name() else {
+            return Err(FlatError::MissingRequiredParameter("name".to_owned()));
+        };
+
+        let value = inc_counter_message.value();
+        let labels = parse_labels(inc_counter_message.labels());
+        if labels.is_empty() {
+            engine.inc_counter_by(name, value);
+        } else {
+            engine.inc_counter_with_labels(name, value, &labels);
+        }
+
+        Ok(Some(()))
+    });
+
+    VoidResponse::build_response(result)
+}
+
+/// Defines a gauge metric with the given name and help text.
+///
+/// # Safety
+///
+/// passing an invalid engine_ptr, message_ptr, or improper message_len will cause UB
+/// the returned Buf should be freed by calling flat_buf_free, otherwise you're leaking memory
+#[no_mangle]
+pub unsafe extern "C" fn flat_define_gauge(
+    engine_ptr: *mut c_void,
+    message_ptr: u64,
+    message_len: u64,
+) -> Buf {
+    let result = guard_result::<(), _>(|| {
+        let bytes =
+            unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
+        let define_gauge_message =
+            root::<DefineGauge>(bytes).map_err(|e| FlatError::InvalidBuffer(e.to_string()))?;
+
+        let guard = get_engine(engine_ptr)?;
+        let engine = recover_lock(&guard);
+
+        let Some(name) = define_gauge_message.name() else {
+            return Err(FlatError::MissingRequiredParameter("name".to_owned()));
+        };
+
+        let Some(help) = define_gauge_message.help() else {
+            return Err(FlatError::MissingRequiredParameter("help".to_owned()));
+        };
+
+        engine.define_gauge(MetricOptions::new(name, help));
+        Ok(Some(()))
+    });
+
+    VoidResponse::build_response(result)
+}
+
+/// Sets a gauge metric to a given value.
+///
+/// # Safety
+///
+/// passing an invalid engine_ptr, message_ptr, or improper message_len will cause UB
+/// the returned Buf should be freed by calling flat_buf_free, otherwise you're leaking memory
+#[no_mangle]
+pub unsafe extern "C" fn flat_set_gauge(
+    engine_ptr: *mut c_void,
+    message_ptr: u64,
+    message_len: u64,
+) -> Buf {
+    let result = guard_result::<(), _>(|| {
+        let bytes =
+            unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
+        let set_gauge_message =
+            root::<SetGauge>(bytes).map_err(|e| FlatError::InvalidBuffer(e.to_string()))?;
+
+        let guard = get_engine(engine_ptr)?;
+        let engine = recover_lock(&guard);
+
+        let Some(name) = set_gauge_message.name() else {
+            return Err(FlatError::MissingRequiredParameter("name".to_owned()));
+        };
+
+        let value = set_gauge_message.value();
+        let labels = parse_labels(set_gauge_message.labels());
+        if labels.is_empty() {
+            engine.set_gauge(name, value);
+        } else {
+            engine.set_gauge_with_labels(name, value, &labels);
+        }
+
+        Ok(Some(()))
+    });
+
+    VoidResponse::build_response(result)
+}
+
+/// Defines a histogram metric with optional buckets.
+///
+/// # Safety
+///
+/// passing an invalid engine_ptr, message_ptr, or improper message_len will cause UB
+/// the returned Buf should be freed by calling flat_buf_free, otherwise you're leaking memory
+#[no_mangle]
+pub unsafe extern "C" fn flat_define_histogram(
+    engine_ptr: *mut c_void,
+    message_ptr: u64,
+    message_len: u64,
+) -> Buf {
+    let result = guard_result::<(), _>(|| {
+        let bytes =
+            unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
+        let define_histogram_message =
+            root::<DefineHistogram>(bytes).map_err(|e| FlatError::InvalidBuffer(e.to_string()))?;
+
+        let guard = get_engine(engine_ptr)?;
+        let engine = recover_lock(&guard);
+
+        let Some(name) = define_histogram_message.name() else {
+            return Err(FlatError::MissingRequiredParameter("name".to_owned()));
+        };
+
+        let Some(help) = define_histogram_message.help() else {
+            return Err(FlatError::MissingRequiredParameter("help".to_owned()));
+        };
+
+        let buckets = define_histogram_message
+            .buckets()
+            .map(|entries| entries.iter().collect::<Vec<f64>>())
+            .unwrap_or_default();
+        engine.define_histogram(BucketMetricOptions::new(name, help, buckets));
+        Ok(Some(()))
+    });
+
+    VoidResponse::build_response(result)
+}
+
+/// Observes a value on a histogram metric.
+///
+/// # Safety
+///
+/// passing an invalid engine_ptr, message_ptr, or improper message_len will cause UB
+/// the returned Buf should be freed by calling flat_buf_free, otherwise you're leaking memory
+#[no_mangle]
+pub unsafe extern "C" fn flat_observe_histogram(
+    engine_ptr: *mut c_void,
+    message_ptr: u64,
+    message_len: u64,
+) -> Buf {
+    let result = guard_result::<(), _>(|| {
+        let bytes =
+            unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
+        let observe_histogram_message =
+            root::<ObserveHistogram>(bytes).map_err(|e| FlatError::InvalidBuffer(e.to_string()))?;
+
+        let guard = get_engine(engine_ptr)?;
+        let engine = recover_lock(&guard);
+
+        let Some(name) = observe_histogram_message.name() else {
+            return Err(FlatError::MissingRequiredParameter("name".to_owned()));
+        };
+
+        let value = observe_histogram_message.value();
+        let labels = parse_labels(observe_histogram_message.labels());
+        if labels.is_empty() {
+            engine.observe_histogram(name, value);
+        } else {
+            engine.observe_histogram_with_labels(name, value, &labels);
+        }
+
         Ok(Some(()))
     });
 

@@ -64,6 +64,118 @@ public static class Flatbuffers
         return builder.SizedByteArray();
     }
 
+    public static byte[] CreateIncCounterBuffer(FlatBufferBuilder builder, string name, long value, IDictionary<string, string>? labels = null)
+    {
+        var nameOffset = builder.CreateString(name);
+        var labelsOffset = CreateSampleLabelsVector(builder, labels);
+
+        IncCounter.StartIncCounter(builder);
+        IncCounter.AddName(builder, nameOffset);
+        IncCounter.AddValue(builder, value);
+        if (labelsOffset.HasValue)
+        {
+            IncCounter.AddLabels(builder, labelsOffset.Value);
+        }
+
+        var incCounterMessage = IncCounter.EndIncCounter(builder);
+        builder.Finish(incCounterMessage.Value);
+        return builder.SizedByteArray();
+    }
+
+    public static byte[] CreateDefineGaugeBuffer(FlatBufferBuilder builder, string name, string help)
+    {
+        var nameOffset = builder.CreateString(name);
+        var helpOffset = builder.CreateString(help);
+
+        DefineGauge.StartDefineGauge(builder);
+        DefineGauge.AddName(builder, nameOffset);
+        DefineGauge.AddHelp(builder, helpOffset);
+
+        var defineGaugeMessage = DefineGauge.EndDefineGauge(builder);
+        builder.Finish(defineGaugeMessage.Value);
+        return builder.SizedByteArray();
+    }
+
+    public static byte[] CreateSetGaugeBuffer(FlatBufferBuilder builder, string name, double value, IDictionary<string, string>? labels = null)
+    {
+        var nameOffset = builder.CreateString(name);
+        var labelsOffset = CreateSampleLabelsVector(builder, labels);
+
+        SetGauge.StartSetGauge(builder);
+        SetGauge.AddName(builder, nameOffset);
+        SetGauge.AddValue(builder, value);
+        if (labelsOffset.HasValue)
+        {
+            SetGauge.AddLabels(builder, labelsOffset.Value);
+        }
+
+        var setGaugeMessage = SetGauge.EndSetGauge(builder);
+        builder.Finish(setGaugeMessage.Value);
+        return builder.SizedByteArray();
+    }
+
+    public static byte[] CreateDefineHistogramBuffer(FlatBufferBuilder builder, string name, string help, IEnumerable<double>? buckets = null)
+    {
+        var nameOffset = builder.CreateString(name);
+        var helpOffset = builder.CreateString(help);
+        var bucketArray = (buckets ?? Enumerable.Empty<double>()).ToArray();
+        var bucketsOffset = bucketArray.Length > 0
+            ? DefineHistogram.CreateBucketsVector(builder, bucketArray)
+            : default(VectorOffset);
+
+        DefineHistogram.StartDefineHistogram(builder);
+        DefineHistogram.AddName(builder, nameOffset);
+        DefineHistogram.AddHelp(builder, helpOffset);
+        if (bucketArray.Length > 0)
+        {
+            DefineHistogram.AddBuckets(builder, bucketsOffset);
+        }
+
+        var defineHistogramMessage = DefineHistogram.EndDefineHistogram(builder);
+        builder.Finish(defineHistogramMessage.Value);
+        return builder.SizedByteArray();
+    }
+
+    public static byte[] CreateObserveHistogramBuffer(FlatBufferBuilder builder, string name, double value, IDictionary<string, string>? labels = null)
+    {
+        var nameOffset = builder.CreateString(name);
+        var labelsOffset = CreateSampleLabelsVector(builder, labels);
+
+        ObserveHistogram.StartObserveHistogram(builder);
+        ObserveHistogram.AddName(builder, nameOffset);
+        ObserveHistogram.AddValue(builder, value);
+        if (labelsOffset.HasValue)
+        {
+            ObserveHistogram.AddLabels(builder, labelsOffset.Value);
+        }
+
+        var observeHistogramMessage = ObserveHistogram.EndObserveHistogram(builder);
+        builder.Finish(observeHistogramMessage.Value);
+        return builder.SizedByteArray();
+    }
+
+    private static VectorOffset? CreateSampleLabelsVector(FlatBufferBuilder builder, IDictionary<string, string>? labels)
+    {
+        if (labels == null || labels.Count == 0)
+        {
+            return null;
+        }
+
+        var labelEntries = new Offset<SampleLabelEntry>[labels.Count];
+        var index = 0;
+        foreach (var kvp in labels)
+        {
+            labelEntries[index] = SampleLabelEntry.CreateSampleLabelEntry(
+                builder,
+                builder.CreateString(kvp.Key),
+                builder.CreateString(kvp.Value)
+            );
+            index++;
+        }
+
+        return IncCounter.CreateLabelsVector(builder, labelEntries);
+    }
+
     internal static VectorOffset CreatePropertiesVector(FlatBufferBuilder builder, Context context)
     {
         var propertyEntries = new Offset<PropertyEntry>[context.Properties?.Count ?? 0];
