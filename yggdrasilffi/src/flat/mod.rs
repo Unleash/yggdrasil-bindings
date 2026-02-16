@@ -12,7 +12,8 @@ use std::ffi::{c_char, c_void};
 use unleash_yggdrasil::impact_metrics::{BucketMetricOptions, MetricLabels, MetricOptions};
 
 use crate::flat::messaging::yggdrasil::messaging::{
-    CollectMetricsResponse, DefineCounter, DefineGauge, DefineHistogram, IncCounter, ObserveHistogram, SetGauge, VoidResponse
+    CollectMetricsResponse, DefineCounter, DefineGauge, DefineHistogram, IncCounter,
+    ObserveHistogram, SetGauge, VoidResponse,
 };
 use crate::flat::serialisation::{Buf, MetricMeasurement, TakeStateResult};
 use crate::{get_json, ManagedEngine, RawPointerDataType};
