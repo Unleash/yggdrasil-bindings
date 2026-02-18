@@ -40,10 +40,12 @@ pub struct ResponseMessage<T> {
     pub impression_data: bool,
 }
 
+pub type ParsedStrategies = BTreeMap<String, Vec<(String, BTreeMap<String, String>)>>;
+
 pub struct TakeStateResult {
     pub warnings: Vec<EvalWarning>,
     pub error: Option<String>,
-    pub feature_strategies_map: BTreeMap<String, BTreeMap<String, BTreeMap<String, String>>>,
+    pub feature_strategies_map: ParsedStrategies,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
