@@ -20,6 +20,8 @@ internal class CustomStrategies
         this.knownStrategies = knownStrategies;
     }
 
+    private static readonly IReadOnlyDictionary<string, bool> noCustomStrategies = new Dictionary<string, bool>(0);
+
     private bool IsCustomStrategy(StrategyDefinition strategy)
     {
         return !knownStrategies?.Contains(strategy.Name) ?? false;
@@ -86,17 +88,21 @@ internal class CustomStrategies
         return JsonSerializer.Serialize(strategies, options);
     }
 
-    internal Dictionary<string, bool> GetCustomStrategyResults(string toggleName, Context context)
+    internal IReadOnlyDictionary<string, bool> GetCustomStrategyResults(string toggleName, Context context)
     {
         MappedFeature? feature = null;
         mappedFeatures?.TryGetValue(toggleName, out feature);
-        if (feature == null)
+        if (feature == null || feature.Strategies.Count == 0)
         {
-            return new Dictionary<string, bool>();
+            return noCustomStrategies;
         }
 
-        return feature.Strategies
-            .ToDictionary(strategy => strategy.ResultName,
-                strategy => strategy.IsEnabled(context));
+        var customStrategyResults = new Dictionary<string, bool>(feature.Strategies.Count);
+        for (int i = 0; i < feature.Strategies.Count; i++)
+        {
+            var strategy = feature.Strategies[i];
+            customStrategyResults[strategy.ResultName] = strategy.IsEnabled(context);
+        }
+        return customStrategyResults;
     }
 }

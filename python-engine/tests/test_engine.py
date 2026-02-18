@@ -214,3 +214,149 @@ def test_get_state_and_roundtrip():
     assert '"name": "default"' in retrieved_state
     assert 'status_code' not in retrieved_state
     assert 'error_message' not in retrieved_state
+
+
+def test_inc_counter_increments_value():
+    engine = UnleashEngine()
+    engine.define_counter("test_counter", "Test counter")
+    engine.inc_counter("test_counter", 5)
+    engine.inc_counter("test_counter", 3)
+
+    metrics = engine.collect_impact_metrics()
+    counter = next((m for m in metrics if m["name"] == "test_counter"), None)
+
+    assert counter is not None
+    assert counter["help"] == "Test counter"
+    assert len(counter["samples"]) == 1
+    assert counter["samples"][0]["value"] == 8
+
+
+def test_inc_counter_with_labels():
+    engine = UnleashEngine()
+    engine.define_counter("test_counter", "Test counter")
+    engine.inc_counter("test_counter", 5, {"env": "test"})
+    engine.inc_counter("test_counter", 3, {"env": "prod"})
+
+    metrics = engine.collect_impact_metrics()
+    counter = next((m for m in metrics if m["name"] == "test_counter"), None)
+
+    assert counter is not None
+    assert len(counter["samples"]) == 2
+    test_sample = next((s for s in counter["samples"] if s["labels"].get("env") == "test"), None)
+    prod_sample = next((s for s in counter["samples"] if s["labels"].get("env") == "prod"), None)
+    assert test_sample["value"] == 5
+    assert prod_sample["value"] == 3
+
+
+def test_set_gauge_sets_value():
+    engine = UnleashEngine()
+    engine.define_gauge("test_gauge", "Test gauge")
+    engine.set_gauge("test_gauge", 5)
+    engine.set_gauge("test_gauge", 10)
+
+    metrics = engine.collect_impact_metrics()
+    gauge = next((m for m in metrics if m["name"] == "test_gauge"), None)
+
+    assert gauge is not None
+    assert gauge["help"] == "Test gauge"
+    assert len(gauge["samples"]) == 1
+    assert gauge["samples"][0]["value"] == 10
+
+
+def test_set_gauge_with_labels():
+    engine = UnleashEngine()
+    engine.define_gauge("test_gauge", "Test gauge")
+    engine.set_gauge("test_gauge", 5, {"env": "test"})
+    engine.set_gauge("test_gauge", 3, {"env": "prod"})
+
+    metrics = engine.collect_impact_metrics()
+    gauge = next((m for m in metrics if m["name"] == "test_gauge"), None)
+
+    assert gauge is not None
+    assert len(gauge["samples"]) == 2
+    test_sample = next((s for s in gauge["samples"] if s["labels"].get("env") == "test"), None)
+    prod_sample = next((s for s in gauge["samples"] if s["labels"].get("env") == "prod"), None)
+    assert test_sample["value"] == 5
+    assert prod_sample["value"] == 3
+
+
+def test_observe_histogram_observes_values():
+    engine = UnleashEngine()
+    engine.define_histogram("request_duration", "Request duration", [0.1, 0.5, 1.0, 5.0])
+    engine.observe_histogram("request_duration", 0.05)
+    engine.observe_histogram("request_duration", 0.75)
+    engine.observe_histogram("request_duration", 3.0)
+
+    metrics = engine.collect_impact_metrics()
+    histogram = next((m for m in metrics if m["name"] == "request_duration"), None)
+
+    assert histogram is not None
+    assert histogram["help"] == "Request duration"
+    assert histogram["type"] == "histogram"
+    assert len(histogram["samples"]) == 1
+
+
+def test_observe_histogram_with_labels():
+    engine = UnleashEngine()
+    engine.define_histogram("request_duration", "Request duration", [0.1, 0.5, 1.0, 5.0])
+    engine.observe_histogram("request_duration", 0.05, {"env": "test"})
+    engine.observe_histogram("request_duration", 0.75, {"env": "prod"})
+
+    metrics = engine.collect_impact_metrics()
+    histogram = next((m for m in metrics if m["name"] == "request_duration"), None)
+
+    assert histogram is not None
+    assert len(histogram["samples"]) == 2
+    test_sample = next((s for s in histogram["samples"] if s["labels"].get("env") == "test"), None)
+    prod_sample = next((s for s in histogram["samples"] if s["labels"].get("env") == "prod"), None)
+    assert test_sample is not None
+    assert prod_sample is not None
+
+
+def test_define_histogram_with_default_buckets():
+    engine = UnleashEngine()
+    engine.define_histogram("request_duration", "Request duration")
+    engine.observe_histogram("request_duration", 0.05)
+
+    metrics = engine.collect_impact_metrics()
+    histogram = next((m for m in metrics if m["name"] == "request_duration"), None)
+
+    assert histogram is not None
+    assert histogram["type"] == "histogram"
+    assert len(histogram["samples"]) == 1
+
+
+def test_collect_impact_metrics_returns_empty_list_when_no_metrics():
+    engine = UnleashEngine()
+    metrics = engine.collect_impact_metrics()
+    assert metrics == []
+
+
+def test_restore_impact_metrics():
+    engine = UnleashEngine()
+    engine.define_counter("test_counter", "Test counter")
+    engine.inc_counter("test_counter", 10)
+    engine.define_gauge("test_gauge", "Test gauge")
+    engine.set_gauge("test_gauge", 42)
+    engine.define_histogram("test_histogram", "Test histogram", [0.1, 0.5, 1.0])
+    engine.observe_histogram("test_histogram", 0.25)
+
+    metrics = engine.collect_impact_metrics()
+    assert len(metrics) == 3
+    counter = next((m for m in metrics if m["name"] == "test_counter"), None)
+    gauge = next((m for m in metrics if m["name"] == "test_gauge"), None)
+    histogram = next((m for m in metrics if m["name"] == "test_histogram"), None)
+    assert counter["samples"][0]["value"] == 10
+    assert gauge["samples"][0]["value"] == 42
+    assert histogram is not None
+
+    engine.restore_impact_metrics(metrics)
+
+    restored_metrics = engine.collect_impact_metrics()
+    assert len(restored_metrics) == 3
+    restored_counter = next((m for m in restored_metrics if m["name"] == "test_counter"), None)
+    restored_gauge = next((m for m in restored_metrics if m["name"] == "test_gauge"), None)
+    restored_histogram = next((m for m in restored_metrics if m["name"] == "test_histogram"), None)
+    assert restored_counter["samples"][0]["value"] == 10
+    assert restored_gauge["samples"][0]["value"] == 42
+    assert restored_histogram is not None

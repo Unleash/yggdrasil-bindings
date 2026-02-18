@@ -30,6 +30,10 @@ table Response {
   error: string;
 }
 
+table VoidResponse {
+  error: string;
+}
+
 table Variant {
   enabled: bool;
   impression_data: bool;
@@ -69,11 +73,63 @@ table ToggleEntry {
   value: ToggleStats;
 }
 
+table HistogramSampleBucketStats {
+  le: double;
+  count: long;
+}
+
+table SampleLabelEntry {
+  key: string (key);
+  value: string;
+}
+
+table ImpactMetricHistogramStats {
+  labels: [SampleLabelEntry];
+  count: long;
+  sum: double;
+  buckets: [HistogramSampleBucketStats];
+}
+
+table ImpactMetricGaugeStats {
+  labels: [SampleLabelEntry];
+  value: double;
+}
+
+table ImpactMetricCounterStats {
+  labels: [SampleLabelEntry];
+  value: long;
+}
+
+table ImpactMetricGaugeEntry {
+  name: string;
+  help: string;
+  samples: [ImpactMetricGaugeStats];
+}
+
+table ImpactMetricCounterEntry {
+  name: string;
+  help: string;
+  samples: [ImpactMetricCounterStats];
+}
+
+table ImpactMetricHistogramEntry {
+  name: string;
+  help: string;
+  samples: [ImpactMetricHistogramStats];
+}
+
+union ImpactMetricEntryUnion { ImpactMetricCounterEntry, ImpactMetricGaugeEntry, ImpactMetricHistogramEntry }
+
+table ImpactMetricEntry {
+    entry: ImpactMetricEntryUnion;
+}
+
 table MetricsResponse {
   // Representing DateTime<Utc> as UNIX timestamp in milliseconds
   start: long;
   stop: long;
   toggles: [ToggleEntry];
+  impact_metrics: [ImpactMetricEntry];
 }
 
 table TakeStateResponse {
@@ -108,6 +164,47 @@ table FeatureDefs {
   items: [FeatureDef];
 }
 
+table DefineCounter {
+    name: string;
+    help: string;
+}
+
+table IncCounter {
+    name: string;
+    value: long;
+    labels: [SampleLabelEntry];
+}
+
+table DefineGauge {
+    name: string;
+    help: string;
+}
+
+table SetGauge {
+    name: string;
+    value: double;
+    labels: [SampleLabelEntry];
+}
+
+table DefineHistogram {
+    name: string;
+    help: string;
+    buckets: [double];
+}
+
+table ObserveHistogram {
+    name: string;
+    value: double;
+    labels: [SampleLabelEntry];
+}
+
+table CollectMetricsResponse {
+  response: string;
+  error: string;
+}
+
 root_type Response;
 root_type ContextMessage;
 root_type MetricsResponse;
+root_type TakeStateResponse;
+root_type VoidResponse;

@@ -12,6 +12,9 @@ use chrono::Utc;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::MetricBucket;
+use unleash_yggdrasil::impact_metrics::{
+    BucketMetricOptions, CollectedMetric, MetricLabels, MetricOptions,
+};
 use unleash_yggdrasil::{
     state::EnrichedContext, Context, EngineState, EvalWarning, ExtendedVariantDef,
     ToggleDefinition, UpdateMessage, CORE_VERSION, KNOWN_STRATEGIES,
@@ -269,7 +272,7 @@ pub unsafe extern "C" fn check_enabled(
         let context: Context = get_json(context_ptr)?;
         let custom_strategy_results = parse_custom_results(custom_strategy_results_ptr)?;
         let enriched_context =
-            EnrichedContext::from(context, toggle_name.into(), custom_strategy_results);
+            EnrichedContext::from(&context, toggle_name, custom_strategy_results.as_ref());
 
         Ok(engine.check_enabled(&enriched_context))
     });
@@ -303,7 +306,7 @@ pub unsafe extern "C" fn check_variant(
         let context: Context = get_json(context_ptr)?;
         let custom_strategy_results = parse_custom_results(custom_strategy_results_ptr)?;
         let enriched_context =
-            EnrichedContext::from(context, toggle_name.into(), custom_strategy_results);
+            EnrichedContext::from(&context, toggle_name, custom_strategy_results.as_ref());
 
         let base_variant = engine.check_variant(&enriched_context);
         let toggle_enabled = engine.check_enabled(&enriched_context).unwrap_or_default();
@@ -488,6 +491,258 @@ pub unsafe extern "C" fn list_known_toggles(engine_ptr: *mut c_void) -> *mut c_c
         let engine = recover_lock(&guard);
 
         Ok(Some(engine.list_known_toggles()))
+    });
+
+    result_to_json_ptr(result)
+}
+
+/// Defines a counter metric with the given name and help text.
+///
+/// # Safety
+///
+/// The caller is responsible for ensuring all arguments are valid pointers.
+/// Null pointers will result in an error message being returned to the caller,
+/// but any invalid pointers will result in undefined behavior.
+/// These pointers should not be dropped for the lifetime of this function call.
+///
+/// The caller is responsible for freeing the allocated memory. This can be done by calling
+/// `free_response` and passing in the pointer returned by this method. Failure to do so will result in a leak.
+#[no_mangle]
+pub unsafe extern "C" fn define_counter(
+    engine_ptr: *mut c_void,
+    name_ptr: *const c_char,
+    help_ptr: *const c_char,
+) -> *mut c_char {
+    let result = guard_result::<(), _>(|| {
+        let guard = get_engine(engine_ptr)?;
+        let engine = recover_lock(&guard);
+
+        let name = get_str(name_ptr)?;
+        let help = get_str(help_ptr)?;
+
+        engine.define_counter(MetricOptions::new(name, help));
+        Ok(Some(()))
+    });
+
+    result_to_json_ptr(result)
+}
+
+/// Increments a counter metric by the given value.
+///
+/// # Safety
+///
+/// The caller is responsible for ensuring all arguments are valid pointers.
+/// Null pointers will result in an error message being returned to the caller,
+/// but any invalid pointers will result in undefined behavior.
+/// These pointers should not be dropped for the lifetime of this function call.
+///
+/// The caller is responsible for freeing the allocated memory. This can be done by calling
+/// `free_response` and passing in the pointer returned by this method. Failure to do so will result in a leak.
+#[no_mangle]
+pub unsafe extern "C" fn inc_counter(
+    engine_ptr: *mut c_void,
+    name_ptr: *const c_char,
+    value: i64,
+    labels_ptr: *const c_char,
+) -> *mut c_char {
+    let result = guard_result::<(), _>(|| {
+        let guard = get_engine(engine_ptr)?;
+        let engine = recover_lock(&guard);
+
+        let name = get_str(name_ptr)?;
+
+        if labels_ptr.is_null() {
+            engine.inc_counter_by(name, value);
+        } else {
+            let labels: MetricLabels = get_json(labels_ptr)?;
+            engine.inc_counter_with_labels(name, value, &labels);
+        }
+        Ok(Some(()))
+    });
+
+    result_to_json_ptr(result)
+}
+
+/// Collects all impact metrics and returns them as a JSON array.
+///
+/// # Safety
+///
+/// The caller is responsible for ensuring the engine_ptr is a valid pointer to an unleash engine.
+/// An invalid pointer to unleash engine will result in undefined behaviour.
+/// The caller is responsible for freeing the allocated memory. This can be done by calling
+/// `free_response` and passing in the pointer returned by this method. Failure to do so will result in a leak.
+#[no_mangle]
+pub unsafe extern "C" fn collect_impact_metrics(engine_ptr: *mut c_void) -> *mut c_char {
+    let result = guard_result::<Vec<CollectedMetric>, _>(|| {
+        let guard = get_engine(engine_ptr)?;
+        let engine = recover_lock(&guard);
+
+        Ok(Some(engine.collect_impact_metrics()))
+    });
+
+    result_to_json_ptr(result)
+}
+
+/// Restores impact metrics from a JSON array of collected metrics.
+///
+/// # Safety
+///
+/// The caller is responsible for ensuring all arguments are valid pointers.
+/// Null pointers will result in an error message being returned to the caller,
+/// but any invalid pointers will result in undefined behavior.
+/// These pointers should not be dropped for the lifetime of this function call.
+///
+/// The caller is responsible for freeing the allocated memory. This can be done by calling
+/// `free_response` and passing in the pointer returned by this method. Failure to do so will result in a leak.
+#[no_mangle]
+pub unsafe extern "C" fn restore_impact_metrics(
+    engine_ptr: *mut c_void,
+    metrics_ptr: *const c_char,
+) -> *mut c_char {
+    let result = guard_result::<(), _>(|| {
+        let guard = get_engine(engine_ptr)?;
+        let engine = recover_lock(&guard);
+
+        let metrics: Vec<CollectedMetric> = get_json(metrics_ptr)?;
+        engine.restore_impact_metrics(metrics);
+        Ok(Some(()))
+    });
+
+    result_to_json_ptr(result)
+}
+
+/// Defines a gauge metric with the given name and help text.
+///
+/// # Safety
+///
+/// The caller is responsible for ensuring all arguments are valid pointers.
+/// Null pointers will result in an error message being returned to the caller,
+/// but any invalid pointers will result in undefined behavior.
+/// These pointers should not be dropped for the lifetime of this function call.
+///
+/// The caller is responsible for freeing the allocated memory. This can be done by calling
+/// `free_response` and passing in the pointer returned by this method. Failure to do so will result in a leak.
+#[no_mangle]
+pub unsafe extern "C" fn define_gauge(
+    engine_ptr: *mut c_void,
+    name_ptr: *const c_char,
+    help_ptr: *const c_char,
+) -> *mut c_char {
+    let result = guard_result::<(), _>(|| {
+        let guard = get_engine(engine_ptr)?;
+        let engine = recover_lock(&guard);
+
+        let name = get_str(name_ptr)?;
+        let help = get_str(help_ptr)?;
+
+        engine.define_gauge(MetricOptions::new(name, help));
+        Ok(Some(()))
+    });
+
+    result_to_json_ptr(result)
+}
+
+/// Sets a gauge metric to the given value.
+///
+/// # Safety
+///
+/// The caller is responsible for ensuring all arguments are valid pointers.
+/// Null pointers will result in an error message being returned to the caller,
+/// but any invalid pointers will result in undefined behavior.
+/// These pointers should not be dropped for the lifetime of this function call.
+///
+/// The caller is responsible for freeing the allocated memory. This can be done by calling
+/// `free_response` and passing in the pointer returned by this method. Failure to do so will result in a leak.
+#[no_mangle]
+pub unsafe extern "C" fn set_gauge(
+    engine_ptr: *mut c_void,
+    name_ptr: *const c_char,
+    value: f64,
+    labels_ptr: *const c_char,
+) -> *mut c_char {
+    let result = guard_result::<(), _>(|| {
+        let guard = get_engine(engine_ptr)?;
+        let engine = recover_lock(&guard);
+
+        let name = get_str(name_ptr)?;
+
+        if labels_ptr.is_null() {
+            engine.set_gauge(name, value);
+        } else {
+            let labels: MetricLabels = get_json(labels_ptr)?;
+            engine.set_gauge_with_labels(name, value, &labels);
+        }
+        Ok(Some(()))
+    });
+
+    result_to_json_ptr(result)
+}
+
+/// Defines a histogram metric with the given name, help text, and bucket boundaries.
+/// Pass an empty array for default Prometheus buckets.
+///
+/// # Safety
+///
+/// The caller is responsible for ensuring all arguments are valid pointers.
+/// Null pointers will result in an error message being returned to the caller.
+/// Any invalid pointers will result in undefined behavior.
+/// These pointers should not be dropped for the lifetime of this function call.
+///
+/// The caller is responsible for freeing the allocated memory. This can be done by calling
+/// `free_response` and passing in the pointer returned by this method. Failure to do so will result in a leak.
+#[no_mangle]
+pub unsafe extern "C" fn define_histogram(
+    engine_ptr: *mut c_void,
+    name_ptr: *const c_char,
+    help_ptr: *const c_char,
+    buckets_ptr: *const c_char,
+) -> *mut c_char {
+    let result = guard_result::<(), _>(|| {
+        let guard = get_engine(engine_ptr)?;
+        let engine = recover_lock(&guard);
+
+        let name = get_str(name_ptr)?;
+        let help = get_str(help_ptr)?;
+        let buckets: Vec<f64> = get_json(buckets_ptr)?;
+
+        engine.define_histogram(BucketMetricOptions::new(name, help, buckets));
+        Ok(Some(()))
+    });
+
+    result_to_json_ptr(result)
+}
+
+/// Observes a value for a histogram metric.
+///
+/// # Safety
+///
+/// The caller is responsible for ensuring all arguments are valid pointers.
+/// Null pointers will result in an error message being returned to the caller,
+/// but any invalid pointers will result in undefined behavior.
+/// These pointers should not be dropped for the lifetime of this function call.
+///
+/// The caller is responsible for freeing the allocated memory. This can be done by calling
+/// `free_response` and passing in the pointer returned by this method. Failure to do so will result in a leak.
+#[no_mangle]
+pub unsafe extern "C" fn observe_histogram(
+    engine_ptr: *mut c_void,
+    name_ptr: *const c_char,
+    value: f64,
+    labels_ptr: *const c_char,
+) -> *mut c_char {
+    let result = guard_result::<(), _>(|| {
+        let guard = get_engine(engine_ptr)?;
+        let engine = recover_lock(&guard);
+
+        let name = get_str(name_ptr)?;
+
+        if labels_ptr.is_null() {
+            engine.observe_histogram(name, value);
+        } else {
+            let labels: MetricLabels = get_json(labels_ptr)?;
+            engine.observe_histogram_with_labels(name, value, &labels);
+        }
+        Ok(Some(()))
     });
 
     result_to_json_ptr(result)
