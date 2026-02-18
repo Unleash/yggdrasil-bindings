@@ -40,7 +40,7 @@ pub struct ResponseMessage<T> {
     pub impression_data: bool,
 }
 
-pub type ParsedStrategies = BTreeMap<String, BTreeMap<String, BTreeMap<String, String>>>;
+pub type ParsedStrategies = BTreeMap<String, Vec<(String, BTreeMap<String, String>)>>;
 
 pub struct TakeStateResult {
     pub warnings: Vec<EvalWarning>,
