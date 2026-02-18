@@ -2,7 +2,7 @@ package io.getunleash.engine;
 
 import static io.getunleash.engine.TestStrategies.alwaysFails;
 import static io.getunleash.engine.TestStrategies.alwaysTrue;
-import static io.getunleash.engine.TestStrategies.onlyTrueIfParameterValueMatchesContext
+import static io.getunleash.engine.TestStrategies.onlyTrueIfParameterValueMatchesContext;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.params.provider.Arguments.of;
