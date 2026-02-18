@@ -53,4 +53,18 @@ class TestStrategies {
       }
     };
   }
+
+  static IStrategy onlyTrueIfParameterValueMatchesContext(String strategyName, String parameterName) {
+    return new IStrategy() {
+      @Override
+      public String getName() {
+        return strategyName;
+      }
+
+      @Override
+      public boolean isEnabled(Map<String, String> parameters, Context context) {
+        return context.getProperties().get(parameterName).equals(parameters.get(parameterName));
+      }
+    };
+  }
 }

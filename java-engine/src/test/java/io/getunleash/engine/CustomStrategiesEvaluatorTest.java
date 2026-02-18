@@ -2,6 +2,7 @@ package io.getunleash.engine;
 
 import static io.getunleash.engine.TestStrategies.alwaysFails;
 import static io.getunleash.engine.TestStrategies.alwaysTrue;
+import static io.getunleash.engine.TestStrategies.onlyTrueIfParameterValueMatchesContext
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.params.provider.Arguments.of;
@@ -104,5 +105,19 @@ class CustomStrategiesEvaluatorTest {
     assertEquals(
         Map.of("customStrategy1", false, "customStrategy2", false),
         unleashEngine.customStrategiesEvaluatorEval("Feature.Custom.Strategies", new Context()));
+  }
+
+  @Test
+  void repeated_strategy_with_different_parameters_should_evaluate_separately() throws IOException, YggdrasilInvalidInputException {
+    UnleashEngine unleashEngine =
+        new UnleashEngine(
+            List.of(
+                onlyTrueIfParameterValueMatchesContext("myFancyStrategy", "myFancy")
+            )
+        );
+    unleashEngine.takeState(ResourceReader.readResourceAsString("repeated_custom_strategy.json"));
+    var context = new Context();
+    context.setProperties(Map.of("myFancy", "one"));
+    assertThat(unleashEngine.customStrategiesEvaluatorEval("repeated.custom", context)).hasSize(2);
   }
 }

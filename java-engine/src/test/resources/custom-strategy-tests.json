@@ -82,6 +82,25 @@
       "variants": [],
       "description": "",
       "impressionData": false
+    },
+    {
+      "name": "repeated.custom",
+      "enabled": true,
+      "strategies": [
+        {
+          "name": "myFancyStrategy",
+          "parameters": {
+            "myFancy": "one"
+          }
+
+        },
+        {
+          "name": "myFancyStrategy",
+          "parameters": {
+            "myFancy": "two"
+          }
+        }
+      ]
     }
   ]
 }
