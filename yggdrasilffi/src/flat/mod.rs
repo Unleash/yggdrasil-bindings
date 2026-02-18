@@ -110,7 +110,7 @@ pub unsafe fn flat_take_state(engine_pointer: *mut c_void, toggles_pointer: *con
                             .collect();
                         (strategy.name.clone(), params)
                     })
-                    .collect::<BTreeMap<_, _>>();
+                    .collect::<Vec<_>>();
                 (name, strategies)
             })
             .collect::<BTreeMap<_, _>>();

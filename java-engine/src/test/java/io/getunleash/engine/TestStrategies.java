@@ -54,7 +54,8 @@ class TestStrategies {
     };
   }
 
-  static IStrategy onlyTrueIfParameterValueMatchesContext(String strategyName, String parameterName) {
+  static IStrategy onlyTrueIfParameterValueMatchesContext(
+      String strategyName, String parameterName) {
     return new IStrategy() {
       @Override
       public String getName() {
