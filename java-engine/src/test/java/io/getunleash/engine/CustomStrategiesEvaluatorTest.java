@@ -108,13 +108,11 @@ class CustomStrategiesEvaluatorTest {
   }
 
   @Test
-  void repeated_strategy_with_different_parameters_should_evaluate_separately() throws IOException, YggdrasilInvalidInputException {
+  void repeated_strategy_with_different_parameters_should_evaluate_separately()
+      throws IOException, YggdrasilInvalidInputException {
     UnleashEngine unleashEngine =
         new UnleashEngine(
-            List.of(
-                onlyTrueIfParameterValueMatchesContext("myFancyStrategy", "myFancy")
-            )
-        );
+            List.of(onlyTrueIfParameterValueMatchesContext("myFancyStrategy", "myFancy")));
     unleashEngine.takeState(ResourceReader.readResourceAsString("repeated_custom_strategy.json"));
     var context = new Context();
     context.setProperties(Map.of("myFancy", "one"));
