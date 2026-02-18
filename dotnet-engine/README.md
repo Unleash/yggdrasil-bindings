@@ -61,3 +61,9 @@ dotnet nuget push "*.nupkg" -s ~/path/to/local/feed
 dotnet nuget locals all --clear
 dotnet restore
 ```
+
+## Flatbuffers
+
+``` bash
+flatc --csharp -o dotnet-engine/Yggdrasil.Engine flat-buffer-defs/enabled-message.fbs
+```

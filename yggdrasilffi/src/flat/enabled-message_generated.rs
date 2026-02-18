@@ -10,6 +10,14 @@ extern crate flatbuffers;
 use self::flatbuffers::{EndianScalar, Follow};
 
 #[allow(unused_imports, dead_code)]
+pub mod yggdrasil {
+
+  use core::mem;
+  use core::cmp::Ordering;
+
+  extern crate flatbuffers;
+  use self::flatbuffers::{EndianScalar, Follow};
+#[allow(unused_imports, dead_code)]
 pub mod messaging {
 
   use core::mem;
@@ -17,6 +25,101 @@ pub mod messaging {
 
   extern crate flatbuffers;
   use self::flatbuffers::{EndianScalar, Follow};
+
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_IMPACT_METRIC_ENTRY_UNION: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_IMPACT_METRIC_ENTRY_UNION: u8 = 3;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_IMPACT_METRIC_ENTRY_UNION: [ImpactMetricEntryUnion; 4] = [
+  ImpactMetricEntryUnion::NONE,
+  ImpactMetricEntryUnion::ImpactMetricCounterEntry,
+  ImpactMetricEntryUnion::ImpactMetricGaugeEntry,
+  ImpactMetricEntryUnion::ImpactMetricHistogramEntry,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct ImpactMetricEntryUnion(pub u8);
+#[allow(non_upper_case_globals)]
+impl ImpactMetricEntryUnion {
+  pub const NONE: Self = Self(0);
+  pub const ImpactMetricCounterEntry: Self = Self(1);
+  pub const ImpactMetricGaugeEntry: Self = Self(2);
+  pub const ImpactMetricHistogramEntry: Self = Self(3);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 3;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::NONE,
+    Self::ImpactMetricCounterEntry,
+    Self::ImpactMetricGaugeEntry,
+    Self::ImpactMetricHistogramEntry,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::NONE => Some("NONE"),
+      Self::ImpactMetricCounterEntry => Some("ImpactMetricCounterEntry"),
+      Self::ImpactMetricGaugeEntry => Some("ImpactMetricGaugeEntry"),
+      Self::ImpactMetricHistogramEntry => Some("ImpactMetricHistogramEntry"),
+      _ => None,
+    }
+  }
+}
+impl core::fmt::Debug for ImpactMetricEntryUnion {
+  fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> flatbuffers::Follow<'a> for ImpactMetricEntryUnion {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = flatbuffers::read_scalar_at::<u8>(buf, loc);
+    Self(b)
+  }
+}
+
+impl flatbuffers::Push for ImpactMetricEntryUnion {
+    type Output = ImpactMetricEntryUnion;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        flatbuffers::emplace_scalar::<u8>(dst, self.0);
+    }
+}
+
+impl flatbuffers::EndianScalar for ImpactMetricEntryUnion {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> flatbuffers::Verifiable for ImpactMetricEntryUnion {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl flatbuffers::SimpleToVerifyInSlice for ImpactMetricEntryUnion {}
+pub struct ImpactMetricEntryUnionUnionTableOffset {}
 
 pub enum PropertyEntryOffset {}
 #[derive(Copy, Clone, PartialEq)]
@@ -662,6 +765,103 @@ impl core::fmt::Debug for Response<'_> {
       ds.field("enabled", &self.enabled());
       ds.field("impression_data", &self.impression_data());
       ds.field("has_enabled", &self.has_enabled());
+      ds.field("error", &self.error());
+      ds.finish()
+  }
+}
+pub enum VoidResponseOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct VoidResponse<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for VoidResponse<'a> {
+  type Inner = VoidResponse<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> VoidResponse<'a> {
+  pub const VT_ERROR: flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    VoidResponse { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args VoidResponseArgs<'args>
+  ) -> flatbuffers::WIPOffset<VoidResponse<'bldr>> {
+    let mut builder = VoidResponseBuilder::new(_fbb);
+    if let Some(x) = args.error { builder.add_error(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn error(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(VoidResponse::VT_ERROR, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for VoidResponse<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("error", Self::VT_ERROR, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct VoidResponseArgs<'a> {
+    pub error: Option<flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for VoidResponseArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    VoidResponseArgs {
+      error: None,
+    }
+  }
+}
+
+pub struct VoidResponseBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> VoidResponseBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_error(&mut self, error: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(VoidResponse::VT_ERROR, error);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> VoidResponseBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    VoidResponseBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<VoidResponse<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for VoidResponse<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("VoidResponse");
       ds.field("error", &self.error());
       ds.finish()
   }
@@ -1515,6 +1715,1205 @@ impl core::fmt::Debug for ToggleEntry<'_> {
       ds.finish()
   }
 }
+pub enum HistogramSampleBucketStatsOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct HistogramSampleBucketStats<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for HistogramSampleBucketStats<'a> {
+  type Inner = HistogramSampleBucketStats<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> HistogramSampleBucketStats<'a> {
+  pub const VT_LE: flatbuffers::VOffsetT = 4;
+  pub const VT_COUNT: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    HistogramSampleBucketStats { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args HistogramSampleBucketStatsArgs
+  ) -> flatbuffers::WIPOffset<HistogramSampleBucketStats<'bldr>> {
+    let mut builder = HistogramSampleBucketStatsBuilder::new(_fbb);
+    builder.add_count(args.count);
+    builder.add_le(args.le);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn le(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(HistogramSampleBucketStats::VT_LE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn count(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(HistogramSampleBucketStats::VT_COUNT, Some(0)).unwrap()}
+  }
+}
+
+impl flatbuffers::Verifiable for HistogramSampleBucketStats<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<f64>("le", Self::VT_LE, false)?
+     .visit_field::<i64>("count", Self::VT_COUNT, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct HistogramSampleBucketStatsArgs {
+    pub le: f64,
+    pub count: i64,
+}
+impl<'a> Default for HistogramSampleBucketStatsArgs {
+  #[inline]
+  fn default() -> Self {
+    HistogramSampleBucketStatsArgs {
+      le: 0.0,
+      count: 0,
+    }
+  }
+}
+
+pub struct HistogramSampleBucketStatsBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> HistogramSampleBucketStatsBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_le(&mut self, le: f64) {
+    self.fbb_.push_slot::<f64>(HistogramSampleBucketStats::VT_LE, le, 0.0);
+  }
+  #[inline]
+  pub fn add_count(&mut self, count: i64) {
+    self.fbb_.push_slot::<i64>(HistogramSampleBucketStats::VT_COUNT, count, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> HistogramSampleBucketStatsBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    HistogramSampleBucketStatsBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<HistogramSampleBucketStats<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for HistogramSampleBucketStats<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("HistogramSampleBucketStats");
+      ds.field("le", &self.le());
+      ds.field("count", &self.count());
+      ds.finish()
+  }
+}
+pub enum SampleLabelEntryOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SampleLabelEntry<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for SampleLabelEntry<'a> {
+  type Inner = SampleLabelEntry<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> SampleLabelEntry<'a> {
+  pub const VT_KEY: flatbuffers::VOffsetT = 4;
+  pub const VT_VALUE: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    SampleLabelEntry { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SampleLabelEntryArgs<'args>
+  ) -> flatbuffers::WIPOffset<SampleLabelEntry<'bldr>> {
+    let mut builder = SampleLabelEntryBuilder::new(_fbb);
+    if let Some(x) = args.value { builder.add_value(x); }
+    if let Some(x) = args.key { builder.add_key(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn key(&self) -> &'a str {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(SampleLabelEntry::VT_KEY, None).unwrap()}
+  }
+  #[inline]
+  pub fn key_compare_less_than(&self, o: &SampleLabelEntry) -> bool {
+    self.key() < o.key()
+  }
+
+  #[inline]
+  pub fn key_compare_with_value(&self, val: & str) -> ::core::cmp::Ordering {
+    let key = self.key();
+    key.cmp(val)
+  }
+  #[inline]
+  pub fn value(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(SampleLabelEntry::VT_VALUE, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for SampleLabelEntry<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("key", Self::VT_KEY, true)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("value", Self::VT_VALUE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SampleLabelEntryArgs<'a> {
+    pub key: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub value: Option<flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for SampleLabelEntryArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SampleLabelEntryArgs {
+      key: None, // required field
+      value: None,
+    }
+  }
+}
+
+pub struct SampleLabelEntryBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> SampleLabelEntryBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_key(&mut self, key: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SampleLabelEntry::VT_KEY, key);
+  }
+  #[inline]
+  pub fn add_value(&mut self, value: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SampleLabelEntry::VT_VALUE, value);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> SampleLabelEntryBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SampleLabelEntryBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<SampleLabelEntry<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    self.fbb_.required(o, SampleLabelEntry::VT_KEY,"key");
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for SampleLabelEntry<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("SampleLabelEntry");
+      ds.field("key", &self.key());
+      ds.field("value", &self.value());
+      ds.finish()
+  }
+}
+pub enum ImpactMetricHistogramStatsOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ImpactMetricHistogramStats<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for ImpactMetricHistogramStats<'a> {
+  type Inner = ImpactMetricHistogramStats<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> ImpactMetricHistogramStats<'a> {
+  pub const VT_LABELS: flatbuffers::VOffsetT = 4;
+  pub const VT_COUNT: flatbuffers::VOffsetT = 6;
+  pub const VT_SUM: flatbuffers::VOffsetT = 8;
+  pub const VT_BUCKETS: flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    ImpactMetricHistogramStats { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ImpactMetricHistogramStatsArgs<'args>
+  ) -> flatbuffers::WIPOffset<ImpactMetricHistogramStats<'bldr>> {
+    let mut builder = ImpactMetricHistogramStatsBuilder::new(_fbb);
+    builder.add_sum(args.sum);
+    builder.add_count(args.count);
+    if let Some(x) = args.buckets { builder.add_buckets(x); }
+    if let Some(x) = args.labels { builder.add_labels(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn labels(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry>>>>(ImpactMetricHistogramStats::VT_LABELS, None)}
+  }
+  #[inline]
+  pub fn count(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(ImpactMetricHistogramStats::VT_COUNT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn sum(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(ImpactMetricHistogramStats::VT_SUM, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn buckets(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<HistogramSampleBucketStats<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<HistogramSampleBucketStats>>>>(ImpactMetricHistogramStats::VT_BUCKETS, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for ImpactMetricHistogramStats<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<SampleLabelEntry>>>>("labels", Self::VT_LABELS, false)?
+     .visit_field::<i64>("count", Self::VT_COUNT, false)?
+     .visit_field::<f64>("sum", Self::VT_SUM, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<HistogramSampleBucketStats>>>>("buckets", Self::VT_BUCKETS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ImpactMetricHistogramStatsArgs<'a> {
+    pub labels: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry<'a>>>>>,
+    pub count: i64,
+    pub sum: f64,
+    pub buckets: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<HistogramSampleBucketStats<'a>>>>>,
+}
+impl<'a> Default for ImpactMetricHistogramStatsArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    ImpactMetricHistogramStatsArgs {
+      labels: None,
+      count: 0,
+      sum: 0.0,
+      buckets: None,
+    }
+  }
+}
+
+pub struct ImpactMetricHistogramStatsBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ImpactMetricHistogramStatsBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_labels(&mut self, labels: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<SampleLabelEntry<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ImpactMetricHistogramStats::VT_LABELS, labels);
+  }
+  #[inline]
+  pub fn add_count(&mut self, count: i64) {
+    self.fbb_.push_slot::<i64>(ImpactMetricHistogramStats::VT_COUNT, count, 0);
+  }
+  #[inline]
+  pub fn add_sum(&mut self, sum: f64) {
+    self.fbb_.push_slot::<f64>(ImpactMetricHistogramStats::VT_SUM, sum, 0.0);
+  }
+  #[inline]
+  pub fn add_buckets(&mut self, buckets: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<HistogramSampleBucketStats<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ImpactMetricHistogramStats::VT_BUCKETS, buckets);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> ImpactMetricHistogramStatsBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ImpactMetricHistogramStatsBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<ImpactMetricHistogramStats<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for ImpactMetricHistogramStats<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("ImpactMetricHistogramStats");
+      ds.field("labels", &self.labels());
+      ds.field("count", &self.count());
+      ds.field("sum", &self.sum());
+      ds.field("buckets", &self.buckets());
+      ds.finish()
+  }
+}
+pub enum ImpactMetricGaugeStatsOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ImpactMetricGaugeStats<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for ImpactMetricGaugeStats<'a> {
+  type Inner = ImpactMetricGaugeStats<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> ImpactMetricGaugeStats<'a> {
+  pub const VT_LABELS: flatbuffers::VOffsetT = 4;
+  pub const VT_VALUE: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    ImpactMetricGaugeStats { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ImpactMetricGaugeStatsArgs<'args>
+  ) -> flatbuffers::WIPOffset<ImpactMetricGaugeStats<'bldr>> {
+    let mut builder = ImpactMetricGaugeStatsBuilder::new(_fbb);
+    builder.add_value(args.value);
+    if let Some(x) = args.labels { builder.add_labels(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn labels(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry>>>>(ImpactMetricGaugeStats::VT_LABELS, None)}
+  }
+  #[inline]
+  pub fn value(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(ImpactMetricGaugeStats::VT_VALUE, Some(0.0)).unwrap()}
+  }
+}
+
+impl flatbuffers::Verifiable for ImpactMetricGaugeStats<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<SampleLabelEntry>>>>("labels", Self::VT_LABELS, false)?
+     .visit_field::<f64>("value", Self::VT_VALUE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ImpactMetricGaugeStatsArgs<'a> {
+    pub labels: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry<'a>>>>>,
+    pub value: f64,
+}
+impl<'a> Default for ImpactMetricGaugeStatsArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    ImpactMetricGaugeStatsArgs {
+      labels: None,
+      value: 0.0,
+    }
+  }
+}
+
+pub struct ImpactMetricGaugeStatsBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ImpactMetricGaugeStatsBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_labels(&mut self, labels: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<SampleLabelEntry<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ImpactMetricGaugeStats::VT_LABELS, labels);
+  }
+  #[inline]
+  pub fn add_value(&mut self, value: f64) {
+    self.fbb_.push_slot::<f64>(ImpactMetricGaugeStats::VT_VALUE, value, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> ImpactMetricGaugeStatsBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ImpactMetricGaugeStatsBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<ImpactMetricGaugeStats<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for ImpactMetricGaugeStats<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("ImpactMetricGaugeStats");
+      ds.field("labels", &self.labels());
+      ds.field("value", &self.value());
+      ds.finish()
+  }
+}
+pub enum ImpactMetricCounterStatsOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ImpactMetricCounterStats<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for ImpactMetricCounterStats<'a> {
+  type Inner = ImpactMetricCounterStats<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> ImpactMetricCounterStats<'a> {
+  pub const VT_LABELS: flatbuffers::VOffsetT = 4;
+  pub const VT_VALUE: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    ImpactMetricCounterStats { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ImpactMetricCounterStatsArgs<'args>
+  ) -> flatbuffers::WIPOffset<ImpactMetricCounterStats<'bldr>> {
+    let mut builder = ImpactMetricCounterStatsBuilder::new(_fbb);
+    builder.add_value(args.value);
+    if let Some(x) = args.labels { builder.add_labels(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn labels(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry>>>>(ImpactMetricCounterStats::VT_LABELS, None)}
+  }
+  #[inline]
+  pub fn value(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(ImpactMetricCounterStats::VT_VALUE, Some(0)).unwrap()}
+  }
+}
+
+impl flatbuffers::Verifiable for ImpactMetricCounterStats<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<SampleLabelEntry>>>>("labels", Self::VT_LABELS, false)?
+     .visit_field::<i64>("value", Self::VT_VALUE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ImpactMetricCounterStatsArgs<'a> {
+    pub labels: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry<'a>>>>>,
+    pub value: i64,
+}
+impl<'a> Default for ImpactMetricCounterStatsArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    ImpactMetricCounterStatsArgs {
+      labels: None,
+      value: 0,
+    }
+  }
+}
+
+pub struct ImpactMetricCounterStatsBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ImpactMetricCounterStatsBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_labels(&mut self, labels: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<SampleLabelEntry<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ImpactMetricCounterStats::VT_LABELS, labels);
+  }
+  #[inline]
+  pub fn add_value(&mut self, value: i64) {
+    self.fbb_.push_slot::<i64>(ImpactMetricCounterStats::VT_VALUE, value, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> ImpactMetricCounterStatsBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ImpactMetricCounterStatsBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<ImpactMetricCounterStats<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for ImpactMetricCounterStats<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("ImpactMetricCounterStats");
+      ds.field("labels", &self.labels());
+      ds.field("value", &self.value());
+      ds.finish()
+  }
+}
+pub enum ImpactMetricGaugeEntryOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ImpactMetricGaugeEntry<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for ImpactMetricGaugeEntry<'a> {
+  type Inner = ImpactMetricGaugeEntry<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> ImpactMetricGaugeEntry<'a> {
+  pub const VT_NAME: flatbuffers::VOffsetT = 4;
+  pub const VT_HELP: flatbuffers::VOffsetT = 6;
+  pub const VT_SAMPLES: flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    ImpactMetricGaugeEntry { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ImpactMetricGaugeEntryArgs<'args>
+  ) -> flatbuffers::WIPOffset<ImpactMetricGaugeEntry<'bldr>> {
+    let mut builder = ImpactMetricGaugeEntryBuilder::new(_fbb);
+    if let Some(x) = args.samples { builder.add_samples(x); }
+    if let Some(x) = args.help { builder.add_help(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(ImpactMetricGaugeEntry::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn help(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(ImpactMetricGaugeEntry::VT_HELP, None)}
+  }
+  #[inline]
+  pub fn samples(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ImpactMetricGaugeStats<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ImpactMetricGaugeStats>>>>(ImpactMetricGaugeEntry::VT_SAMPLES, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for ImpactMetricGaugeEntry<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("help", Self::VT_HELP, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<ImpactMetricGaugeStats>>>>("samples", Self::VT_SAMPLES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ImpactMetricGaugeEntryArgs<'a> {
+    pub name: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub help: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub samples: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ImpactMetricGaugeStats<'a>>>>>,
+}
+impl<'a> Default for ImpactMetricGaugeEntryArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    ImpactMetricGaugeEntryArgs {
+      name: None,
+      help: None,
+      samples: None,
+    }
+  }
+}
+
+pub struct ImpactMetricGaugeEntryBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ImpactMetricGaugeEntryBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_name(&mut self, name: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ImpactMetricGaugeEntry::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_help(&mut self, help: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ImpactMetricGaugeEntry::VT_HELP, help);
+  }
+  #[inline]
+  pub fn add_samples(&mut self, samples: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<ImpactMetricGaugeStats<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ImpactMetricGaugeEntry::VT_SAMPLES, samples);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> ImpactMetricGaugeEntryBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ImpactMetricGaugeEntryBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<ImpactMetricGaugeEntry<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for ImpactMetricGaugeEntry<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("ImpactMetricGaugeEntry");
+      ds.field("name", &self.name());
+      ds.field("help", &self.help());
+      ds.field("samples", &self.samples());
+      ds.finish()
+  }
+}
+pub enum ImpactMetricCounterEntryOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ImpactMetricCounterEntry<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for ImpactMetricCounterEntry<'a> {
+  type Inner = ImpactMetricCounterEntry<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> ImpactMetricCounterEntry<'a> {
+  pub const VT_NAME: flatbuffers::VOffsetT = 4;
+  pub const VT_HELP: flatbuffers::VOffsetT = 6;
+  pub const VT_SAMPLES: flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    ImpactMetricCounterEntry { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ImpactMetricCounterEntryArgs<'args>
+  ) -> flatbuffers::WIPOffset<ImpactMetricCounterEntry<'bldr>> {
+    let mut builder = ImpactMetricCounterEntryBuilder::new(_fbb);
+    if let Some(x) = args.samples { builder.add_samples(x); }
+    if let Some(x) = args.help { builder.add_help(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(ImpactMetricCounterEntry::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn help(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(ImpactMetricCounterEntry::VT_HELP, None)}
+  }
+  #[inline]
+  pub fn samples(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ImpactMetricCounterStats<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ImpactMetricCounterStats>>>>(ImpactMetricCounterEntry::VT_SAMPLES, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for ImpactMetricCounterEntry<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("help", Self::VT_HELP, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<ImpactMetricCounterStats>>>>("samples", Self::VT_SAMPLES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ImpactMetricCounterEntryArgs<'a> {
+    pub name: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub help: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub samples: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ImpactMetricCounterStats<'a>>>>>,
+}
+impl<'a> Default for ImpactMetricCounterEntryArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    ImpactMetricCounterEntryArgs {
+      name: None,
+      help: None,
+      samples: None,
+    }
+  }
+}
+
+pub struct ImpactMetricCounterEntryBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ImpactMetricCounterEntryBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_name(&mut self, name: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ImpactMetricCounterEntry::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_help(&mut self, help: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ImpactMetricCounterEntry::VT_HELP, help);
+  }
+  #[inline]
+  pub fn add_samples(&mut self, samples: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<ImpactMetricCounterStats<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ImpactMetricCounterEntry::VT_SAMPLES, samples);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> ImpactMetricCounterEntryBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ImpactMetricCounterEntryBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<ImpactMetricCounterEntry<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for ImpactMetricCounterEntry<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("ImpactMetricCounterEntry");
+      ds.field("name", &self.name());
+      ds.field("help", &self.help());
+      ds.field("samples", &self.samples());
+      ds.finish()
+  }
+}
+pub enum ImpactMetricHistogramEntryOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ImpactMetricHistogramEntry<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for ImpactMetricHistogramEntry<'a> {
+  type Inner = ImpactMetricHistogramEntry<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> ImpactMetricHistogramEntry<'a> {
+  pub const VT_NAME: flatbuffers::VOffsetT = 4;
+  pub const VT_HELP: flatbuffers::VOffsetT = 6;
+  pub const VT_SAMPLES: flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    ImpactMetricHistogramEntry { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ImpactMetricHistogramEntryArgs<'args>
+  ) -> flatbuffers::WIPOffset<ImpactMetricHistogramEntry<'bldr>> {
+    let mut builder = ImpactMetricHistogramEntryBuilder::new(_fbb);
+    if let Some(x) = args.samples { builder.add_samples(x); }
+    if let Some(x) = args.help { builder.add_help(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(ImpactMetricHistogramEntry::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn help(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(ImpactMetricHistogramEntry::VT_HELP, None)}
+  }
+  #[inline]
+  pub fn samples(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ImpactMetricHistogramStats<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ImpactMetricHistogramStats>>>>(ImpactMetricHistogramEntry::VT_SAMPLES, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for ImpactMetricHistogramEntry<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("help", Self::VT_HELP, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<ImpactMetricHistogramStats>>>>("samples", Self::VT_SAMPLES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ImpactMetricHistogramEntryArgs<'a> {
+    pub name: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub help: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub samples: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ImpactMetricHistogramStats<'a>>>>>,
+}
+impl<'a> Default for ImpactMetricHistogramEntryArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    ImpactMetricHistogramEntryArgs {
+      name: None,
+      help: None,
+      samples: None,
+    }
+  }
+}
+
+pub struct ImpactMetricHistogramEntryBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ImpactMetricHistogramEntryBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_name(&mut self, name: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ImpactMetricHistogramEntry::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_help(&mut self, help: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ImpactMetricHistogramEntry::VT_HELP, help);
+  }
+  #[inline]
+  pub fn add_samples(&mut self, samples: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<ImpactMetricHistogramStats<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ImpactMetricHistogramEntry::VT_SAMPLES, samples);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> ImpactMetricHistogramEntryBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ImpactMetricHistogramEntryBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<ImpactMetricHistogramEntry<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for ImpactMetricHistogramEntry<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("ImpactMetricHistogramEntry");
+      ds.field("name", &self.name());
+      ds.field("help", &self.help());
+      ds.field("samples", &self.samples());
+      ds.finish()
+  }
+}
+pub enum ImpactMetricEntryOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ImpactMetricEntry<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for ImpactMetricEntry<'a> {
+  type Inner = ImpactMetricEntry<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> ImpactMetricEntry<'a> {
+  pub const VT_ENTRY_TYPE: flatbuffers::VOffsetT = 4;
+  pub const VT_ENTRY: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    ImpactMetricEntry { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ImpactMetricEntryArgs
+  ) -> flatbuffers::WIPOffset<ImpactMetricEntry<'bldr>> {
+    let mut builder = ImpactMetricEntryBuilder::new(_fbb);
+    if let Some(x) = args.entry { builder.add_entry(x); }
+    builder.add_entry_type(args.entry_type);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn entry_type(&self) -> ImpactMetricEntryUnion {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<ImpactMetricEntryUnion>(ImpactMetricEntry::VT_ENTRY_TYPE, Some(ImpactMetricEntryUnion::NONE)).unwrap()}
+  }
+  #[inline]
+  pub fn entry(&self) -> Option<flatbuffers::Table<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Table<'a>>>(ImpactMetricEntry::VT_ENTRY, None)}
+  }
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn entry_as_impact_metric_counter_entry(&self) -> Option<ImpactMetricCounterEntry<'a>> {
+    if self.entry_type() == ImpactMetricEntryUnion::ImpactMetricCounterEntry {
+      self.entry().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { ImpactMetricCounterEntry::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn entry_as_impact_metric_gauge_entry(&self) -> Option<ImpactMetricGaugeEntry<'a>> {
+    if self.entry_type() == ImpactMetricEntryUnion::ImpactMetricGaugeEntry {
+      self.entry().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { ImpactMetricGaugeEntry::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn entry_as_impact_metric_histogram_entry(&self) -> Option<ImpactMetricHistogramEntry<'a>> {
+    if self.entry_type() == ImpactMetricEntryUnion::ImpactMetricHistogramEntry {
+      self.entry().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { ImpactMetricHistogramEntry::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+}
+
+impl flatbuffers::Verifiable for ImpactMetricEntry<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_union::<ImpactMetricEntryUnion, _>("entry_type", Self::VT_ENTRY_TYPE, "entry", Self::VT_ENTRY, false, |key, v, pos| {
+        match key {
+          ImpactMetricEntryUnion::ImpactMetricCounterEntry => v.verify_union_variant::<flatbuffers::ForwardsUOffset<ImpactMetricCounterEntry>>("ImpactMetricEntryUnion::ImpactMetricCounterEntry", pos),
+          ImpactMetricEntryUnion::ImpactMetricGaugeEntry => v.verify_union_variant::<flatbuffers::ForwardsUOffset<ImpactMetricGaugeEntry>>("ImpactMetricEntryUnion::ImpactMetricGaugeEntry", pos),
+          ImpactMetricEntryUnion::ImpactMetricHistogramEntry => v.verify_union_variant::<flatbuffers::ForwardsUOffset<ImpactMetricHistogramEntry>>("ImpactMetricEntryUnion::ImpactMetricHistogramEntry", pos),
+          _ => Ok(()),
+        }
+     })?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ImpactMetricEntryArgs {
+    pub entry_type: ImpactMetricEntryUnion,
+    pub entry: Option<flatbuffers::WIPOffset<flatbuffers::UnionWIPOffset>>,
+}
+impl<'a> Default for ImpactMetricEntryArgs {
+  #[inline]
+  fn default() -> Self {
+    ImpactMetricEntryArgs {
+      entry_type: ImpactMetricEntryUnion::NONE,
+      entry: None,
+    }
+  }
+}
+
+pub struct ImpactMetricEntryBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ImpactMetricEntryBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_entry_type(&mut self, entry_type: ImpactMetricEntryUnion) {
+    self.fbb_.push_slot::<ImpactMetricEntryUnion>(ImpactMetricEntry::VT_ENTRY_TYPE, entry_type, ImpactMetricEntryUnion::NONE);
+  }
+  #[inline]
+  pub fn add_entry(&mut self, entry: flatbuffers::WIPOffset<flatbuffers::UnionWIPOffset>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ImpactMetricEntry::VT_ENTRY, entry);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> ImpactMetricEntryBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ImpactMetricEntryBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<ImpactMetricEntry<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for ImpactMetricEntry<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("ImpactMetricEntry");
+      ds.field("entry_type", &self.entry_type());
+      match self.entry_type() {
+        ImpactMetricEntryUnion::ImpactMetricCounterEntry => {
+          if let Some(x) = self.entry_as_impact_metric_counter_entry() {
+            ds.field("entry", &x)
+          } else {
+            ds.field("entry", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        ImpactMetricEntryUnion::ImpactMetricGaugeEntry => {
+          if let Some(x) = self.entry_as_impact_metric_gauge_entry() {
+            ds.field("entry", &x)
+          } else {
+            ds.field("entry", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        ImpactMetricEntryUnion::ImpactMetricHistogramEntry => {
+          if let Some(x) = self.entry_as_impact_metric_histogram_entry() {
+            ds.field("entry", &x)
+          } else {
+            ds.field("entry", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        _ => {
+          let x: Option<()> = None;
+          ds.field("entry", &x)
+        },
+      };
+      ds.finish()
+  }
+}
 pub enum MetricsResponseOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -1534,6 +2933,7 @@ impl<'a> MetricsResponse<'a> {
   pub const VT_START: flatbuffers::VOffsetT = 4;
   pub const VT_STOP: flatbuffers::VOffsetT = 6;
   pub const VT_TOGGLES: flatbuffers::VOffsetT = 8;
+  pub const VT_IMPACT_METRICS: flatbuffers::VOffsetT = 10;
 
   #[inline]
   pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -1547,6 +2947,7 @@ impl<'a> MetricsResponse<'a> {
     let mut builder = MetricsResponseBuilder::new(_fbb);
     builder.add_stop(args.stop);
     builder.add_start(args.start);
+    if let Some(x) = args.impact_metrics { builder.add_impact_metrics(x); }
     if let Some(x) = args.toggles { builder.add_toggles(x); }
     builder.finish()
   }
@@ -1573,6 +2974,13 @@ impl<'a> MetricsResponse<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ToggleEntry>>>>(MetricsResponse::VT_TOGGLES, None)}
   }
+  #[inline]
+  pub fn impact_metrics(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ImpactMetricEntry<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ImpactMetricEntry>>>>(MetricsResponse::VT_IMPACT_METRICS, None)}
+  }
 }
 
 impl flatbuffers::Verifiable for MetricsResponse<'_> {
@@ -1585,6 +2993,7 @@ impl flatbuffers::Verifiable for MetricsResponse<'_> {
      .visit_field::<i64>("start", Self::VT_START, false)?
      .visit_field::<i64>("stop", Self::VT_STOP, false)?
      .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<ToggleEntry>>>>("toggles", Self::VT_TOGGLES, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<ImpactMetricEntry>>>>("impact_metrics", Self::VT_IMPACT_METRICS, false)?
      .finish();
     Ok(())
   }
@@ -1593,6 +3002,7 @@ pub struct MetricsResponseArgs<'a> {
     pub start: i64,
     pub stop: i64,
     pub toggles: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ToggleEntry<'a>>>>>,
+    pub impact_metrics: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ImpactMetricEntry<'a>>>>>,
 }
 impl<'a> Default for MetricsResponseArgs<'a> {
   #[inline]
@@ -1601,6 +3011,7 @@ impl<'a> Default for MetricsResponseArgs<'a> {
       start: 0,
       stop: 0,
       toggles: None,
+      impact_metrics: None,
     }
   }
 }
@@ -1623,6 +3034,10 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> MetricsResponseBuilder<'a, 'b, 
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(MetricsResponse::VT_TOGGLES, toggles);
   }
   #[inline]
+  pub fn add_impact_metrics(&mut self, impact_metrics: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<ImpactMetricEntry<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(MetricsResponse::VT_IMPACT_METRICS, impact_metrics);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> MetricsResponseBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     MetricsResponseBuilder {
@@ -1643,6 +3058,7 @@ impl core::fmt::Debug for MetricsResponse<'_> {
       ds.field("start", &self.start());
       ds.field("stop", &self.stop());
       ds.field("toggles", &self.toggles());
+      ds.field("impact_metrics", &self.impact_metrics());
       ds.finish()
   }
 }
@@ -2364,76 +3780,943 @@ impl core::fmt::Debug for FeatureDefs<'_> {
       ds.finish()
   }
 }
+pub enum DefineCounterOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct DefineCounter<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for DefineCounter<'a> {
+  type Inner = DefineCounter<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> DefineCounter<'a> {
+  pub const VT_NAME: flatbuffers::VOffsetT = 4;
+  pub const VT_HELP: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    DefineCounter { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args DefineCounterArgs<'args>
+  ) -> flatbuffers::WIPOffset<DefineCounter<'bldr>> {
+    let mut builder = DefineCounterBuilder::new(_fbb);
+    if let Some(x) = args.help { builder.add_help(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(DefineCounter::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn help(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(DefineCounter::VT_HELP, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for DefineCounter<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("help", Self::VT_HELP, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct DefineCounterArgs<'a> {
+    pub name: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub help: Option<flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for DefineCounterArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    DefineCounterArgs {
+      name: None,
+      help: None,
+    }
+  }
+}
+
+pub struct DefineCounterBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> DefineCounterBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_name(&mut self, name: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(DefineCounter::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_help(&mut self, help: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(DefineCounter::VT_HELP, help);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> DefineCounterBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    DefineCounterBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<DefineCounter<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for DefineCounter<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("DefineCounter");
+      ds.field("name", &self.name());
+      ds.field("help", &self.help());
+      ds.finish()
+  }
+}
+pub enum IncCounterOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct IncCounter<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for IncCounter<'a> {
+  type Inner = IncCounter<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> IncCounter<'a> {
+  pub const VT_NAME: flatbuffers::VOffsetT = 4;
+  pub const VT_VALUE: flatbuffers::VOffsetT = 6;
+  pub const VT_LABELS: flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    IncCounter { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args IncCounterArgs<'args>
+  ) -> flatbuffers::WIPOffset<IncCounter<'bldr>> {
+    let mut builder = IncCounterBuilder::new(_fbb);
+    builder.add_value(args.value);
+    if let Some(x) = args.labels { builder.add_labels(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(IncCounter::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn value(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(IncCounter::VT_VALUE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn labels(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry>>>>(IncCounter::VT_LABELS, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for IncCounter<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<i64>("value", Self::VT_VALUE, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<SampleLabelEntry>>>>("labels", Self::VT_LABELS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct IncCounterArgs<'a> {
+    pub name: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub value: i64,
+    pub labels: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry<'a>>>>>,
+}
+impl<'a> Default for IncCounterArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    IncCounterArgs {
+      name: None,
+      value: 0,
+      labels: None,
+    }
+  }
+}
+
+pub struct IncCounterBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> IncCounterBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_name(&mut self, name: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(IncCounter::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_value(&mut self, value: i64) {
+    self.fbb_.push_slot::<i64>(IncCounter::VT_VALUE, value, 0);
+  }
+  #[inline]
+  pub fn add_labels(&mut self, labels: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<SampleLabelEntry<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(IncCounter::VT_LABELS, labels);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> IncCounterBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    IncCounterBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<IncCounter<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for IncCounter<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("IncCounter");
+      ds.field("name", &self.name());
+      ds.field("value", &self.value());
+      ds.field("labels", &self.labels());
+      ds.finish()
+  }
+}
+pub enum DefineGaugeOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct DefineGauge<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for DefineGauge<'a> {
+  type Inner = DefineGauge<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> DefineGauge<'a> {
+  pub const VT_NAME: flatbuffers::VOffsetT = 4;
+  pub const VT_HELP: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    DefineGauge { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args DefineGaugeArgs<'args>
+  ) -> flatbuffers::WIPOffset<DefineGauge<'bldr>> {
+    let mut builder = DefineGaugeBuilder::new(_fbb);
+    if let Some(x) = args.help { builder.add_help(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(DefineGauge::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn help(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(DefineGauge::VT_HELP, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for DefineGauge<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("help", Self::VT_HELP, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct DefineGaugeArgs<'a> {
+    pub name: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub help: Option<flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for DefineGaugeArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    DefineGaugeArgs {
+      name: None,
+      help: None,
+    }
+  }
+}
+
+pub struct DefineGaugeBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> DefineGaugeBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_name(&mut self, name: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(DefineGauge::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_help(&mut self, help: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(DefineGauge::VT_HELP, help);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> DefineGaugeBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    DefineGaugeBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<DefineGauge<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for DefineGauge<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("DefineGauge");
+      ds.field("name", &self.name());
+      ds.field("help", &self.help());
+      ds.finish()
+  }
+}
+pub enum SetGaugeOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SetGauge<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for SetGauge<'a> {
+  type Inner = SetGauge<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> SetGauge<'a> {
+  pub const VT_NAME: flatbuffers::VOffsetT = 4;
+  pub const VT_VALUE: flatbuffers::VOffsetT = 6;
+  pub const VT_LABELS: flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    SetGauge { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SetGaugeArgs<'args>
+  ) -> flatbuffers::WIPOffset<SetGauge<'bldr>> {
+    let mut builder = SetGaugeBuilder::new(_fbb);
+    builder.add_value(args.value);
+    if let Some(x) = args.labels { builder.add_labels(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(SetGauge::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn value(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(SetGauge::VT_VALUE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn labels(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry>>>>(SetGauge::VT_LABELS, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for SetGauge<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<f64>("value", Self::VT_VALUE, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<SampleLabelEntry>>>>("labels", Self::VT_LABELS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SetGaugeArgs<'a> {
+    pub name: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub value: f64,
+    pub labels: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry<'a>>>>>,
+}
+impl<'a> Default for SetGaugeArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SetGaugeArgs {
+      name: None,
+      value: 0.0,
+      labels: None,
+    }
+  }
+}
+
+pub struct SetGaugeBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> SetGaugeBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_name(&mut self, name: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetGauge::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_value(&mut self, value: f64) {
+    self.fbb_.push_slot::<f64>(SetGauge::VT_VALUE, value, 0.0);
+  }
+  #[inline]
+  pub fn add_labels(&mut self, labels: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<SampleLabelEntry<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetGauge::VT_LABELS, labels);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> SetGaugeBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SetGaugeBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<SetGauge<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for SetGauge<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("SetGauge");
+      ds.field("name", &self.name());
+      ds.field("value", &self.value());
+      ds.field("labels", &self.labels());
+      ds.finish()
+  }
+}
+pub enum DefineHistogramOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct DefineHistogram<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for DefineHistogram<'a> {
+  type Inner = DefineHistogram<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> DefineHistogram<'a> {
+  pub const VT_NAME: flatbuffers::VOffsetT = 4;
+  pub const VT_HELP: flatbuffers::VOffsetT = 6;
+  pub const VT_BUCKETS: flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    DefineHistogram { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args DefineHistogramArgs<'args>
+  ) -> flatbuffers::WIPOffset<DefineHistogram<'bldr>> {
+    let mut builder = DefineHistogramBuilder::new(_fbb);
+    if let Some(x) = args.buckets { builder.add_buckets(x); }
+    if let Some(x) = args.help { builder.add_help(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(DefineHistogram::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn help(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(DefineHistogram::VT_HELP, None)}
+  }
+  #[inline]
+  pub fn buckets(&self) -> Option<flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, f64>>>(DefineHistogram::VT_BUCKETS, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for DefineHistogram<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("help", Self::VT_HELP, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, f64>>>("buckets", Self::VT_BUCKETS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct DefineHistogramArgs<'a> {
+    pub name: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub help: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub buckets: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, f64>>>,
+}
+impl<'a> Default for DefineHistogramArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    DefineHistogramArgs {
+      name: None,
+      help: None,
+      buckets: None,
+    }
+  }
+}
+
+pub struct DefineHistogramBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> DefineHistogramBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_name(&mut self, name: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(DefineHistogram::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_help(&mut self, help: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(DefineHistogram::VT_HELP, help);
+  }
+  #[inline]
+  pub fn add_buckets(&mut self, buckets: flatbuffers::WIPOffset<flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(DefineHistogram::VT_BUCKETS, buckets);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> DefineHistogramBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    DefineHistogramBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<DefineHistogram<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for DefineHistogram<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("DefineHistogram");
+      ds.field("name", &self.name());
+      ds.field("help", &self.help());
+      ds.field("buckets", &self.buckets());
+      ds.finish()
+  }
+}
+pub enum ObserveHistogramOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ObserveHistogram<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for ObserveHistogram<'a> {
+  type Inner = ObserveHistogram<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> ObserveHistogram<'a> {
+  pub const VT_NAME: flatbuffers::VOffsetT = 4;
+  pub const VT_VALUE: flatbuffers::VOffsetT = 6;
+  pub const VT_LABELS: flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    ObserveHistogram { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ObserveHistogramArgs<'args>
+  ) -> flatbuffers::WIPOffset<ObserveHistogram<'bldr>> {
+    let mut builder = ObserveHistogramBuilder::new(_fbb);
+    builder.add_value(args.value);
+    if let Some(x) = args.labels { builder.add_labels(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(ObserveHistogram::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn value(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(ObserveHistogram::VT_VALUE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn labels(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry>>>>(ObserveHistogram::VT_LABELS, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for ObserveHistogram<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<f64>("value", Self::VT_VALUE, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<SampleLabelEntry>>>>("labels", Self::VT_LABELS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ObserveHistogramArgs<'a> {
+    pub name: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub value: f64,
+    pub labels: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SampleLabelEntry<'a>>>>>,
+}
+impl<'a> Default for ObserveHistogramArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    ObserveHistogramArgs {
+      name: None,
+      value: 0.0,
+      labels: None,
+    }
+  }
+}
+
+pub struct ObserveHistogramBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ObserveHistogramBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_name(&mut self, name: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ObserveHistogram::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_value(&mut self, value: f64) {
+    self.fbb_.push_slot::<f64>(ObserveHistogram::VT_VALUE, value, 0.0);
+  }
+  #[inline]
+  pub fn add_labels(&mut self, labels: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<SampleLabelEntry<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ObserveHistogram::VT_LABELS, labels);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> ObserveHistogramBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ObserveHistogramBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<ObserveHistogram<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for ObserveHistogram<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("ObserveHistogram");
+      ds.field("name", &self.name());
+      ds.field("value", &self.value());
+      ds.field("labels", &self.labels());
+      ds.finish()
+  }
+}
+pub enum CollectMetricsResponseOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct CollectMetricsResponse<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for CollectMetricsResponse<'a> {
+  type Inner = CollectMetricsResponse<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> CollectMetricsResponse<'a> {
+  pub const VT_RESPONSE: flatbuffers::VOffsetT = 4;
+  pub const VT_ERROR: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    CollectMetricsResponse { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args CollectMetricsResponseArgs<'args>
+  ) -> flatbuffers::WIPOffset<CollectMetricsResponse<'bldr>> {
+    let mut builder = CollectMetricsResponseBuilder::new(_fbb);
+    if let Some(x) = args.error { builder.add_error(x); }
+    if let Some(x) = args.response { builder.add_response(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn response(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(CollectMetricsResponse::VT_RESPONSE, None)}
+  }
+  #[inline]
+  pub fn error(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(CollectMetricsResponse::VT_ERROR, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for CollectMetricsResponse<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("response", Self::VT_RESPONSE, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("error", Self::VT_ERROR, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct CollectMetricsResponseArgs<'a> {
+    pub response: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub error: Option<flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for CollectMetricsResponseArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    CollectMetricsResponseArgs {
+      response: None,
+      error: None,
+    }
+  }
+}
+
+pub struct CollectMetricsResponseBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> CollectMetricsResponseBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_response(&mut self, response: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(CollectMetricsResponse::VT_RESPONSE, response);
+  }
+  #[inline]
+  pub fn add_error(&mut self, error: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(CollectMetricsResponse::VT_ERROR, error);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> CollectMetricsResponseBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    CollectMetricsResponseBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<CollectMetricsResponse<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for CollectMetricsResponse<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("CollectMetricsResponse");
+      ds.field("response", &self.response());
+      ds.field("error", &self.error());
+      ds.finish()
+  }
+}
 #[inline]
-/// Verifies that a buffer of bytes contains a `MetricsResponse`
+/// Verifies that a buffer of bytes contains a `VoidResponse`
 /// and returns it.
 /// Note that verification is still experimental and may not
 /// catch every error, or be maximally performant. For the
 /// previous, unchecked, behavior use
-/// `root_as_metrics_response_unchecked`.
-pub fn root_as_metrics_response(buf: &[u8]) -> Result<MetricsResponse, flatbuffers::InvalidFlatbuffer> {
-  flatbuffers::root::<MetricsResponse>(buf)
+/// `root_as_void_response_unchecked`.
+pub fn root_as_void_response(buf: &[u8]) -> Result<VoidResponse, flatbuffers::InvalidFlatbuffer> {
+  flatbuffers::root::<VoidResponse>(buf)
 }
 #[inline]
 /// Verifies that a buffer of bytes contains a size prefixed
-/// `MetricsResponse` and returns it.
+/// `VoidResponse` and returns it.
 /// Note that verification is still experimental and may not
 /// catch every error, or be maximally performant. For the
 /// previous, unchecked, behavior use
-/// `size_prefixed_root_as_metrics_response_unchecked`.
-pub fn size_prefixed_root_as_metrics_response(buf: &[u8]) -> Result<MetricsResponse, flatbuffers::InvalidFlatbuffer> {
-  flatbuffers::size_prefixed_root::<MetricsResponse>(buf)
+/// `size_prefixed_root_as_void_response_unchecked`.
+pub fn size_prefixed_root_as_void_response(buf: &[u8]) -> Result<VoidResponse, flatbuffers::InvalidFlatbuffer> {
+  flatbuffers::size_prefixed_root::<VoidResponse>(buf)
 }
 #[inline]
 /// Verifies, with the given options, that a buffer of bytes
-/// contains a `MetricsResponse` and returns it.
+/// contains a `VoidResponse` and returns it.
 /// Note that verification is still experimental and may not
 /// catch every error, or be maximally performant. For the
 /// previous, unchecked, behavior use
-/// `root_as_metrics_response_unchecked`.
-pub fn root_as_metrics_response_with_opts<'b, 'o>(
+/// `root_as_void_response_unchecked`.
+pub fn root_as_void_response_with_opts<'b, 'o>(
   opts: &'o flatbuffers::VerifierOptions,
   buf: &'b [u8],
-) -> Result<MetricsResponse<'b>, flatbuffers::InvalidFlatbuffer> {
-  flatbuffers::root_with_opts::<MetricsResponse<'b>>(opts, buf)
+) -> Result<VoidResponse<'b>, flatbuffers::InvalidFlatbuffer> {
+  flatbuffers::root_with_opts::<VoidResponse<'b>>(opts, buf)
 }
 #[inline]
 /// Verifies, with the given verifier options, that a buffer of
-/// bytes contains a size prefixed `MetricsResponse` and returns
+/// bytes contains a size prefixed `VoidResponse` and returns
 /// it. Note that verification is still experimental and may not
 /// catch every error, or be maximally performant. For the
 /// previous, unchecked, behavior use
-/// `root_as_metrics_response_unchecked`.
-pub fn size_prefixed_root_as_metrics_response_with_opts<'b, 'o>(
+/// `root_as_void_response_unchecked`.
+pub fn size_prefixed_root_as_void_response_with_opts<'b, 'o>(
   opts: &'o flatbuffers::VerifierOptions,
   buf: &'b [u8],
-) -> Result<MetricsResponse<'b>, flatbuffers::InvalidFlatbuffer> {
-  flatbuffers::size_prefixed_root_with_opts::<MetricsResponse<'b>>(opts, buf)
+) -> Result<VoidResponse<'b>, flatbuffers::InvalidFlatbuffer> {
+  flatbuffers::size_prefixed_root_with_opts::<VoidResponse<'b>>(opts, buf)
 }
 #[inline]
-/// Assumes, without verification, that a buffer of bytes contains a MetricsResponse and returns it.
+/// Assumes, without verification, that a buffer of bytes contains a VoidResponse and returns it.
 /// # Safety
-/// Callers must trust the given bytes do indeed contain a valid `MetricsResponse`.
-pub unsafe fn root_as_metrics_response_unchecked(buf: &[u8]) -> MetricsResponse {
-  flatbuffers::root_unchecked::<MetricsResponse>(buf)
+/// Callers must trust the given bytes do indeed contain a valid `VoidResponse`.
+pub unsafe fn root_as_void_response_unchecked(buf: &[u8]) -> VoidResponse {
+  flatbuffers::root_unchecked::<VoidResponse>(buf)
 }
 #[inline]
-/// Assumes, without verification, that a buffer of bytes contains a size prefixed MetricsResponse and returns it.
+/// Assumes, without verification, that a buffer of bytes contains a size prefixed VoidResponse and returns it.
 /// # Safety
-/// Callers must trust the given bytes do indeed contain a valid size prefixed `MetricsResponse`.
-pub unsafe fn size_prefixed_root_as_metrics_response_unchecked(buf: &[u8]) -> MetricsResponse {
-  flatbuffers::size_prefixed_root_unchecked::<MetricsResponse>(buf)
+/// Callers must trust the given bytes do indeed contain a valid size prefixed `VoidResponse`.
+pub unsafe fn size_prefixed_root_as_void_response_unchecked(buf: &[u8]) -> VoidResponse {
+  flatbuffers::size_prefixed_root_unchecked::<VoidResponse>(buf)
 }
 #[inline]
-pub fn finish_metrics_response_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(
+pub fn finish_void_response_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(
     fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
-    root: flatbuffers::WIPOffset<MetricsResponse<'a>>) {
+    root: flatbuffers::WIPOffset<VoidResponse<'a>>) {
   fbb.finish(root, None);
 }
 
 #[inline]
-pub fn finish_size_prefixed_metrics_response_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>, root: flatbuffers::WIPOffset<MetricsResponse<'a>>) {
+pub fn finish_size_prefixed_void_response_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>, root: flatbuffers::WIPOffset<VoidResponse<'a>>) {
   fbb.finish_size_prefixed(root, None);
 }
 }  // pub mod messaging
+}  // pub mod yggdrasil
 

@@ -20,3 +20,9 @@ cargo install --force cbindgen
 
 cbindgen --config cbindgen.toml --lang c --crate yggdrasilffi --output unleash_engine.h
 ```
+
+## Flatbuffers
+
+``` bash
+flatc --rust -o yggdrasilffi/src/flat flat-buffer-defs/enabled-message.fbs
+```
