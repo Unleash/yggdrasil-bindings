@@ -43,7 +43,7 @@ pub struct ResponseMessage<T> {
 pub struct TakeStateResult {
     pub warnings: Vec<EvalWarning>,
     pub error: Option<String>,
-    pub feature_strategies_map: BTreeMap<String, BTreeMap<String, BTreeMap<String, String>>>,
+    pub feature_strategies_map: BTreeMap<String, Vec<(String, BTreeMap<String, String>)>>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
