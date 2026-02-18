@@ -344,7 +344,7 @@ internal static class Flatbuffers
         }
     }
 
-    public static string GetCollectedMetricsBucket(Buf buf)
+    internal static string GetCollectedMetricsBucket(Buf buf)
     {
         var response = ReadBuffer(buf);
 
