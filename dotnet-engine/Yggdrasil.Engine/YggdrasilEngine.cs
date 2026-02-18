@@ -185,6 +185,12 @@ public sealed class YggdrasilEngine : IDisposable
         InvokeVoid(FFI.ObserveHistogram, msg);
     }
 
+    public string? CollectMetricsBucket()
+    {
+        EnsureNotDisposed();
+        return InvokeNoMsg(FFI.CollectMetrics, Flatbuffers.GetCollectedMetricsBucket);
+    }
+
     public ICollection<FeatureDefinition> ListKnownToggles()
     {
         EnsureNotDisposed();

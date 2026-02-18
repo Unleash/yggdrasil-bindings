@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.Json.Nodes;
 using NUnit.Framework;
 using Yggdrasil;
 
@@ -85,5 +86,18 @@ public class YggdrasilImpactMetricsTest
             yggdrasilEngine.DefineHistogram("test_histogram", "Test histogram", new[] { 0.1, 0.5, 1.0 });
             yggdrasilEngine.ObserveHistogram("test_histogram", 0.25);
         });
+    }
+
+    [Test]
+    public void CollectMetrics_Returns_Recorded_Metric()
+    {
+        var yggdrasilEngine = new YggdrasilEngine();
+        yggdrasilEngine.DefineCounter("requests_total", "Total requests");
+        Assert.DoesNotThrow(() => yggdrasilEngine.IncCounter("requests_total"));
+        var metrics = yggdrasilEngine.CollectMetricsBucket();
+        var counter = JsonNode.Parse(metrics!)!["impact_metrics"]!.AsArray()[0]!;
+        var samples = counter["samples"]!.AsArray()![0]!;
+        Assert.AreEqual("requests_total", counter["name"]!.GetValue<string>());
+        Assert.AreEqual(1, samples["value"]!.GetValue<int>());
     }
 }
