@@ -588,6 +588,13 @@ pub unsafe extern "C" fn flat_collect_metrics(engine_ptr: *mut c_void) -> Buf {
     CollectMetricsResponse::build_response(result)
 }
 
+/// Restores impact metrics from a collect metrics payload, for when unable to pass buckets upstream
+///
+/// # Safety
+///
+/// passing an invalid engine_ptr, message_ptr, or improper message_len will cause UB
+/// the returned Buf should be freed by calling flat_buf_free, otherwise you're leaking memory
+///
 #[no_mangle]
 pub unsafe extern "C" fn flat_restore_impact_metrics(
     engine_ptr: *mut c_void,
@@ -597,12 +604,13 @@ pub unsafe extern "C" fn flat_restore_impact_metrics(
     let result = guard_result::<(), _>(|| {
         let bytes =
             unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
-        let response =
-            root::<CollectMetricsResponse>(bytes).map_err(|e| FlatError::InvalidBuffer(e.to_string()))?;
+        let response = root::<CollectMetricsResponse>(bytes)
+            .map_err(|e| FlatError::InvalidBuffer(e.to_string()))?;
         let Some(collect_metrics_str) = response.response() else {
             return Err(FlatError::MissingRequiredParameter("response".to_owned()));
         };
-        let Ok(collect_metrics) = serde_json::from_str::<MetricMeasurement>(collect_metrics_str) else {
+        let Ok(collect_metrics) = serde_json::from_str::<MetricMeasurement>(collect_metrics_str)
+        else {
             return Err(FlatError::MissingRequiredParameter("response".to_owned()));
         };
 
