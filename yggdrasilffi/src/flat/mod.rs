@@ -588,6 +588,35 @@ pub unsafe extern "C" fn flat_collect_metrics(engine_ptr: *mut c_void) -> Buf {
     CollectMetricsResponse::build_response(result)
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn flat_restore_impact_metrics(
+    engine_ptr: *mut c_void,
+    message_ptr: u64,
+    message_len: u64,
+) -> Buf {
+    let result = guard_result::<(), _>(|| {
+        let bytes =
+            unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
+        let response =
+            root::<CollectMetricsResponse>(bytes).map_err(|e| FlatError::InvalidBuffer(e.to_string()))?;
+        let Some(collect_metrics_str) = response.response() else {
+            return Err(FlatError::MissingRequiredParameter("response".to_owned()));
+        };
+        let Ok(collect_metrics) = serde_json::from_str::<MetricMeasurement>(collect_metrics_str) else {
+            return Err(FlatError::MissingRequiredParameter("response".to_owned()));
+        };
+
+        let guard = get_engine(engine_ptr)?;
+        let engine = recover_lock(&guard);
+
+        engine.restore_impact_metrics(collect_metrics.impact_metrics);
+
+        Ok(Some(()))
+    });
+
+    VoidResponse::build_response(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
