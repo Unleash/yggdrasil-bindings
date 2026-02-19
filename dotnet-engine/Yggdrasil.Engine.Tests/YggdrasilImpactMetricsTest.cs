@@ -117,7 +117,6 @@ public class YggdrasilImpactMetricsTest
         var counter = JsonNode.Parse(metrics!)!["impact_metrics"]!.AsArray()[0]!;
         var samples = counter["samples"]!.AsArray()![0]!;
 
-
         Assert.AreEqual("requests_total", counter["name"]!.GetValue<string>());
         Assert.AreEqual(3, samples["value"]!.GetValue<int>());
     }
