@@ -28,7 +28,6 @@ internal static class FFI
         free_response = Marshal.GetDelegateForFunctionPointer<FreeResponseDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "free_response"));
 
         // everything else has some special details to it
-        // if these get out of hand they'll need some refactor but for now 5 is fine
         take_state = Marshal.GetDelegateForFunctionPointer<TakeStateDelegate>(
             NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_take_state"));
 
@@ -43,6 +42,9 @@ internal static class FFI
 
         get_metrics = Marshal.GetDelegateForFunctionPointer<GetMetricsDelegate>(
             NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_get_metrics"));
+
+        collect_metrics = Marshal.GetDelegateForFunctionPointer<CollectMetricsDelegate>(
+            NativeLibLoader.LoadFunctionPointer(_libHandle, "flat_collect_metrics"));
     }
 
     // one delegate type to rule them all, lets us not have to deal with a ton of delegate types in the higher layers
@@ -63,6 +65,9 @@ internal static class FFI
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate Buf GetMetricsDelegate(IntPtr enginePtr);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate Buf CollectMetricsDelegate(IntPtr enginePtr);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate IntPtr NewEngineDelegate();
@@ -96,6 +101,7 @@ internal static class FFI
     private static readonly ListKnownTogglesDelegate list_known_toggles;
     private static readonly BuiltInStrategiesDelegate built_in_strategies;
     private static readonly GetMetricsDelegate get_metrics;
+    private static readonly CollectMetricsDelegate collect_metrics;
 
     internal static Buf TakeState(IntPtr ptr, string json)
         => take_state(ptr, ToUtf8NullTerminated(json));
@@ -129,6 +135,8 @@ internal static class FFI
     internal static Buf BuiltInStrategies() => built_in_strategies();
 
     internal static Buf GetMetrics(IntPtr ptr) => get_metrics(ptr);
+
+    internal static Buf CollectMetrics(IntPtr ptr) => collect_metrics(ptr);
 
     internal static void FreeBuf(Buf buf) => free_buffer(buf);
 

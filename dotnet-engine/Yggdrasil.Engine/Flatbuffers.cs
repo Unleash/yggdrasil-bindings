@@ -344,6 +344,19 @@ internal static class Flatbuffers
         }
     }
 
+    internal static string GetCollectedMetricsBucket(Buf buf)
+    {
+        var response = ReadBuffer(buf);
+
+        var collectResponse = CollectMetricsResponse.GetRootAsCollectMetricsResponse(new ByteBuffer(response));
+        if (collectResponse.Error != null)
+        {
+            throw new YggdrasilEngineException(collectResponse.Error);
+        }
+
+        return collectResponse.Response;
+    }
+
     private static Dictionary<string, FeatureCount> GetMetricsFeatureCounts(MetricsResponse response)
     {
         return Enumerable.Range(0, response.TogglesLength)
