@@ -100,4 +100,24 @@ public class YggdrasilImpactMetricsTest
         Assert.AreEqual("requests_total", counter["name"]!.GetValue<string>());
         Assert.AreEqual(1, samples["value"]!.GetValue<int>());
     }
+
+    [Test]
+    public void Restores_Metrics()
+    {
+        var yggdrasilEngine = new YggdrasilEngine();
+        yggdrasilEngine.DefineCounter("requests_total", "Total requests");
+        yggdrasilEngine.IncCounter("requests_total");
+
+        var first_metrics = yggdrasilEngine.CollectMetricsBucket();
+        yggdrasilEngine.IncCounter("requests_total");
+        yggdrasilEngine.RestoreMetrics(first_metrics!);
+        yggdrasilEngine.IncCounter("requests_total");
+
+        var metrics = yggdrasilEngine.CollectMetricsBucket();
+        var counter = JsonNode.Parse(metrics!)!["impact_metrics"]!.AsArray()[0]!;
+        var samples = counter["samples"]!.AsArray()![0]!;
+
+        Assert.AreEqual("requests_total", counter["name"]!.GetValue<string>());
+        Assert.AreEqual(3, samples["value"]!.GetValue<int>());
+    }
 }

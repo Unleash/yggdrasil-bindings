@@ -50,6 +50,18 @@ mod messaging {
     include!("enabled-message_generated.rs");
 }
 
+impl From<serde_json::Error> for FlatError {
+    fn from(e: serde_json::Error) -> Self {
+        FlatError::InvalidState(format!("Failed to parse JSON: {}", e))
+    }
+}
+
+impl From<flatbuffers::InvalidFlatbuffer> for FlatError {
+    fn from(e: flatbuffers::InvalidFlatbuffer) -> Self {
+        FlatError::InvalidBuffer(format!("Failed to parse FlatBuffer: {e}"))
+    }
+}
+
 ///
 /// # Safety
 ///
@@ -586,6 +598,42 @@ pub unsafe extern "C" fn flat_collect_metrics(engine_ptr: *mut c_void) -> Buf {
     });
 
     CollectMetricsResponse::build_response(result)
+}
+
+/// Restores impact metrics from a collect metrics payload, for when unable to pass buckets upstream
+///
+/// # Safety
+///
+/// passing an invalid engine_ptr, message_ptr, or improper message_len will cause UB
+/// the returned Buf should be freed by calling flat_buf_free, otherwise you're leaking memory
+///
+#[no_mangle]
+pub unsafe extern "C" fn flat_restore_impact_metrics(
+    engine_ptr: *mut c_void,
+    message_ptr: u64,
+    message_len: u64,
+) -> Buf {
+    let result = guard_result::<(), _>(|| {
+        let bytes =
+            unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
+
+        let response = root::<CollectMetricsResponse>(bytes)?;
+
+        let collect_metrics_str = response
+            .response()
+            .ok_or_else(|| FlatError::MissingRequiredParameter("response".to_string()))?;
+
+        let collect_metrics: MetricMeasurement = serde_json::from_str(collect_metrics_str)?;
+
+        let guard = get_engine(engine_ptr)?;
+        let engine = recover_lock(&guard);
+
+        engine.restore_impact_metrics(collect_metrics.impact_metrics);
+
+        Ok(Some(()))
+    });
+
+    VoidResponse::build_response(result)
 }
 
 #[cfg(test)]

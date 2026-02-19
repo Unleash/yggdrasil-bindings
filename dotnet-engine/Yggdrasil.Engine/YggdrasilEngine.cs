@@ -137,6 +137,14 @@ public sealed class YggdrasilEngine : IDisposable
         return InvokeNoMsg(FFI.GetMetrics, Flatbuffers.GetMetricsBucket);
     }
 
+    public void RestoreMetrics(string metrics)
+    {
+        EnsureNotDisposed();
+
+        var msg = Flatbuffers.CreateRestoreMetricsBuffer(Builder, metrics);
+        InvokeVoid(FFI.RestoreMetrics, msg);
+    }
+
     public void DefineCounter(string name, string help)
     {
         EnsureNotDisposed();

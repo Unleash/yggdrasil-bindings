@@ -21,6 +21,7 @@ internal static class FFI
         set_gauge = LoadMsgCall("flat_set_gauge");
         define_histogram = LoadMsgCall("flat_define_histogram");
         observe_histogram = LoadMsgCall("flat_observe_histogram");
+        restore_impact_metrics = LoadMsgCall("flat_restore_impact_metrics");
 
         new_engine = Marshal.GetDelegateForFunctionPointer<NewEngineDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "new_engine"));
         free_engine = Marshal.GetDelegateForFunctionPointer<FreeEngineDelegate>(NativeLibLoader.LoadFunctionPointer(_libHandle, "free_engine"));
@@ -80,6 +81,7 @@ internal static class FFI
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate void FreeResponseDelegate(IntPtr ptr);
+
     private static readonly NewEngineDelegate new_engine;
     private static readonly FreeEngineDelegate free_engine;
     private static readonly GetStateDelegate get_state;
@@ -97,6 +99,7 @@ internal static class FFI
     private static readonly FlatBufferMessageDelegate set_gauge;
     private static readonly FlatBufferMessageDelegate define_histogram;
     private static readonly FlatBufferMessageDelegate observe_histogram;
+    private static readonly FlatBufferMessageDelegate restore_impact_metrics;
 
     private static readonly ListKnownTogglesDelegate list_known_toggles;
     private static readonly BuiltInStrategiesDelegate built_in_strategies;
@@ -129,6 +132,10 @@ internal static class FFI
 
     internal static Buf ObserveHistogram(IntPtr ptr, byte[] message)
         => Call(message, ptr, observe_histogram);
+
+    internal static Buf RestoreMetrics(IntPtr ptr, byte[] message)
+        => Call(message, ptr, restore_impact_metrics);
+
 
     internal static Buf ListKnownToggles(IntPtr ptr) => list_known_toggles(ptr);
 

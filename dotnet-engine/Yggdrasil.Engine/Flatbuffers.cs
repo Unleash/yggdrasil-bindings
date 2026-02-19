@@ -64,6 +64,18 @@ internal static class Flatbuffers
         return builder.SizedByteArray();
     }
 
+    public static byte[] CreateRestoreMetricsBuffer(FlatBufferBuilder builder, string metrics)
+    {
+        var metricsOffset = builder.CreateString(metrics);
+
+        CollectMetricsResponse.StartCollectMetricsResponse(builder);
+        CollectMetricsResponse.AddResponse(builder, metricsOffset);
+
+        var collectMetricsResponseMessage = CollectMetricsResponse.EndCollectMetricsResponse(builder);
+        builder.Finish(collectMetricsResponseMessage.Value);
+        return builder.SizedByteArray();
+    }
+
     public static byte[] CreateDefineCounterBuffer(FlatBufferBuilder builder, string name, string help)
     {
         var nameOffset = builder.CreateString(name);
