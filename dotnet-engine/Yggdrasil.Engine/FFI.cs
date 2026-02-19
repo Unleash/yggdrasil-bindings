@@ -82,7 +82,6 @@ internal static class FFI
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate void FreeResponseDelegate(IntPtr ptr);
 
-
     private static readonly NewEngineDelegate new_engine;
     private static readonly FreeEngineDelegate free_engine;
     private static readonly GetStateDelegate get_state;
