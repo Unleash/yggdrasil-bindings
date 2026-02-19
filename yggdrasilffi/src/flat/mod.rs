@@ -50,6 +50,18 @@ mod messaging {
     include!("enabled-message_generated.rs");
 }
 
+impl From<serde_json::Error> for FlatError {
+    fn from(e: serde_json::Error) -> Self {
+        FlatError::InvalidState(format!("Failed to parse JSON: {}", e))
+    }
+}
+
+impl From<flatbuffers::InvalidFlatbuffer> for FlatError {
+    fn from(e: flatbuffers::InvalidFlatbuffer) -> Self {
+        FlatError::InvalidBuffer(format!("Failed to parse FlatBuffer: {e}"))
+    }
+}
+
 ///
 /// # Safety
 ///
@@ -604,15 +616,14 @@ pub unsafe extern "C" fn flat_restore_impact_metrics(
     let result = guard_result::<(), _>(|| {
         let bytes =
             unsafe { std::slice::from_raw_parts(message_ptr as *const u8, message_len as usize) };
-        let response = root::<CollectMetricsResponse>(bytes)
-            .map_err(|e| FlatError::InvalidBuffer(e.to_string()))?;
-        let Some(collect_metrics_str) = response.response() else {
-            return Err(FlatError::MissingRequiredParameter("response".to_owned()));
-        };
-        let Ok(collect_metrics) = serde_json::from_str::<MetricMeasurement>(collect_metrics_str)
-        else {
-            return Err(FlatError::MissingRequiredParameter("response".to_owned()));
-        };
+
+        let response = root::<CollectMetricsResponse>(bytes)?;
+
+        let collect_metrics_str = response
+            .response()
+            .ok_or_else(|| FlatError::MissingRequiredParameter("response".to_string()))?;
+
+        let collect_metrics: MetricMeasurement = serde_json::from_str(collect_metrics_str)?;
 
         let guard = get_engine(engine_ptr)?;
         let engine = recover_lock(&guard);
