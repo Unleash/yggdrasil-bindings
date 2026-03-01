@@ -52,6 +52,8 @@ is($engine->is_enabled('Feature.A', { betterThanSlicedBread => 0 }), 0, 'is_enab
 
 my $variant = $engine->get_variant('Feature.A', { betterThanSlicedBread => 1 });
 is($variant->{name}, 'sourDough', 'get_variant returns expected variant');
+is($engine->should_emit_impression_event('Feature.A'), 1, 'impression data enabled for Feature.A');
+is($engine->should_emit_impression_event('Nonexisting'), 0, 'impression data disabled for missing toggle');
 
 $engine->count_toggle('some-toggle', 1);
 my $metrics = $engine->get_metrics();

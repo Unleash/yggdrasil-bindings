@@ -24,6 +24,7 @@ $ffi->attach([free_engine => '_free_engine'] => ['opaque'] => 'void');
 $ffi->attach([take_state => '_take_state'] => ['opaque', 'string'] => 'opaque');
 $ffi->attach([check_enabled => '_check_enabled'] => ['opaque', 'string', 'string', 'string'] => 'opaque');
 $ffi->attach([check_variant => '_check_variant'] => ['opaque', 'string', 'string', 'string'] => 'opaque');
+$ffi->attach([should_emit_impression_event => '_should_emit_impression_event'] => ['opaque', 'string'] => 'opaque');
 $ffi->attach([free_response => '_free_response'] => ['opaque'] => 'void');
 $ffi->attach([get_metrics => '_get_metrics'] => ['opaque'] => 'opaque');
 
@@ -134,6 +135,15 @@ sub get_metrics {
     _throw_if_error($response);
 
     return $response->{value};
+}
+
+sub should_emit_impression_event {
+    my ($self, $toggle_name) = @_;
+
+    my $response = $self->_read_response(_should_emit_impression_event($self->{state}, $toggle_name));
+    _throw_if_error($response);
+
+    return $response->{value} ? 1 : 0;
 }
 
 sub define_counter {
