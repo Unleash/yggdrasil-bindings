@@ -17,6 +17,13 @@ cd perl-engine
 ./build.sh
 ```
 
+## Hello World
+
+```sh
+cd perl-engine
+./bin/hello.pl
+```
+
 ## Dependencies
 
 Perl modules:
@@ -61,8 +68,11 @@ cd perl-engine
 perl Makefile.PL
 make
 make test
+rm -f Yggdrasil-Engine-0.1.0.tar.gz
 make dist
 ```
+
+`MANIFEST` is checked in for repeatable packaging. If you add/remove source files, update `MANIFEST` accordingly before `make dist`.
 
 Install the generated tarball into a local Perl lib directory:
 
