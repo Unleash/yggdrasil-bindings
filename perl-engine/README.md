@@ -56,6 +56,15 @@ cd perl-engine
 prove -I lib t
 ```
 
+## Run Client Specification Tests
+
+The spec files are read from `../client-specification/specifications` relative to `perl-engine/`.
+
+```sh
+cd perl-engine
+prove -I lib t/specification.t
+```
+
 ## Local Package Install (cpanm)
 
 Use this when you want to test SDK integration against a locally packaged Perl bindings module.
