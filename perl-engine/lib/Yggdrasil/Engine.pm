@@ -3,6 +3,8 @@ package Yggdrasil::Engine;
 use strict;
 use warnings;
 
+our $VERSION = '0.1.0';
+
 use File::Basename qw(dirname);
 use File::Spec;
 use FFI::Platypus 2.00;
