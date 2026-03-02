@@ -36,7 +36,7 @@ Install dependencies with `cpanm`:
 cpanm --notest FFI::Platypus
 ```
 
-If you do not have `cpanm` yet, you should be able to install it via you OS package manager:
+If you do not have `cpanm` yet, you should be able to install it via your OS package manager:
 
 ```sh
 sudo apt-get install cpanminus
