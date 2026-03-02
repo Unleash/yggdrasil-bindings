@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <PackageId>Unleash.Yggdrasil</PackageId>
     <Version>1.2.0</Version>
-    <YggdrasilCoreVersion>0.20.4</YggdrasilCoreVersion>
+    <YggdrasilCoreVersion>0.20.5</YggdrasilCoreVersion>
     <Company>Bricks Software AS</Company>
     <Authors>Unleash</Authors>
     <IncludeSymbols>True</IncludeSymbols>
