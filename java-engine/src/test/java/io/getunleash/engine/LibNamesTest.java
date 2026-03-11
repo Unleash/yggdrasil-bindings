@@ -21,6 +21,21 @@ class LibNamesTest {
   }
 
   @Test
+  void picksMuslBinaryWhenLibcEnvOverridesDetection() {
+    String libName = LibNames.pickFor("Linux", "amd64", null, "musl", path -> false, () -> false);
+
+    assertEquals("libyggdrasilffi_x86_64-musl.so", libName);
+  }
+
+  @Test
+  void propertyOverrideWinsOverEnvOverride() {
+    String libName =
+        LibNames.pickFor("Linux", "amd64", "glibc", "musl", path -> false, () -> false);
+
+    assertEquals("libyggdrasilffi_x86_64.so", libName);
+  }
+
+  @Test
   void picksMuslBinaryWhenAlpineMarkerExists() {
     String libName =
         LibNames.pickFor(
