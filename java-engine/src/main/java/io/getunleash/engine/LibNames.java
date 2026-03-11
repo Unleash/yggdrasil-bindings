@@ -8,9 +8,26 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
 
 final class LibNames {
-  static final String LIBC_PROPERTY = "io.getunleash.engine.libc";
-  static final String LIBC_ENV = "UNLEASH_ENGINE_LIBC";
+  /**
+   * System property used to override libc detection.
+   *
+   * <p>Supported values:
+   * <ul>
+   *   <li>{@code "musl"} – force musl libc selection</li>
+   *   <li>{@code "glibc"} – force glibc selection</li>
+   * </ul>
+   * Any other value (including {@code null}) will fall back to automatic detection.
+   */
+  private static final String LIBC_PROPERTY = "io.getunleash.engine.libc";
 
+  /**
+   * Environment variable used to override libc detection.
+   *
+   * <p>Supported values are the same as for {@link #LIBC_PROPERTY}:
+   * {@code "musl"} or {@code "glibc"}. Any other value (including unset)
+   * will fall back to automatic detection.
+   */
+  private static final String LIBC_ENV = "UNLEASH_ENGINE_LIBC";
   static String pickForCurrentOsArch() {
     return pickFor(
         System.getProperty("os.name"),
