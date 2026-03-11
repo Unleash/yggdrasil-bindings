@@ -112,7 +112,7 @@ final class LibNames {
     System.err.println(
         "Warning: Unsupported libc override '"
             + value
-            + "'. Expected 'musl' or 'glibc'. Ignoring.");
+            + "'. Expected 'musl' or 'glibc' (aliases: 'gnu', 'gnu libc'). Ignoring.");
     return null;
   }
 
