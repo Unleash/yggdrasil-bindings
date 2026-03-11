@@ -12,10 +12,12 @@ final class LibNames {
    * System property used to override libc detection.
    *
    * <p>Supported values:
+   *
    * <ul>
-   *   <li>{@code "musl"} – force musl libc selection</li>
-   *   <li>{@code "glibc"} – force glibc selection</li>
+   *   <li>{@code "musl"} – force musl libc selection
+   *   <li>{@code "glibc"} – force glibc selection
    * </ul>
+   *
    * Any other value (including {@code null}) will fall back to automatic detection.
    */
   private static final String LIBC_PROPERTY = "io.getunleash.engine.libc";
@@ -23,11 +25,11 @@ final class LibNames {
   /**
    * Environment variable used to override libc detection.
    *
-   * <p>Supported values are the same as for {@link #LIBC_PROPERTY}:
-   * {@code "musl"} or {@code "glibc"}. Any other value (including unset)
-   * will fall back to automatic detection.
+   * <p>Supported values are the same as for {@link #LIBC_PROPERTY}: {@code "musl"} or {@code
+   * "glibc"}. Any other value (including unset) will fall back to automatic detection.
    */
   private static final String LIBC_ENV = "UNLEASH_ENGINE_LIBC";
+
   static String pickForCurrentOsArch() {
     return pickFor(
         System.getProperty("os.name"),
