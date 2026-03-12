@@ -6,7 +6,7 @@ plugins {
     id("org.graalvm.buildtools.native") version "0.11.1"
 }
 
-group = "com.example"
+group = "io.getunleash"
 version = "1.0.0"
 val libVersion = providers
     .gradleProperty("libVersion")
