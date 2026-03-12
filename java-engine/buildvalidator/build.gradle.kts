@@ -38,23 +38,13 @@ application {
 }
 
 dependencies {
-    // Replace with your actual dependency containing UnleashEngine
     implementation("io.getunleash:yggdrasil-engine:${libVersion.get()}")
-
-    // If needed for your runtime loading path:
-    // implementation("net.java.dev.jna:jna:5.14.0")
-
-    testImplementation(platform("org.junit:junit-bom:5.10.2"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
 }
 
 tasks.test {
     useJUnitPlatform()
 }
 
-/**
- * Optional helper so CI logs clearly show what machine we're on.
- */
 tasks.register("printHostInfo") {
     doLast {
         println("os.name      = ${System.getProperty("os.name")}")
@@ -67,7 +57,7 @@ tasks.register("printHostInfo") {
 /**
  * Task 1: plain JVM probe
  *
- * Runs your tiny Java app that just constructs UnleashEngine.
+ * Runs a tiny Java app that just constructs UnleashEngine.
  * If it exits 0, loading worked.
  */
 tasks.register<JavaExec>("runJvmProbe") {
