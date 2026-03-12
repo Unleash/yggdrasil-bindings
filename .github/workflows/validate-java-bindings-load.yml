@@ -11,6 +11,8 @@ on:
       - yggdrasilffi/**/*.rs
       - yggdrasilffi/**/*.toml
       - java-engine/**/*.java
+  workflow_dispatch:
+
 
 jobs:
   prepare-engine:
