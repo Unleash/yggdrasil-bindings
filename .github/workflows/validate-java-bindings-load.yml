@@ -1,0 +1,171 @@
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ./yggdrasilffi/**/*.rs
+      - ./yggdrasilffi/**/*.toml
+      - ./java-engine/**/*.java
+  pull_request:
+    paths:
+      - ./yggdrasilffi/**/*.rs
+      - ./yggdrasilffi/**/*.toml
+      - ./java-engine/**/*.java
+
+jobs:
+  prepare-engine:
+    runs-on: ubuntu-latest
+    outputs:
+      lib_version: ${{ steps.read_java_engine.java_version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      - name: Read yggdrasilCoreVersion from gradle.properties
+        id: read_ygg
+        shell: bash
+        working-directory: "./java-engine"
+        run: |
+          # Grab the last non-comment match in case the file has multiple entries
+          line="$(grep -E '^[[:space:]]*yggdrasilCoreVersion[[:space:]]*=' gradle.properties | tail -n1 || true)"
+          if [ -z "$line" ]; then
+            echo "yggdrasilCoreVersion not found in gradle.properties" >&2
+            exit 1
+          fi
+
+          # Extract the value (right side of =) and trim whitespace/CRLF
+          value="${line#*=}"
+          # trim leading/trailing spaces
+          value="$(printf '%s' "$value" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+          # strip possible CR from Windows checkouts
+          value="${value%$'\r'}"
+
+          echo "ygg_version=$value" >> "$GITHUB_OUTPUT"
+      - name: Read java library version from gradle.properties
+        id: read_java_engine
+        shell: bash
+        working-directory: ./java-engine
+        run: |
+          # Grab the last non-comment match in case the file has multiple entries
+          line="$(grep -E '^[[:space:]]*version[[:space:]]*=' gradle.properties | tail -n1 || true)"
+          if [ -z "$line" ]; then
+            echo "version not found in gradle.properties" >&2
+            exit 1
+          fi
+          
+          # Extract the value (right side of =) and trim whitespace/CRLF
+          value="${line#*=}"
+          # trim leading/trailing spaces
+          value="$(printf '%s' "$value" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+          # strip possible CR from Windows checkouts
+          value="${value%$'\r'}"
+          
+          echo "java_version=$value" >> "$GITHUB_OUTPUT"
+      - name: Download binaries
+        shell: bash
+        working-directory: ./java-engine
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "yggdrasilffi-v${{ steps.read_ygg.outputs.ygg_version }}" --repo Unleash/yggdrasil-bindings -D binaries/
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          java-version: 21
+          cache: 'gradle'
+          distribution: 'temurin'
+      - name: Publish java-engine to ci-repo
+        working-directory: "./java-engine"
+        shell: bash
+        run: |
+         ./gradlew publishAllPublicationsToCiRepository
+      - name: Upload ci-repo
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-maven-repo
+          path: java-engine/build/ci-repo
+  verify:
+    needs: prepare-engine
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runs-on: ubuntu-24.04
+            gradle-task: runJvmProbe
+
+          - arch: x86_64
+            runs-on: ubuntu-24.04
+            gradle-task: buildGraalProbe
+
+          - arch: x86_64
+            runs-on: ubuntu-24.04
+            gradle-task: buildGraalMostlyStatic
+
+          - arch: x86_64
+            runs-on: ubuntu-24.04
+            gradle-task: buildGraalStaticMusl
+
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+            gradle-task: runJvmProbe
+
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+            gradle-task: buildGraalProbe
+
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+            gradle-task: buildGraalMostlyStatic
+
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+            gradle-task: buildGraalStaticMusl
+
+    runs-on: ${{ matrix.runs-on }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: graalvm
+          java-version: '21'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          native-image-job-reports: 'true'
+
+      - name: Download library repo
+        uses: actions/download-artifact@v8
+        with:
+          name: ci-maven-repo
+          path: .ci-maven-repo
+
+      - name: Install native prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential zlib1g-dev
+
+      - name: Install musl toolchain
+        if: matrix.gradle-task == 'buildGraalStaticMusl'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools musl-dev
+
+      - name: Run selected Gradle task
+        env:
+          LIB_VERSION: ${{ needs.prepare-engine.outputs.lib_version }}
+          CI_MAVEN_REPO: ${{ github.workspace }}/.ci-maven-repo
+        run: |
+          ./gradlew --no-daemon --stacktrace ${{ matrix.gradle-task }}
+
+      - name: Smoke-run produced native binary
+        if: matrix.gradle-task == 'buildGraalProbe'
+        run: ./build/native/nativeCompile/unleash-engine-probe-graal
+
+      - name: Smoke-run mostly-static binary
+        if: matrix.gradle-task == 'buildGraalMostlyStatic'
+        run: ./build/native/nativeCompile/unleash-engine-probe-mostly-static
+
+      - name: Smoke-run static musl binary
+        if: matrix.gradle-task == 'buildGraalStaticMusl'
+        run: ./build/native/nativeCompile/unleash-engine-probe-static-musl
