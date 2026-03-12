@@ -131,7 +131,8 @@ final class LibNames {
 
     String normalized = value.trim().toLowerCase(Locale.ROOT);
     switch (normalized) {
-      case "": return Optional.empty();
+      case "":
+        return Optional.empty();
       case "glibc":
       case "gnu":
       case "gnu libc":
