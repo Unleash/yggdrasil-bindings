@@ -3,14 +3,14 @@ on:
     branches:
       - main
     paths:
-      - ./yggdrasilffi/**/*.rs
-      - ./yggdrasilffi/**/*.toml
-      - ./java-engine/**/*.java
+      - yggdrasilffi/**/*.rs
+      - yggdrasilffi/**/*.toml
+      - java-engine/**/*.java
   pull_request:
     paths:
-      - ./yggdrasilffi/**/*.rs
-      - ./yggdrasilffi/**/*.toml
-      - ./java-engine/**/*.java
+      - yggdrasilffi/**/*.rs
+      - yggdrasilffi/**/*.toml
+      - java-engine/**/*.java
 
 jobs:
   prepare-engine:
