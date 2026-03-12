@@ -36,6 +36,22 @@ class LibNamesTest {
   }
 
   @Test
+  void propertyOverrideWorksWithAliases() {
+    String libcProperty = LibNames.pickFor("Linux", "amd64", "gnu", null, path -> true, () -> true);
+    assertEquals("libyggdrasilffi_x86_64.so", libcProperty);
+    String libcEnv = LibNames.pickFor("Linux", "amd64", null, "gnu", path -> true, () -> true);
+    assertEquals("libyggdrasilffi_x86_64.so", libcEnv);
+  }
+
+  @Test
+  void gnuLibcIsAlsoAValidAlias() {
+    String libcProperty = LibNames.pickFor("Linux", "amd64", "gnu libc", null, path -> true, () -> true);
+    assertEquals("libyggdrasilffi_x86_64.so", libcProperty);
+    String libcEnv = LibNames.pickFor("Linux", "amd64", null, "gnu libc", path -> true, () -> true);
+    assertEquals("libyggdrasilffi_x86_64.so", libcEnv);
+  }
+
+  @Test
   void picksMuslBinaryWhenAlpineMarkerExists() {
     String libName =
         LibNames.pickFor(

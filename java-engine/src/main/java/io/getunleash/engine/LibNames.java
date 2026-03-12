@@ -22,6 +22,8 @@ final class LibNames {
    * <ul>
    *   <li>{@code "musl"} – force musl libc selection
    *   <li>{@code "glibc"} – force glibc selection
+   *   <li>{@code "gnu"} - alias for glibc</li>
+   *   <li>{@code "gnu libc"} - alias for glibc</li>
    * </ul>
    *
    * Any other value (including {@code null}) will fall back to automatic detection.
@@ -31,8 +33,8 @@ final class LibNames {
   /**
    * Environment variable used to override libc detection.
    *
-   * <p>Supported values are the same as for {@link #LIBC_PROPERTY}: {@code "musl"} or {@code
-   * "glibc"}. Any other value (including unset) will fall back to automatic detection.
+   * <p>Supported values are the same as for {@link #LIBC_PROPERTY}: {@code "musl"}, {@code
+   * "glibc"} {@code "gnu"}, {@code "gnu libc"}. Any other value (including unset) will fall back to automatic detection.
    */
   private static final String LIBC_ENV = "UNLEASH_ENGINE_LIBC";
 
