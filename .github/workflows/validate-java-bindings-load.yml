@@ -156,7 +156,7 @@ jobs:
           sudo apt-get install -y musl-tools musl-dev
 
       - name: Run selected Gradle task
-        working-directory: "java-library/buildvalidator"
+        working-directory: "java-engine/buildvalidator"
         env:
           LIB_VERSION: ${{ needs.prepare-engine.outputs.lib_version }}
           CI_MAVEN_REPO: ${{ github.workspace }}/.ci-maven-repo
@@ -164,16 +164,16 @@ jobs:
           ./gradlew --no-daemon --stacktrace ${{ matrix.gradle-task }}
 
       - name: Smoke-run produced native binary
-        working-directory: "java-library/buildvalidator"
+        working-directory: "java-engine/buildvalidator"
         if: matrix.gradle-task == 'buildGraalProbe'
         run: ./build/native/nativeCompile/unleash-engine-probe-graal
 
       - name: Smoke-run mostly-static binary
-        working-directory: "java-library/buildvalidator"
+        working-directory: "java-engine/buildvalidator"
         if: matrix.gradle-task == 'buildGraalMostlyStatic'
         run: ./build/native/nativeCompile/unleash-engine-probe-mostly-static
 
       - name: Smoke-run static musl binary
-        working-directory: "java-library/buildvalidator"
+        working-directory: "java-engine/buildvalidator"
         if: matrix.gradle-task == 'buildGraalStaticMusl'
         run: ./build/native/nativeCompile/unleash-engine-probe-static-musl
