@@ -21,6 +21,13 @@
 /php-engine/unleash_engine.h
 /php-engine/libyggdrasilffi.so
 /ruby-engine/lib/libyggdrasilffi*.*
+/perl-engine/lib/Yggdrasil/lib/libyggdrasilffi*.*
+/perl-engine/Makefile
+/perl-engine/MYMETA.*
+/perl-engine/blib/
+/perl-engine/pm_to_blib
+/perl-engine/*.tar.gz
+/perl-engine/MANIFEST.bak
 /python-engine/yggdrasil_engine/lib/
 /python-engine/dist
 /python-engine/poetry.lock
