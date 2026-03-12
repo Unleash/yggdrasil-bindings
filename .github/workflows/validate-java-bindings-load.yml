@@ -6,11 +6,13 @@ on:
       - yggdrasilffi/**/*.rs
       - yggdrasilffi/**/*.toml
       - java-engine/**/*.java
+      - .github/workflows/validate-java-bindings-load.yml
   pull_request:
     paths:
       - yggdrasilffi/**/*.rs
       - yggdrasilffi/**/*.toml
       - java-engine/**/*.java
+      - .github/workflows/validate-java-bindings-load.yml
   workflow_dispatch:
 
 
