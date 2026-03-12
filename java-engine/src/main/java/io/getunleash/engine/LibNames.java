@@ -4,10 +4,16 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
 
 final class LibNames {
+  private enum LibcVersion {
+    Glibc,
+    Musl
+  }
+
   /**
    * System property used to override libc detection.
    *
@@ -63,41 +69,46 @@ final class LibNames {
       }
       return "yggdrasilffi_i686.dll";
     } else { // linux
-      if (isMusl(libcProperty, libcEnv, fileExists, mapsContainMusl)) {
+      LibcVersion version = libcVersion(libcProperty, libcEnv, fileExists, mapsContainMusl);
+      if (version == LibcVersion.Musl) {
         if (arch.contains("aarch64") || arch.contains("arm64")) {
           return "libyggdrasilffi_arm64-musl.so";
         }
         return "libyggdrasilffi_x86_64-musl.so";
+      } else {
+        if (arch.contains("aarch64") || arch.contains("arm64")) {
+          return "libyggdrasilffi_arm64.so";
+        }
+        return "libyggdrasilffi_x86_64.so";
       }
-      if (arch.contains("aarch64") || arch.contains("arm64")) {
-        return "libyggdrasilffi_arm64.so";
-      }
-      return "libyggdrasilffi_x86_64.so";
     }
   }
 
-  static boolean isMusl(
+  static LibcVersion libcVersion(
       String libcProperty,
       String libcEnv,
       Predicate<String> fileExists,
       BooleanSupplier mapsContainMusl) {
-    Boolean override = parseLibcOverride(libcProperty);
-    if (override != null) {
-      return override;
+    Optional<LibcVersion> override = parseLibcOverride(libcProperty);
+    if (override.isPresent()) {
+      return override.get();
     }
 
     override = parseLibcOverride(libcEnv);
-    if (override != null) {
-      return override;
+    if (override.isPresent()) {
+      return override.get();
     }
 
     for (String path : MUSL_MARKER_PATHS) {
       if (fileExists.test(path)) {
-        return true;
+        return LibcVersion.Musl;
       }
     }
 
-    return mapsContainMusl.getAsBoolean();
+    if (mapsContainMusl.getAsBoolean()) {
+      return LibcVersion.Musl;
+    }
+    return LibcVersion.Glibc;
   }
 
   private static final String[] MUSL_MARKER_PATHS = {
@@ -110,29 +121,22 @@ final class LibNames {
     "/usr/lib/ld-musl.so.1"
   };
 
-  private static Boolean parseLibcOverride(String value) {
+  private static Optional<LibcVersion> parseLibcOverride(String value) {
     if (value == null) {
-      return null;
+      return Optional.empty();
     }
 
     String normalized = value.trim().toLowerCase(Locale.ROOT);
-    if (normalized.isEmpty()) {
-      return null;
+    switch (normalized) {
+      case "": return Optional.empty();
+      case "glibc":
+      case "gnu":
+      case "gnu libc":
+        return Optional.of(LibcVersion.Glibc);
+      case "musl":
+        return Optional.of(LibcVersion.Musl);
     }
-
-    if (normalized.equals("musl")) {
-      return true;
-    }
-
-    if (normalized.equals("glibc") || normalized.equals("gnu") || normalized.equals("gnu libc")) {
-      return false;
-    }
-
-    System.err.println(
-        "Warning: Unsupported libc override '"
-            + value
-            + "'. Expected 'musl' or 'glibc' (aliases: 'gnu', 'gnu libc'). Ignoring.");
-    return null;
+    return Optional.empty();
   }
 
   private static boolean fileExists(String path) {
