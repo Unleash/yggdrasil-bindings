@@ -188,7 +188,21 @@ jobs:
           make -j"$(nproc)"
           make install
           popd
-
+          arch="$(uname -m)"
+          case "$arch" in
+            x86_64)
+              target="x86_64-linux-musl"
+              ;;
+            aarch64)
+              target="aarch64-linux-musl"
+              ;;
+            *)
+              echo "Unsupported architecture: $arch" >&2
+              exit 1
+              ;;
+          esac
+          
+          ln -s "$MUSL_HOME/bin/musl-gcc" "$MUSL_HOME/bin/${target}-gcc"
           echo "$MUSL_HOME/bin" >> "$GITHUB_PATH"
 
           echo "CC=$MUSL_HOME/bin/musl-gcc" >> "$GITHUB_ENV"
