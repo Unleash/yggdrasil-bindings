@@ -1,4 +1,3 @@
-import org.gradle.internal.os.OperatingSystem
 import org.graalvm.buildtools.gradle.tasks.BuildNativeImageTask
 
 plugins {
