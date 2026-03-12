@@ -90,7 +90,7 @@ graalvmNative {
             verbose.set(true)
 
             buildArgs.add("-O3")
-            buildArgs.add("--no-fallback")
+            buildArgs.add("--enable-url-protocols=http,https")
 
             when (nativeVariant.get()) {
                 "graal" -> {

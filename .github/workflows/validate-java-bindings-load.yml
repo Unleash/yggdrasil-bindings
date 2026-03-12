@@ -105,9 +105,10 @@ jobs:
             runs-on: ubuntu-24.04
             gradle-task: buildGraalMostlyStatic
 
-          - arch: x86_64
-            runs-on: ubuntu-24.04
-            gradle-task: buildGraalStaticMusl
+#         Does not currently work, since we load library dynamically, and statically linked binaries does not support dynamically loading a shared object at execution time
+#          - arch: x86_64
+#            runs-on: ubuntu-24.04
+#            gradle-task: buildGraalStaticMusl
 
           - arch: arm64
             runs-on: ubuntu-24.04-arm
@@ -121,9 +122,6 @@ jobs:
             runs-on: ubuntu-24.04-arm
             gradle-task: buildGraalMostlyStatic
 
-          - arch: arm64
-            runs-on: ubuntu-24.04-arm
-            gradle-task: buildGraalStaticMusl
 
     runs-on: ${{ matrix.runs-on }}
 
