@@ -16,7 +16,7 @@ jobs:
   prepare-engine:
     runs-on: ubuntu-latest
     outputs:
-      lib_version: ${{ steps.read_java_engine.java_version }}
+      lib_version: ${{ steps.read_java_engine.outputs.java_version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
