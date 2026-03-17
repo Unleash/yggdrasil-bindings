@@ -3,11 +3,12 @@ package io.getunleash.engine;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.Locale;
 
 final class LibNames {
   static String pickForCurrentOsArch() {
-    String os = System.getProperty("os.name").toLowerCase();
-    String arch = System.getProperty("os.arch").toLowerCase();
+    String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
+    String arch = System.getProperty("os.arch").toLowerCase(Locale.ROOT);
     if (os.contains("mac")) {
       return arch.contains("aarch64") || arch.contains("arm64")
           ? "libyggdrasilffi_arm64.dylib"
