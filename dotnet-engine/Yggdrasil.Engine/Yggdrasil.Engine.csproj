@@ -29,6 +29,7 @@
 
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <Compile Remove="YggdrasilJsonSerializerContext.cs" />
   </ItemGroup>
 
   <Target Name="YggdrasilPreBuild" BeforeTargets="Build" Condition="'$(Configuration)' == 'Debug'">
