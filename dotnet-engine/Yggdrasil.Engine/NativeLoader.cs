@@ -119,6 +119,9 @@ internal static class NativeLibLoader
 
     internal static IntPtr LoadFunctionPointer(IntPtr libHandle, string functionName)
     {
+#if NET8_0_OR_GREATER
+        return NativeLibrary.GetExport(libHandle, functionName);
+#else
         var nativeLibraryType = Type.GetType("System.Runtime.InteropServices.NativeLibrary, System.Runtime.InteropServices");
         if (nativeLibraryType != null)
         {
@@ -135,6 +138,7 @@ internal static class NativeLibLoader
             return GetProcAddress(libHandle, functionName);
         else
             return dlsym(libHandle, functionName);
+#endif
     }
 
     private static IntPtr LoadBinary(string libPath)
@@ -153,6 +157,9 @@ internal static class NativeLibLoader
 
     private static IntPtr LoadUnixLibrary(string libPath)
     {
+#if NET8_0_OR_GREATER
+        return NativeLibrary.Load(libPath);
+#else
         // Try NativeLibrary.Load (works on .NET Core 3+)
         var nativeLibraryType = Type.GetType("System.Runtime.InteropServices.NativeLibrary, System.Runtime.InteropServices");
         if (nativeLibraryType != null)
@@ -166,10 +173,14 @@ internal static class NativeLibLoader
             }
         }
         return dlopen(libPath, RTLD_NOW);
+#endif
     }
 
     private static IntPtr LoadWindowsLibrary(string libPath)
     {
+#if NET8_0_OR_GREATER
+        return NativeLibrary.Load(libPath);
+#else
         // Try NativeLibrary.Load (works on .NET Core 3+)
         var nativeLibraryType = Type.GetType("System.Runtime.InteropServices.NativeLibrary, System.Runtime.InteropServices");
         if (nativeLibraryType != null)
@@ -184,6 +195,7 @@ internal static class NativeLibLoader
         }
 
         return LoadLibrary(libPath);
+#endif
     }
 
     [DllImport("kernel32.dll", SetLastError = true)]
