@@ -108,7 +108,11 @@ public sealed class YggdrasilEngine : IDisposable
 
         var getStatePtr = FFI.GetState(state);
         var stateObject = ReadComplex<object>(getStatePtr);
+#if NET8_0_OR_GREATER
+        return JsonSerializer.Serialize(stateObject, YggdrasilJsonSerializerContext.Default.Object!);
+#else
         return JsonSerializer.Serialize(stateObject, jsonOptions);
+#endif
     }
 
     public Response IsEnabled(string toggleName, Context context)
@@ -244,7 +248,11 @@ public sealed class YggdrasilEngine : IDisposable
 
             if (json is null) return null;
 
+#if NET8_0_OR_GREATER
+            var engineResponse = (EngineResponse<TRead>?)JsonSerializer.Deserialize(json, YggdrasilJsonSerializerContext.Default.GetTypeInfo(typeof(EngineResponse<TRead>))!);
+#else
             var engineResponse = JsonSerializer.Deserialize<EngineResponse<TRead>>(json, jsonOptions);
+#endif
             if (engineResponse is null) return null;
 
             if (engineResponse.StatusCode == "Error")
