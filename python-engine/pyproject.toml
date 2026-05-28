@@ -17,7 +17,7 @@ python = "^3.8"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.3"
-tox = "^4.55.0"
+tox = "^4.0.0"
 
 [tool.poetry.build]
 generate-setup-file = false
