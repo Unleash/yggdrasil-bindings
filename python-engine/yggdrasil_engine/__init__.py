@@ -1,1 +1,1 @@
-__yggdrasil_core_version__ = "0.20.6"
+__yggdrasil_core_version__ = "0.21.3"
