@@ -32,10 +32,9 @@ git clone --depth 5 --branch v5.1.9 https://github.com/Unleash/client-specificat
 - [Ruby](ruby-engine/README.md)
 - [Python](python-engine/README.md)
 
-## Bumping Yggdrasil Core
+## Bumping the Yggdrasil Crate
 
-Use the release helper when updating the bundled Yggdrasil core version across
-the language bindings:
+Use the release helper when updating the dependency on the Yggdrasil crate:
 
 ```
 ./scripts/bump-yggdrasil-core.py 0.21.3 --dry-run
@@ -46,3 +45,12 @@ The script requires the target core version to be greater than the current
 highest core pin. It updates the Rust core pins, the Java/Python/Ruby/.NET
 native core metadata, and patch-bumps the Java, Python, Ruby, and .NET package
 versions.
+
+## Releasing Yggdrasil FFI
+
+The FFI release version is read from the `version` field in
+`yggdrasilffi/Cargo.toml`.
+
+1. Bump the package version in `yggdrasilffi/Cargo.toml`.
+2. Merge the change to `main`.
+3. Run the `Release FFI and Upload Binaries` GitHub Actions workflow.

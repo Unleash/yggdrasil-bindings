@@ -2,11 +2,6 @@ name: Release FFI and Upload Binaries
 
 on:
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "New semver version (e.g. 0.2.0)"
-        required: true
-        type: string
 
 jobs:
   create-tag-and-release:
@@ -33,7 +28,21 @@ jobs:
       - name: Set full tag name
         id: tag
         run: |
-          FULL_TAG="yggdrasilffi-v${{ inputs.tag }}"
+          VERSION=$(awk '
+            /^\[package\]$/ { in_package = 1; next }
+            /^\[/ && in_package { exit }
+            in_package && $1 == "version" {
+              gsub(/"/, "", $3)
+              print $3
+              exit
+            }
+          ' yggdrasilffi/Cargo.toml)
+          if [[ -z "$VERSION" || "$VERSION" == "null" ]]; then
+            echo "Could not read yggdrasilffi version from yggdrasilffi/Cargo.toml" >&2
+            exit 1
+          fi
+          FULL_TAG="yggdrasilffi-v$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "full_tag=$FULL_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Get latest matching tag

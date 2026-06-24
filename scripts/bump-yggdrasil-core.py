@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bump the Yggdrasil core version and patch wrapper package versions."""
+"""Bump the Yggdrasil dependency, FFI artifact, and wrapper package versions."""
 
 from __future__ import annotations
 
@@ -29,41 +29,52 @@ class VersionField:
     label: str
 
 
-CORE_FIELDS = [
+FFI_VERSION_FIELD = VersionField(
+    Path("yggdrasilffi/Cargo.toml"),
+    r'^(version\s*=\s*")([^"]+)(")$',
+    "Rust FFI package",
+)
+
+
+YGGDRASIL_DEP_FIELDS = [
     VersionField(
         Path("yggdrasilffi/Cargo.toml"),
         r'(unleash-yggdrasil\s*=\s*\{\s*version\s*=\s*")([^"]+)(")',
-        "Rust FFI core",
+        "Rust FFI Yggdrasil dependency",
     ),
     VersionField(
         Path("pure-wasm/Cargo.toml"),
         r'(unleash-yggdrasil\s*=\s*\{\s*version\s*=\s*")([^"]+)(")',
-        "Pure WASM core",
+        "Pure WASM Yggdrasil dependency",
     ),
     VersionField(
         Path("yggdrasilwasm/Cargo.toml"),
         r'(unleash-yggdrasil\s*=\s*\{\s*version\s*=\s*")([^"]+)(")',
-        "WASM core",
+        "WASM Yggdrasil dependency",
     ),
+]
+
+
+BINDING_ARTIFACT_FIELDS = [
     VersionField(
         Path("java-engine/gradle.properties"),
         r"^(yggdrasilCoreVersion=)(.+)()$",
-        "Java core",
+        "Java FFI artifact",
     ),
     VersionField(
         Path("python-engine/yggdrasil_engine/__init__.py"),
         r'^(__yggdrasil_core_version__\s*=\s*")([^"]+)(")$',
-        "Python core",
+        "Python FFI artifact",
     ),
     VersionField(
         Path("ruby-engine/yggdrasil-engine.gemspec"),
         r'^(  s\.metadata\["yggdrasil_core_version"\]\s*=\s*\')([^\']+)(\')$',
-        "Ruby core",
+        "Ruby FFI artifact",
     ),
     VersionField(
         Path("dotnet-engine/Yggdrasil.Engine/Yggdrasil.Engine.csproj"),
         r"^(\s*<YggdrasilCoreVersion>)([^<]+)(</YggdrasilCoreVersion>)$",
-        ".NET core",
+        ".NET FFI artifact",
     ),
 ]
 
@@ -148,24 +159,43 @@ def apply_replacements(replacements: list[Replacement]) -> None:
         full_path.write_text(text, encoding="utf-8")
 
 
-def plan(target_core_version: str) -> list[tuple[str, str, str]]:
-    parse_semver(target_core_version)
+def plan(target_yggdrasil_version: str) -> list[tuple[str, str, str]]:
+    target_yggdrasil = parse_semver(target_yggdrasil_version)
 
-    core_versions = {field.label: extract_version(field) for field in CORE_FIELDS}
-    for label, version in core_versions.items():
+    yggdrasil_versions = {
+        field.label: extract_version(field)
+        for field in YGGDRASIL_DEP_FIELDS
+    }
+    for version in yggdrasil_versions.values():
         parse_semver(version)
 
-    current_core_version = max(core_versions.values(), key=parse_semver)
-    if parse_semver(target_core_version) <= parse_semver(current_core_version):
+    current_yggdrasil_version = max(yggdrasil_versions.values(), key=parse_semver)
+    if target_yggdrasil <= parse_semver(current_yggdrasil_version):
         raise ValueError(
-            f"target core version {target_core_version} must be greater than "
-            f"current highest core version {current_core_version}"
+            f"target Yggdrasil version {target_yggdrasil_version} must be greater than "
+            f"current highest Yggdrasil dependency version {current_yggdrasil_version}"
         )
+
+    current_ffi_version = extract_version(FFI_VERSION_FIELD)
+    new_ffi_version = patch_bump(current_ffi_version)
 
     changes: list[tuple[str, str, str]] = []
     changes.extend(
-        (field.label, core_versions[field.label], target_core_version)
-        for field in CORE_FIELDS
+        (field.label, yggdrasil_versions[field.label], target_yggdrasil_version)
+        for field in YGGDRASIL_DEP_FIELDS
+    )
+    changes.append((FFI_VERSION_FIELD.label, current_ffi_version, new_ffi_version))
+
+    binding_versions = {
+        field.label: extract_version(field)
+        for field in BINDING_ARTIFACT_FIELDS
+    }
+    for version in binding_versions.values():
+        parse_semver(version)
+
+    changes.extend(
+        (field.label, binding_versions[field.label], new_ffi_version)
+        for field in BINDING_ARTIFACT_FIELDS
     )
 
     for field in PACKAGE_FIELDS:
@@ -178,10 +208,15 @@ def plan(target_core_version: str) -> list[tuple[str, str, str]]:
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Update Yggdrasil core pins and patch-bump Java, Python, Ruby, and .NET packages."
+            "Update the upstream Yggdrasil dependency, patch-bump yggdrasilffi, "
+            "point Java, Python, Ruby, and .NET at the new FFI artifact, and "
+            "patch-bump those package versions."
         )
     )
-    parser.add_argument("core_version", help="New unleash-yggdrasil core version, e.g. 0.21.3")
+    parser.add_argument(
+        "yggdrasil_version",
+        help="New unleash-yggdrasil dependency version, e.g. 0.21.3",
+    )
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -190,7 +225,7 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        changes = plan(args.core_version)
+        changes = plan(args.yggdrasil_version)
     except (RuntimeError, ValueError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
@@ -201,10 +236,16 @@ def main() -> int:
     if args.dry_run:
         return 0
 
+    new_ffi_version = patch_bump(extract_version(FFI_VERSION_FIELD))
     replacements = [
-        build_replacement(field, args.core_version)
-        for field in CORE_FIELDS
+        build_replacement(field, args.yggdrasil_version)
+        for field in YGGDRASIL_DEP_FIELDS
     ]
+    replacements.append(build_replacement(FFI_VERSION_FIELD, new_ffi_version))
+    replacements.extend(
+        build_replacement(field, new_ffi_version)
+        for field in BINDING_ARTIFACT_FIELDS
+    )
     replacements.extend(
         build_replacement(field, patch_bump(extract_version(field)))
         for field in PACKAGE_FIELDS
