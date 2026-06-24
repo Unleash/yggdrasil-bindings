@@ -2,53 +2,47 @@
 
 ![world tree image](worldtree.webp 'Title')
 
-##### One SDK core connecting all the realms of Unleash.
+##### Bindings for the Unleash Yggdrasil SDK core.
 
-Yggdrasil is a Rust project designed to create the core of the Unleash SDK domain logic in a single language (in this case Rust).
+This repository contains language bindings for the
+[Unleash Yggdrasil core](https://github.com/Unleash/yggdrasil). The core SDK
+domain logic lives in that project; this repository packages and exposes it for
+Java, .NET, Ruby, and Python.
 
-## Building the Core
+Language-specific build and test instructions live in each binding's README.
 
-Easy enough - run `cargo build --release` from the root of the project. You'll need an up to date set of Rust tools to do this.
+## Rust FFI
 
-To run the client specs, you'll first need to clone them:
-
-`git clone --depth 5 --branch v5.1.9 https://github.com/Unleash/client-specification.git client-specification`
-
-## Testing
-
-This will run whole test suite
+The shared Rust FFI layer can be built and tested from the repository root:
 
 ```
 cargo test
 ```
 
-## Node
-
-The Node core is a special case, this doesn't use FFI like the other SDKs, instead this compiles the core down to WASM.
-
-### Building
-
-You'll need to build the core first, once that's compiled, from the root of the `node-sdk` project, run `wasm-pack build`. Once that's built, navigate to `{root}/node-sdk/pkg` and run `npm link`, which should make the node package available. Finally, from `{root}/node-sdk/www` run
+To run the client specs, you'll first need to clone them:
 
 ```
-npm link node-sdk
-npm install
-npm start
+git clone --depth 5 --branch v5.1.9 https://github.com/Unleash/client-specification.git client-specification
 ```
 
-You can open a browser and head to `http://localhost:8080` and inspect the console to see the Unleash engine evaluate a toggle.
+## Language Bindings
 
-## Python
+- [Java](java-engine/README.md)
+- [.NET](dotnet-engine/README.md)
+- [Ruby](ruby-engine/README.md)
+- [Python](python-engine/README.md)
 
-The Python core uses [PyO3](https://pyo3.rs/v0.17.2/index.html) for its bindings.
+## Bumping Yggdrasil Core
 
-### Building
-
-Start by setting up and activating a virtual environment in the python-sdk folder:
+Use the release helper when updating the bundled Yggdrasil core version across
+the language bindings:
 
 ```
-python3 -m venv venv
-source venv/bin/activate
+./scripts/bump-yggdrasil-core.py 0.21.3 --dry-run
+./scripts/bump-yggdrasil-core.py 0.21.3
 ```
 
-Install [maturin](https://github.com/PyO3/maturin) by executing `pip install maturin` in your shell. Then you can run `maturin develop`.
+The script requires the target core version to be greater than the current
+highest core pin. It updates the Rust core pins, the Java/Python/Ruby/.NET
+native core metadata, and patch-bumps the Java, Python, Ruby, and .NET package
+versions.
