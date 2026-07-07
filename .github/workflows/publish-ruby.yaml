@@ -134,12 +134,18 @@ jobs:
   publish_gems:
     runs-on: ubuntu-latest
     needs: [build_single_binary_gems, build_jruby_gems]
+    permissions:
+      actions: read
+      id-token: write
     steps:
       - uses: actions/download-artifact@v4
         name: Download artifacts
         with:
           pattern: yggdrasil-engine-*
           path: gems
+
+      - name: Configure RubyGems credentials
+        uses: rubygems/configure-rubygems-credentials@main
 
       - name: Publish Gems
         run: |
@@ -148,8 +154,7 @@ jobs:
             echo "Pushing $gem_file..."
             gem push "$gem_file"
           done
-        env:
-          GEM_HOST_API_KEY: ${{ secrets.GEMS_PUBLISH_KEY }}
+
   tag_repo:
     runs-on: ubuntu-latest
     needs: [extract_versions, publish_gems]
