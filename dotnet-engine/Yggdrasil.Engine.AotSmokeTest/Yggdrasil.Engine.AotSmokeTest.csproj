@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+
+    <!--
+      Publish this app with Native AOT to guard against AOT/trimming regressions
+      in Yggdrasil.Engine. The trim/AOT analysers run whole-program analysis at
+      publish time and catch reflection-based serialization that a plain build
+      does not. Any warning they emit fails the publish.
+    -->
+    <PublishAot>true</PublishAot>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Yggdrasil.Engine\Yggdrasil.Engine.csproj" />
+  </ItemGroup>
+
+</Project>
