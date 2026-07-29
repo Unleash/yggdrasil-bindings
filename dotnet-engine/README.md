@@ -49,7 +49,7 @@ dotnet nuget add source ~/path/to/local/feed
 Now you can switch package source in package manager and import your locally published package to work with.
 
 ```bash
-dotnet add package Yggdrasil.Engine --prerelease
+dotnet add package Unleash.Yggdrasil --prerelease
 ```
 
 Whenever you update your package you should:
