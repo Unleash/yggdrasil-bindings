@@ -32,5 +32,5 @@ gem build yggdrasil-engine.gemspec
 Then you can install the gem for local development with:
 
 ```
-gem install yggdrasil-engine-0.0.1.gem
+gem install yggdrasil-engine-<version>.gem
 ```
