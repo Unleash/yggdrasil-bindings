@@ -2,7 +2,8 @@
 
 This project contains bindings for Yggdrasil that are suitable for compilation into a pure, standalone WebAssembly module. It’s designed for high portability and **does not require WASI**.
 
-See the [Yggdrasil Java Engine](../java-engine) for an example integration.
+> [!NOTE]
+> No binding in this repository currently mounts this module — it has no CI and is not published. The bindings that ship today use either the [FFI layer](../yggdrasilffi) or the [wasm-bindgen build](../yggdrasilwasm).
 
 ## Development
 
@@ -38,5 +39,3 @@ Yggdrasil requires a source of entropy for gradual rollout calculations. Since W
 ``` rust
 fn fill_random(ptr: *mut u8, len: usize) -> i32;
 ```
-
-An example implementation can be found in the [Java integration](../java-engine/src/main/java/io/getunleash/engine/WasmInterface.java).
