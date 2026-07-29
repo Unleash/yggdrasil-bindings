@@ -70,11 +70,6 @@ Java is the exception: its `fetchClientSpecification` Gradle task downloads and
 unpacks its own copy, pinned by `clientSpecificationVersion` in
 `java-engine/gradle.properties`. Running `./gradlew test` needs no manual clone.
 
-> [!WARNING]
-> CI does not pin a single specification version. Java, Python, Ruby and the Rust
-> workflow use `v6.1.0`; JavaScript uses `v5.2.2`; .NET uses `v5.1.9`. If a binding's
-> tests pass locally but fail in CI (or the reverse), check which version you cloned.
-
 ## Rust FFI
 
 The shared Rust FFI layer builds and tests from the repository root:
