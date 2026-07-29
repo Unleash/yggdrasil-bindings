@@ -185,13 +185,6 @@ Dispatch the relevant workflow: `Publish Java`, `Publish .NET`, `Publish Ruby`,
 `gh release download "yggdrasilffi-v$CORE_VERSION"` to fetch the binaries from
 stage 1, publishes to its registry, and tags the repo `<lang>-engine-v<version>`.
 
-Two exceptions worth knowing:
-
-- **JavaScript** takes its version as a `workflow_dispatch` input rather than
-  reading it from a file, and commits the bump back to the repo.
-- **Ruby** publishes through RubyGems trusted publishing (OIDC). The others
-  authenticate with API token secrets.
-
 ## CI
 
 | Workflow                       | File                       | Triggers on                                                          |
