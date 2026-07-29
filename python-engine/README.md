@@ -21,4 +21,6 @@ For local development, it can be convenient to have a shell to work in:
 
 ## Publish
 
-Publishing is done through Github. Ensure you've bumped the version in `yggdrasil-engine/__init__.py`. Note that yggdrasilCoreVersion in the same will, will determine what version of the native libraries are resolved for the build; the build does not work against the Rust source code directly.
+Publishing is done through Github, with the `Publish Python` workflow. Ensure you've bumped `version` in `pyproject.toml` first.
+
+Note that `__yggdrasil_core_version__` in `yggdrasil_engine/__init__.py` determines which version of the native libraries is resolved for the build; the build downloads prebuilt binaries from the corresponding `yggdrasilffi-v<version>` GitHub release and does not work against the Rust source code directly.
