@@ -127,6 +127,12 @@ version into those fields rather than the Yggdrasil core version.
 Local development is the exception — `build.sh` in each binding compiles the FFI
 from source and drops it where the tests expect it.
 
+But that's not necessarily the case for a given patch - these are intentionally cleaved 
+to allow the binding versions to evolve without needing a binary version increment. 
+For example, if you wanted to say... tweak the Python bindings public API to collapse
+a few functions into a single call, you would need to version the Python bindings as 
+a new major version but touching the FFI layers would be silly and unnecessary.
+
 ## Bumping the Yggdrasil crate
 
 Use the release helper when updating the dependency on the Yggdrasil crate:
