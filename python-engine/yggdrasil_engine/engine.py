@@ -41,15 +41,25 @@ class YggdrasilError(Exception):
 
 @dataclass
 class FeatureToggle:
-    """`FeatureToggle` is the result of querying if a feature is enabled.
-
-    `is_enabled` is the evaluated state of the toggle; `is_found` tells you whether
-    the engine knew about the toggle at all.
-    """
+    """`FeatureToggle` is the result of querying if a feature is enabled."""
 
     name: str
+    """The name of the toggle that was queried."""
+
     is_enabled: bool = False
+    """Whether the feature is enabled for the given context.
+
+    Defaults to `False` when the engine did not know the
+    toggle, or when evaluation failed and no fallback resolved a value.
+    """
+
     is_found: bool = False
+    """Whether the engine knew about the toggle at all.
+
+    `False` means the toggle was missing from the engine's state or evaluation
+    errored. That is distinct from a known toggle that evaluated to disabled,
+    which is `is_found=True, is_enabled=False`.
+    """
 
     def __bool__(self):
         raise TypeError(
