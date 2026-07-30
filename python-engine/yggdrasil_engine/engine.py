@@ -246,6 +246,9 @@ class UnleashEngine:
             return json.dumps(result.value)
 
     def is_enabled(self, toggle_name: str, context: dict) -> Optional[bool]:
+        return self._do_is_enabled(toggle_name, context)
+
+    def _do_is_enabled(self, toggle_name: str, context: dict) -> Optional[bool]:
         serialized_context = json.dumps(context or {})
         custom_strategy_results = json.dumps(
             self.custom_strategy_handler.evaluate_custom_strategies(
@@ -287,6 +290,9 @@ class UnleashEngine:
         self.custom_strategy_handler.register_custom_strategies(custom_strategies)
 
     def count_toggle(self, toggle_name: str, enabled: bool):
+        self._do_count_toggle(toggle_name, enabled)
+
+    def _do_count_toggle(self, toggle_name: str, enabled: bool):
         response_ptr = self.lib.count_toggle(
             self.state, toggle_name.encode("utf-8"), enabled
         )
