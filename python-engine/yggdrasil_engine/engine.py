@@ -1,5 +1,6 @@
 import ctypes
 import json
+import logging
 import os
 import platform
 from contextlib import contextmanager
@@ -25,6 +26,8 @@ def _get_binary_path():
 
 T = TypeVar("T")
 
+_logger = logging.getLogger(__name__)
+
 
 class StatusCode(Enum):
     OK = "Ok"
@@ -34,6 +37,26 @@ class StatusCode(Enum):
 
 class YggdrasilError(Exception):
     pass
+
+
+@dataclass
+class FeatureToggle:
+    """`FeatureToggle` is the result of querying if a feature is enabled.
+
+    `is_enabled` is the evaluated state of the toggle; `is_found` tells you whether
+    the engine knew about the toggle at all.
+    """
+
+    name: str
+    is_enabled: bool = False
+    is_found: bool = False
+
+    def __bool__(self):
+        raise TypeError(
+            f"FeatureToggle for {self.name!r} has no truth value. "
+            "Read .is_enabled to check whether the feature is enabled, "
+            "or .is_found to check whether the engine knew the toggle."
+        )
 
 
 @dataclass
@@ -250,16 +273,25 @@ class UnleashEngine:
         toggle_name: str,
         context: dict,
         *,
-        fallback_function: Optional[Callable[[str, dict], bool]] = None,
-    ) -> Optional[bool]:
-        status_code, value = self._do_is_enabled(toggle_name, context)
+        fallback_function: Optional[Callable[[str, dict], Any]] = None,
+    ) -> FeatureToggle:
+        try:
+            status_code, value = self._do_is_enabled(toggle_name, context)
+        except Exception:
+            _logger.warning(
+                "Failed to evaluate toggle %s, defaulting to disabled",
+                toggle_name,
+                exc_info=True,
+            )
+            status_code, value = StatusCode.ERROR, False
 
-        if status_code == StatusCode.NOT_FOUND and fallback_function is not None:
-            value = fallback_function(toggle_name, context)
+        if status_code != StatusCode.OK and fallback_function is not None:
+            value = self._resolve_fallback(fallback_function, toggle_name, context)
 
-        self.count_toggle(toggle_name, bool(value))
+        enabled = bool(value)
+        self.count_toggle(toggle_name, enabled)
 
-        return value
+        return FeatureToggle(toggle_name, enabled, status_code == StatusCode.OK)
 
     def get_variant(self, toggle_name: str, context: dict) -> Optional[Variant]:
         serialized_context = json.dumps(context or {})
@@ -428,6 +460,22 @@ class UnleashEngine:
             if response.status_code == StatusCode.ERROR:
                 raise YggdrasilError(response.error_message)
             return response.status_code, response.value
+
+    def _resolve_fallback(
+        self,
+        fallback_function: Callable[[str, dict], Any],
+        toggle_name: str,
+        context: dict,
+    ) -> bool:
+        try:
+            return bool(fallback_function(toggle_name, context))
+        except Exception:
+            _logger.warning(
+                "Fallback for toggle %s failed, defaulting to disabled",
+                toggle_name,
+                exc_info=True,
+            )
+            return False
 
     def _do_count_toggle(self, toggle_name: str, enabled: bool):
         response_ptr = self.lib.count_toggle(

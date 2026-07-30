@@ -1,7 +1,8 @@
 from dataclasses import asdict
 import json
 from unittest.mock import Mock
-from yggdrasil_engine.engine import UnleashEngine, Variant, FeatureDefinition, YggdrasilError
+import pytest
+from yggdrasil_engine.engine import UnleashEngine, Variant, FeatureToggle, FeatureDefinition, YggdrasilError
 import json
 import os
 
@@ -68,7 +69,7 @@ def test_client_spec():
             toggle_name = test["toggleName"]
             expected_result = test["expectedResult"]
 
-            result = unleash_engine.is_enabled(toggle_name, context) or False
+            result = unleash_engine.is_enabled(toggle_name, context).is_enabled or False
 
             assert (
                 result == expected_result
@@ -114,8 +115,8 @@ def test_custom_strategies_work_end_to_end():
         "Feature.A", {"betterThanSlicedBread": True}
     )
 
-    assert enabled_when_better == True
-    assert disabled_when_not_better == False
+    assert enabled_when_better.is_enabled is True
+    assert disabled_when_not_better.is_enabled is False
     assert should_be_sour_dough.name == "sourDough"
 
 
@@ -249,7 +250,8 @@ def test_is_enabled_ignores_callback_value_if_engine_responded():
         "testFeature", {}, fallback_function=lambda name, ctx: False
     )
 
-    assert result == True
+    assert result.is_enabled is True
+    assert result.is_found is True
 
 def test_is_enabled_returns_callback_value_if_engine_did_not_respond():
     engine = UnleashEngine()
@@ -258,7 +260,7 @@ def test_is_enabled_returns_callback_value_if_engine_did_not_respond():
         "nonExistentFeature", {}, fallback_function=lambda name, ctx: True
     )
 
-    assert result == True
+    assert result.is_enabled is True
 
 def _toggle_state(name: str, enabled: bool) -> str:
     return json.dumps(
@@ -278,7 +280,7 @@ def test_is_enabled_ignores_callback_value_when_engine_returns_false():
         "disabledFeature", {}, fallback_function=lambda name, ctx: True
     )
 
-    assert result == False
+    assert result.is_enabled is False
 
 def test_is_enabled_fallback_returning_false_is_respected():
     engine = UnleashEngine()
@@ -287,7 +289,7 @@ def test_is_enabled_fallback_returning_false_is_respected():
         "nonExistentFeature", {}, fallback_function=lambda name, ctx: False
     )
 
-    assert result == False
+    assert result.is_enabled is False
 
 def test_is_enabled_fallback_receives_toggle_name_and_context():
     engine = UnleashEngine()
@@ -319,14 +321,14 @@ def test_is_enabled_counts_fallback_resolved_value_not_raw_response():
     assert metrics["toggles"]["nonExistentFeature"]["yes"] == 1
     assert metrics["toggles"]["nonExistentFeature"].get("no", 0) == 0
 
-def test_is_enabled_returns_none_and_counts_no_when_toggle_missing_without_fallback():
+def test_is_enabled_reports_not_found_when_toggle_missing_without_fallback():
     engine = UnleashEngine()
 
     result = engine.is_enabled("nonExistentFeature", {})
 
     metrics = engine.get_metrics()
 
-    assert result is None
+    assert result == FeatureToggle("nonExistentFeature", is_enabled=False, is_found=False)
     assert metrics["toggles"]["nonExistentFeature"]["no"] == 1
 
 def test_is_enabled_counts_disabled_toggle_as_no():
@@ -339,6 +341,62 @@ def test_is_enabled_counts_disabled_toggle_as_no():
 
     assert metrics["toggles"]["disabledFeature"]["no"] == 1
     assert metrics["toggles"]["disabledFeature"].get("yes", 0) == 0
+
+def test_is_enabled_returns_feature_toggle_for_enabled_toggle():
+    engine = UnleashEngine()
+    engine.take_state(_toggle_state("testFeature", True))
+
+    result = engine.is_enabled("testFeature", {})
+
+    assert result == FeatureToggle("testFeature", is_enabled=True, is_found=True)
+
+def test_is_enabled_returns_found_feature_toggle_when_toggle_is_disabled():
+    engine = UnleashEngine()
+    engine.take_state(_toggle_state("disabledFeature", False))
+
+    result = engine.is_enabled("disabledFeature", {})
+
+    assert result == FeatureToggle("disabledFeature", is_enabled=False, is_found=True)
+
+def test_is_enabled_reports_not_found_when_fallback_resolves_value():
+    engine = UnleashEngine()
+
+    result = engine.is_enabled(
+        "nonExistentFeature", {}, fallback_function=lambda name, ctx: True
+    )
+
+    assert result.name == "nonExistentFeature"
+    assert result.is_enabled is True
+    assert result.is_found is False
+
+def test_is_enabled_names_the_queried_toggle():
+    engine = UnleashEngine()
+    engine.take_state(_toggle_state("testFeature", True))
+
+    assert engine.is_enabled("testFeature", {}).name == "testFeature"
+
+def test_is_enabled_coerces_fallback_value_to_bool():
+    engine = UnleashEngine()
+
+    result = engine.is_enabled(
+        "nonExistentFeature", {}, fallback_function=lambda name, ctx: "truthy"
+    )
+
+    assert result.is_enabled is True
+
+def test_feature_toggle_cannot_be_used_as_a_bool():
+    with pytest.raises(TypeError):
+        bool(FeatureToggle("testFeature", is_enabled=True, is_found=True))
+
+def test_is_enabled_result_cannot_be_used_as_a_bool():
+    engine = UnleashEngine()
+    engine.take_state(_toggle_state("testFeature", True))
+
+    result = engine.is_enabled("testFeature", {})
+
+    with pytest.raises(TypeError):
+        if result:
+            pass
 
 def test_is_enabled_accumulates_counts_across_multiple_calls():
     engine = UnleashEngine()
@@ -370,7 +428,7 @@ def test_is_enabled_accumulates_counts_across_multiple_calls():
     assert metrics["toggles"]["disabledFeature"]["no"] == 1
     assert metrics["toggles"]["disabledFeature"].get("yes", 0) == 0
 
-def test_is_enabled_does_not_count_when_engine_raises(monkeypatch):
+def test_is_enabled_returns_disabled_toggle_when_engine_errors(monkeypatch):
     engine = UnleashEngine()
     monkeypatch.setattr(
         engine,
@@ -378,20 +436,74 @@ def test_is_enabled_does_not_count_when_engine_raises(monkeypatch):
         Mock(side_effect=YggdrasilError("boom")),
     )
 
-    try:
-        engine.is_enabled("testFeature", {})
-        assert False, "expected YggdrasilError to be raised"
-    except YggdrasilError:
-        pass
+    result = engine.is_enabled("testFeature", {})
+
+    assert result == FeatureToggle("testFeature", is_enabled=False, is_found=False)
+
+def test_is_enabled_counts_no_when_engine_errors(monkeypatch):
+    engine = UnleashEngine()
+    monkeypatch.setattr(
+        engine,
+        "_do_is_enabled",
+        Mock(side_effect=YggdrasilError("boom")),
+    )
+
+    engine.is_enabled("testFeature", {})
 
     metrics = engine.get_metrics()
 
-    assert metrics is None or "testFeature" not in metrics.get("toggles", {})
+    assert metrics["toggles"]["testFeature"]["no"] == 1
+
+def test_is_enabled_does_not_raise_on_unexpected_engine_failure(monkeypatch):
+    engine = UnleashEngine()
+    monkeypatch.setattr(
+        engine,
+        "_do_is_enabled",
+        Mock(side_effect=RuntimeError("kaboom")),
+    )
+
+    result = engine.is_enabled("testFeature", {})
+
+    assert result.is_enabled is False
+    assert result.is_found is False
+
+def test_is_enabled_uses_fallback_when_engine_errors(monkeypatch):
+    engine = UnleashEngine()
+    monkeypatch.setattr(
+        engine,
+        "_do_is_enabled",
+        Mock(side_effect=YggdrasilError("boom")),
+    )
+
+    result = engine.is_enabled(
+        "testFeature", {}, fallback_function=lambda name, ctx: True
+    )
+
+    assert result.is_enabled is True
+    assert result.is_found is False
+
+def test_is_enabled_defaults_to_disabled_when_fallback_raises():
+    engine = UnleashEngine()
+
+    def exploding_fallback(name, ctx):
+        raise RuntimeError("bad fallback")
+
+    result = engine.is_enabled(
+        "nonExistentFeature", {}, fallback_function=exploding_fallback
+    )
+
+    metrics = engine.get_metrics()
+
+    assert result.is_enabled is False
+    assert result.is_found is False
+    assert metrics["toggles"]["nonExistentFeature"]["no"] == 1
 
 def test_is_enabled_fallback_function_must_be_passed_as_keyword():
     engine = UnleashEngine()
     engine.take_state(_toggle_state("testFeature", True))
 
+    ## This TypeError comes from binding the arguments, before any of the
+    ## never-raises handling inside is_enabled can run
     try:
         engine.is_enabled("testFeature", {}, lambda name, ctx: True)
         assert False, "expected TypeError for positional fallback_function"
