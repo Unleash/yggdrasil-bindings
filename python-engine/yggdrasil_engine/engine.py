@@ -261,25 +261,6 @@ class UnleashEngine:
 
         return value
 
-    def _do_is_enabled(self, toggle_name: str, context: dict):
-        serialized_context = json.dumps(context or {})
-        custom_strategy_results = json.dumps(
-            self.custom_strategy_handler.evaluate_custom_strategies(
-                toggle_name, context
-            )
-        )
-
-        response_ptr = self.lib.check_enabled(
-            self.state,
-            toggle_name.encode("utf-8"),
-            serialized_context.encode("utf-8"),
-            custom_strategy_results.encode("utf-8"),
-        )
-        with self.materialize_pointer(response_ptr, bool) as response:
-            if response.status_code == StatusCode.ERROR:
-                raise YggdrasilError(response.error_message)
-            return response.status_code, response.value
-
     def get_variant(self, toggle_name: str, context: dict) -> Optional[Variant]:
         serialized_context = json.dumps(context or {})
         custom_strategy_results = json.dumps(
@@ -304,12 +285,6 @@ class UnleashEngine:
 
     def count_toggle(self, toggle_name: str, enabled: bool):
         self._do_count_toggle(toggle_name, enabled)
-
-    def _do_count_toggle(self, toggle_name: str, enabled: bool):
-        response_ptr = self.lib.count_toggle(
-            self.state, toggle_name.encode("utf-8"), enabled
-        )
-        self.lib.free_response(response_ptr)
 
     def count_variant(self, toggle_name: str, variant_name: str):
         response_ptr = self.lib.count_variant(
@@ -434,3 +409,28 @@ class UnleashEngine:
         with self.materialize_pointer(response_ptr, type(None)) as response:
             if response.status_code == StatusCode.ERROR:
                 raise YggdrasilError(response.error_message)
+
+    def _do_is_enabled(self, toggle_name: str, context: dict):
+        serialized_context = json.dumps(context or {})
+        custom_strategy_results = json.dumps(
+            self.custom_strategy_handler.evaluate_custom_strategies(
+                toggle_name, context
+            )
+        )
+
+        response_ptr = self.lib.check_enabled(
+            self.state,
+            toggle_name.encode("utf-8"),
+            serialized_context.encode("utf-8"),
+            custom_strategy_results.encode("utf-8"),
+        )
+        with self.materialize_pointer(response_ptr, bool) as response:
+            if response.status_code == StatusCode.ERROR:
+                raise YggdrasilError(response.error_message)
+            return response.status_code, response.value
+
+    def _do_count_toggle(self, toggle_name: str, enabled: bool):
+        response_ptr = self.lib.count_toggle(
+            self.state, toggle_name.encode("utf-8"), enabled
+        )
+        self.lib.free_response(response_ptr)
