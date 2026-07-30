@@ -1,5 +1,6 @@
 import ctypes
 import json
+import logging
 import os
 import platform
 from contextlib import contextmanager
@@ -25,6 +26,8 @@ def _get_binary_path():
 
 T = TypeVar("T")
 
+_logger = logging.getLogger(__name__)
+
 
 class StatusCode(Enum):
     OK = "Ok"
@@ -34,6 +37,36 @@ class StatusCode(Enum):
 
 class YggdrasilError(Exception):
     pass
+
+
+@dataclass
+class FeatureToggle:
+    """`FeatureToggle` is the result of querying if a feature is enabled."""
+
+    name: str
+    """The name of the toggle that was queried."""
+
+    is_enabled: bool = False
+    """Whether the feature is enabled for the given context.
+
+    Defaults to `False` when the engine did not know the
+    toggle, or when evaluation failed and no fallback resolved a value.
+    """
+
+    is_found: bool = False
+    """Whether the engine knew about the toggle at all.
+
+    `False` means the toggle was missing from the engine's state or evaluation
+    errored. That is distinct from a known toggle that evaluated to disabled,
+    which is `is_found=True, is_enabled=False`.
+    """
+
+    def __bool__(self):
+        raise TypeError(
+            f"FeatureToggle for {self.name!r} has no truth value. "
+            "Read .is_enabled to check whether the feature is enabled, "
+            "or .is_found to check whether the engine knew the toggle."
+        )
 
 
 @dataclass
@@ -245,24 +278,30 @@ class UnleashEngine:
         with self.materialize_pointer(response_ptr, dict) as result:
             return json.dumps(result.value)
 
-    def is_enabled(self, toggle_name: str, context: dict) -> Optional[bool]:
-        serialized_context = json.dumps(context or {})
-        custom_strategy_results = json.dumps(
-            self.custom_strategy_handler.evaluate_custom_strategies(
-                toggle_name, context
+    def is_enabled(
+        self,
+        toggle_name: str,
+        context: dict,
+        *,
+        fallback_function: Optional[Callable[[str, dict], Any]] = None,
+    ) -> FeatureToggle:
+        try:
+            status_code, value = self._do_is_enabled(toggle_name, context)
+        except Exception:
+            _logger.warning(
+                "Failed to evaluate toggle %s, defaulting to disabled",
+                toggle_name,
+                exc_info=True,
             )
-        )
+            status_code, value = StatusCode.ERROR, False
 
-        response_ptr = self.lib.check_enabled(
-            self.state,
-            toggle_name.encode("utf-8"),
-            serialized_context.encode("utf-8"),
-            custom_strategy_results.encode("utf-8"),
-        )
-        with self.materialize_pointer(response_ptr, bool) as response:
-            if response.status_code == StatusCode.ERROR:
-                raise YggdrasilError(response.error_message)
-            return response.value
+        if status_code != StatusCode.OK and fallback_function is not None:
+            value = self._resolve_fallback(fallback_function, toggle_name, context)
+
+        enabled = bool(value)
+        self.count_toggle(toggle_name, enabled)
+
+        return FeatureToggle(toggle_name, enabled, status_code == StatusCode.OK)
 
     def get_variant(self, toggle_name: str, context: dict) -> Optional[Variant]:
         serialized_context = json.dumps(context or {})
@@ -291,6 +330,7 @@ class UnleashEngine:
             self.state, toggle_name.encode("utf-8"), enabled
         )
         self.lib.free_response(response_ptr)
+
 
     def count_variant(self, toggle_name: str, variant_name: str):
         response_ptr = self.lib.count_variant(
@@ -415,3 +455,38 @@ class UnleashEngine:
         with self.materialize_pointer(response_ptr, type(None)) as response:
             if response.status_code == StatusCode.ERROR:
                 raise YggdrasilError(response.error_message)
+
+    def _do_is_enabled(self, toggle_name: str, context: dict):
+        serialized_context = json.dumps(context or {})
+        custom_strategy_results = json.dumps(
+            self.custom_strategy_handler.evaluate_custom_strategies(
+                toggle_name, context
+            )
+        )
+
+        response_ptr = self.lib.check_enabled(
+            self.state,
+            toggle_name.encode("utf-8"),
+            serialized_context.encode("utf-8"),
+            custom_strategy_results.encode("utf-8"),
+        )
+        with self.materialize_pointer(response_ptr, bool) as response:
+            if response.status_code == StatusCode.ERROR:
+                raise YggdrasilError(response.error_message)
+            return response.status_code, response.value
+
+    def _resolve_fallback(
+        self,
+        fallback_function: Callable[[str, dict], Any],
+        toggle_name: str,
+        context: dict,
+    ) -> bool:
+        try:
+            return bool(fallback_function(toggle_name, context))
+        except Exception:
+            _logger.warning(
+                "Fallback for toggle %s failed, defaulting to disabled",
+                toggle_name,
+                exc_info=True,
+            )
+            return False
