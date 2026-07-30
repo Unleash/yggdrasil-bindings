@@ -326,7 +326,11 @@ class UnleashEngine:
         self.custom_strategy_handler.register_custom_strategies(custom_strategies)
 
     def count_toggle(self, toggle_name: str, enabled: bool):
-        self._do_count_toggle(toggle_name, enabled)
+        response_ptr = self.lib.count_toggle(
+            self.state, toggle_name.encode("utf-8"), enabled
+        )
+        self.lib.free_response(response_ptr)
+
 
     def count_variant(self, toggle_name: str, variant_name: str):
         response_ptr = self.lib.count_variant(
@@ -486,9 +490,3 @@ class UnleashEngine:
                 exc_info=True,
             )
             return False
-
-    def _do_count_toggle(self, toggle_name: str, enabled: bool):
-        response_ptr = self.lib.count_toggle(
-            self.state, toggle_name.encode("utf-8"), enabled
-        )
-        self.lib.free_response(response_ptr)
