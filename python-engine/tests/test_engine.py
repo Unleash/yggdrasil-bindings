@@ -455,7 +455,7 @@ def test_is_enabled_returns_disabled_toggle_when_engine_errors(monkeypatch):
 
     assert result == FeatureToggle("testFeature", is_enabled=False, is_found=False)
 
-def test_is_enabled_counts_no_when_engine_errors(monkeypatch):
+def test_is_enabled_does_not_count_the_toggle_when_engine_errors(monkeypatch):
     engine = UnleashEngine()
     monkeypatch.setattr(
         engine,
@@ -465,9 +465,8 @@ def test_is_enabled_counts_no_when_engine_errors(monkeypatch):
 
     engine.is_enabled("testFeature", {})
 
-    metrics = engine.get_metrics()
-
-    assert metrics["toggles"]["testFeature"]["no"] == 1
+    ## Nothing after the raise is attempted, so there is nothing to count
+    assert engine.get_metrics() is None
 
 def test_is_enabled_does_not_raise_on_unexpected_engine_failure(monkeypatch):
     engine = UnleashEngine()
@@ -482,19 +481,19 @@ def test_is_enabled_does_not_raise_on_unexpected_engine_failure(monkeypatch):
     assert result.is_enabled is False
     assert result.is_found is False
 
-def test_is_enabled_uses_fallback_when_engine_errors(monkeypatch):
+def test_is_enabled_does_not_use_the_fallback_when_engine_errors(monkeypatch):
     engine = UnleashEngine()
     monkeypatch.setattr(
         engine,
         "_do_is_enabled",
         Mock(side_effect=YggdrasilError("boom")),
     )
+    fallback = Mock(return_value=True)
 
-    result = engine.is_enabled(
-        "testFeature", {}, fallback_function=lambda name, ctx: True
-    )
+    result = engine.is_enabled("testFeature", {}, fallback_function=fallback)
 
-    assert result.is_enabled is True
+    fallback.assert_not_called()
+    assert result.is_enabled is False
     assert result.is_found is False
 
 def test_is_enabled_defaults_to_disabled_when_fallback_raises():
@@ -507,11 +506,10 @@ def test_is_enabled_defaults_to_disabled_when_fallback_raises():
         "nonExistentFeature", {}, fallback_function=exploding_fallback
     )
 
-    metrics = engine.get_metrics()
-
     assert result.is_enabled is False
     assert result.is_found is False
-    assert metrics["toggles"]["nonExistentFeature"]["no"] == 1
+    ## A raising fallback leaves no usable value, so there is nothing to count
+    assert engine.get_metrics() is None
 
 def test_is_enabled_fallback_function_must_be_passed_as_keyword():
     engine = UnleashEngine()
@@ -782,7 +780,7 @@ def test_is_enabled_asks_the_engine_when_a_fallback_resolves_the_value(monkeypat
     assert result.is_found is False
     assert result.requires_impression_event_emission is False
 
-def test_is_enabled_asks_the_engine_when_evaluation_errors(monkeypatch):
+def test_is_enabled_does_not_ask_for_impression_data_when_evaluation_errors(monkeypatch):
     engine = UnleashEngine()
     monkeypatch.setattr(
         engine,
@@ -794,8 +792,9 @@ def test_is_enabled_asks_the_engine_when_evaluation_errors(monkeypatch):
 
     result = engine.is_enabled("testFeature", {})
 
-    should_emit.assert_called_once_with("testFeature")
-    assert result.requires_impression_event_emission is True
+    ## Without an evaluation there is nothing to emit an impression event about
+    should_emit.assert_not_called()
+    assert result.requires_impression_event_emission is False
 
 def test_is_enabled_defaults_impression_event_to_false_when_lookup_errors(monkeypatch):
     engine = UnleashEngine()
@@ -845,3 +844,42 @@ def test_is_enabled_still_counts_the_toggle_when_impression_lookup_fails(monkeyp
 
     assert result.requires_impression_event_emission is False
     assert metrics["toggles"]["testFeature"]["yes"] == 1
+
+def test_is_enabled_returns_the_evaluation_when_counting_fails(monkeypatch):
+    engine = UnleashEngine()
+    engine.take_state(_impression_state("testFeature", True, True))
+    monkeypatch.setattr(
+        engine, "count_toggle", Mock(side_effect=YggdrasilError("boom"))
+    )
+
+    result = engine.is_enabled("testFeature", {})
+
+    ## A metrics failure must not discard an evaluation that already succeeded
+    assert result.is_enabled is True
+    assert result.is_found is True
+
+def test_is_enabled_does_not_raise_on_unexpected_counting_failure(monkeypatch):
+    engine = UnleashEngine()
+    engine.take_state(_impression_state("testFeature", True, True))
+    monkeypatch.setattr(
+        engine, "count_toggle", Mock(side_effect=RuntimeError("kaboom"))
+    )
+
+    result = engine.is_enabled("testFeature", {})
+
+    assert result.is_enabled is True
+    assert result.is_found is True
+
+def test_is_enabled_does_not_ask_for_impression_data_when_counting_fails(monkeypatch):
+    engine = UnleashEngine()
+    engine.take_state(_impression_state("testFeature", True, True))
+    monkeypatch.setattr(
+        engine, "count_toggle", Mock(side_effect=YggdrasilError("boom"))
+    )
+    should_emit = Mock(return_value=True)
+    monkeypatch.setattr(engine, "should_emit_impression_event", should_emit)
+
+    result = engine.is_enabled("testFeature", {})
+
+    should_emit.assert_not_called()
+    assert result.requires_impression_event_emission is False

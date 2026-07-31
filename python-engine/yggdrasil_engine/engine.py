@@ -49,8 +49,8 @@ class FeatureToggle:
     is_enabled: bool = False
     """Whether the feature is enabled for the given context.
 
-    Defaults to `False` when the engine did not know the
-    toggle, or when evaluation failed and no fallback resolved a value.
+    Defaults to `False` when the engine did not know the toggle and no fallback
+    resolved a value, or when the evaluation failed.
     """
 
     is_found: bool = False
@@ -68,7 +68,9 @@ class FeatureToggle:
     the engine is the source of whether a toggle has the publication of
     impression events enabled.
     
-    `False` means that the SDK should not emit impression events."""
+    `False` means that the SDK should not emit impression events. It also means
+    the engine could not be asked, either because the lookup itself failed or
+    because an earlier step of the evaluation did."""
 
     def __bool__(self):
         raise TypeError(
@@ -294,19 +296,28 @@ class UnleashEngine:
         *,
         fallback_function: Optional[Callable[[str, dict], Any]] = None,
     ) -> FeatureToggle:
-        status_code, value = self._try_do_is_enabled(toggle_name, context)
+        result = FeatureToggle(toggle_name)
+        try:
+            status_code, value = self._do_is_enabled(toggle_name, context)
 
-        if status_code != StatusCode.OK and fallback_function is not None:
-            value = self._try_fallback_function(fallback_function, toggle_name, context)
+            if status_code != StatusCode.OK and fallback_function is not None:
+                value = fallback_function(toggle_name, context)
 
-        emits_impression_event = self._try_should_emit_impression_event(toggle_name)
+            enabled = bool(value)
+            result = FeatureToggle(toggle_name, enabled, status_code == StatusCode.OK)
 
-        enabled = bool(value)
-        self.count_toggle(toggle_name, enabled)
-
-        return FeatureToggle(
-            toggle_name, enabled, status_code == StatusCode.OK, emits_impression_event
-        )
+            self.count_toggle(toggle_name, enabled)
+            result.requires_impression_event_emission = bool(
+                self.should_emit_impression_event(toggle_name)
+            )
+        except Exception:
+            _logger.warning(
+                "Failed to fully evaluate toggle %s, returning %s",
+                toggle_name,
+                result,
+                exc_info=True,
+            )
+        return result
 
     def get_variant(self, toggle_name: str, context: dict) -> Optional[Variant]:
         serialized_context = json.dumps(context or {})
@@ -479,42 +490,3 @@ class UnleashEngine:
             if response.status_code == StatusCode.ERROR:
                 raise YggdrasilError(response.error_message)
             return response.status_code, response.value
-
-    def _try_do_is_enabled(self, toggle_name: str, context: dict):
-        try:
-            return self._do_is_enabled(toggle_name, context)
-        except Exception:
-            _logger.warning(
-                "Failed to evaluate toggle %s, defaulting to disabled",
-                toggle_name,
-                exc_info=True,
-            )
-            return StatusCode.ERROR, False
-
-    def _try_fallback_function(
-        self,
-        fallback_function: Callable[[str, dict], Any],
-        toggle_name: str,
-        context: dict,
-    ) -> bool:
-        try:
-            return bool(fallback_function(toggle_name, context))
-        except Exception:
-            _logger.warning(
-                "Fallback for toggle %s failed, defaulting to disabled",
-                toggle_name,
-                exc_info=True,
-            )
-            return False
-
-    def _try_should_emit_impression_event(self, toggle_name: str) -> bool:
-        try:
-            return bool(self.should_emit_impression_event(toggle_name))
-        except Exception:
-            _logger.warning(
-                "Failed to read impression data for toggle %s, "
-                "defaulting to no impression event",
-                toggle_name,
-                exc_info=True,
-            )
-            return False
