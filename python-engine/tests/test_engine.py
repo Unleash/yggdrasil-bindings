@@ -672,7 +672,7 @@ def test_restore_impact_metrics():
 
 
 def test_feature_toggle_defaults_to_no_impression_event():
-    assert FeatureToggle("testFeature").calls_for_impression_event_emission is False
+    assert FeatureToggle("testFeature").requires_impression_event_emission is False
 
 def test_feature_toggle_equality_includes_impression_event_flag():
     calls_for_emission = FeatureToggle("testFeature", True, True, True)
@@ -686,7 +686,7 @@ def test_is_enabled_reports_impression_event_when_toggle_has_impression_data():
 
     result = engine.is_enabled("testFeature", {})
 
-    assert result.calls_for_impression_event_emission is True
+    assert result.requires_impression_event_emission is True
 
 def test_is_enabled_does_not_report_impression_event_without_impression_data():
     engine = UnleashEngine()
@@ -694,7 +694,7 @@ def test_is_enabled_does_not_report_impression_event_without_impression_data():
 
     result = engine.is_enabled("testFeature", {})
 
-    assert result.calls_for_impression_event_emission is False
+    assert result.requires_impression_event_emission is False
 
 def test_is_enabled_reports_impression_event_for_disabled_toggle():
     engine = UnleashEngine()
@@ -705,7 +705,7 @@ def test_is_enabled_reports_impression_event_for_disabled_toggle():
     ## Impression events are emitted for disabled evaluations too, so the
     ## lookup must not be gated on the evaluation result
     assert result.is_enabled is False
-    assert result.calls_for_impression_event_emission is True
+    assert result.requires_impression_event_emission is True
 
 def test_is_enabled_does_not_report_impression_event_for_unknown_toggle():
     engine = UnleashEngine()
@@ -713,7 +713,7 @@ def test_is_enabled_does_not_report_impression_event_for_unknown_toggle():
     result = engine.is_enabled("nonExistentFeature", {})
 
     assert result.is_found is False
-    assert result.calls_for_impression_event_emission is False
+    assert result.requires_impression_event_emission is False
 
 def test_is_enabled_returns_the_engines_impression_event_answer(monkeypatch):
     engine = UnleashEngine()
@@ -725,7 +725,7 @@ def test_is_enabled_returns_the_engines_impression_event_answer(monkeypatch):
     result = engine.is_enabled("testFeature", {})
 
     ## The state carries no impressionData, so a True here can only come from the engine
-    assert result.calls_for_impression_event_emission is True
+    assert result.requires_impression_event_emission is True
 
 def test_is_enabled_returns_the_engines_impression_event_denial(monkeypatch):
     engine = UnleashEngine()
@@ -736,7 +736,7 @@ def test_is_enabled_returns_the_engines_impression_event_denial(monkeypatch):
 
     result = engine.is_enabled("testFeature", {})
 
-    assert result.calls_for_impression_event_emission is False
+    assert result.requires_impression_event_emission is False
 
 def test_is_enabled_asks_the_engine_for_the_queried_toggle(monkeypatch):
     engine = UnleashEngine()
@@ -757,7 +757,7 @@ def test_is_enabled_coerces_impression_event_flag_to_bool(monkeypatch):
 
     result = engine.is_enabled("testFeature", {})
 
-    assert result.calls_for_impression_event_emission is False
+    assert result.requires_impression_event_emission is False
 
 def test_is_enabled_asks_the_engine_even_when_toggle_is_unknown(monkeypatch):
     engine = UnleashEngine()
@@ -780,7 +780,7 @@ def test_is_enabled_asks_the_engine_when_a_fallback_resolves_the_value(monkeypat
     should_emit.assert_called_once_with("nonExistentFeature")
     assert result.is_enabled is True
     assert result.is_found is False
-    assert result.calls_for_impression_event_emission is False
+    assert result.requires_impression_event_emission is False
 
 def test_is_enabled_asks_the_engine_when_evaluation_errors(monkeypatch):
     engine = UnleashEngine()
@@ -795,7 +795,7 @@ def test_is_enabled_asks_the_engine_when_evaluation_errors(monkeypatch):
     result = engine.is_enabled("testFeature", {})
 
     should_emit.assert_called_once_with("testFeature")
-    assert result.calls_for_impression_event_emission is True
+    assert result.requires_impression_event_emission is True
 
 def test_is_enabled_defaults_impression_event_to_false_when_lookup_errors(monkeypatch):
     engine = UnleashEngine()
@@ -809,7 +809,7 @@ def test_is_enabled_defaults_impression_event_to_false_when_lookup_errors(monkey
     result = engine.is_enabled("testFeature", {})
 
     ## A failing impression lookup must not disturb the evaluation itself
-    assert result.calls_for_impression_event_emission is False
+    assert result.requires_impression_event_emission is False
     assert result.is_enabled is True
     assert result.is_found is True
 
@@ -826,7 +826,7 @@ def test_is_enabled_defaults_impression_event_to_false_on_unexpected_lookup_fail
 
     result = engine.is_enabled("testFeature", {})
 
-    assert result.calls_for_impression_event_emission is False
+    assert result.requires_impression_event_emission is False
     assert result.is_enabled is True
     assert result.is_found is True
 
@@ -843,5 +843,5 @@ def test_is_enabled_still_counts_the_toggle_when_impression_lookup_fails(monkeyp
 
     metrics = engine.get_metrics()
 
-    assert result.calls_for_impression_event_emission is False
+    assert result.requires_impression_event_emission is False
     assert metrics["toggles"]["testFeature"]["yes"] == 1

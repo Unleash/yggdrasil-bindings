@@ -61,7 +61,7 @@ class FeatureToggle:
     which is `is_found=True, is_enabled=False`.
     """
 
-    calls_for_impression_event_emission: bool = False
+    requires_impression_event_emission: bool = False
     """Whether the engine expects its caller to emit an impression event.
     
     These bindings are not concerned with the publishing itself. However,
