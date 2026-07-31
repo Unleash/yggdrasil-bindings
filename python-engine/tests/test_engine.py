@@ -343,7 +343,7 @@ def test_is_enabled_reports_not_found_when_toggle_missing_without_fallback():
 
     metrics = engine.get_metrics()
 
-    assert result == FeatureToggle("nonExistentFeature", is_enabled=False, is_found=False)
+    assert result == FeatureToggle(name="nonExistentFeature", is_enabled=False, is_found=False)
     assert metrics["toggles"]["nonExistentFeature"]["no"] == 1
 
 def test_is_enabled_counts_disabled_toggle_as_no():
@@ -363,7 +363,7 @@ def test_is_enabled_returns_feature_toggle_for_enabled_toggle():
 
     result = engine.is_enabled("testFeature", {})
 
-    assert result == FeatureToggle("testFeature", is_enabled=True, is_found=True)
+    assert result == FeatureToggle(name="testFeature", is_enabled=True, is_found=True)
 
 def test_is_enabled_returns_found_feature_toggle_when_toggle_is_disabled():
     engine = UnleashEngine()
@@ -371,7 +371,7 @@ def test_is_enabled_returns_found_feature_toggle_when_toggle_is_disabled():
 
     result = engine.is_enabled("disabledFeature", {})
 
-    assert result == FeatureToggle("disabledFeature", is_enabled=False, is_found=True)
+    assert result == FeatureToggle(name="disabledFeature", is_enabled=False, is_found=True)
 
 def test_is_enabled_reports_not_found_when_fallback_resolves_value():
     engine = UnleashEngine()
@@ -401,7 +401,7 @@ def test_is_enabled_coerces_fallback_value_to_bool():
 
 def test_feature_toggle_cannot_be_used_as_a_bool():
     with pytest.raises(TypeError):
-        bool(FeatureToggle("testFeature", is_enabled=True, is_found=True))
+        bool(FeatureToggle(name="testFeature", is_enabled=True, is_found=True))
 
 def test_is_enabled_result_cannot_be_used_as_a_bool():
     engine = UnleashEngine()
@@ -453,7 +453,7 @@ def test_is_enabled_returns_disabled_toggle_when_engine_errors(monkeypatch):
 
     result = engine.is_enabled("testFeature", {})
 
-    assert result == FeatureToggle("testFeature", is_enabled=False, is_found=False)
+    assert result == FeatureToggle(name="testFeature", is_enabled=False, is_found=False)
 
 def test_is_enabled_does_not_count_the_toggle_when_engine_errors(monkeypatch):
     engine = UnleashEngine()
@@ -670,11 +670,25 @@ def test_restore_impact_metrics():
 
 
 def test_feature_toggle_defaults_to_no_impression_event():
-    assert FeatureToggle("testFeature").requires_impression_event_emission is False
+    assert FeatureToggle(name="testFeature").requires_impression_event_emission is False
+
+def test_feature_toggle_rejects_positional_arguments():
+    with pytest.raises(TypeError):
+        FeatureToggle("testFeature")
 
 def test_feature_toggle_equality_includes_impression_event_flag():
-    calls_for_emission = FeatureToggle("testFeature", True, True, True)
-    does_not_call_for_emission = FeatureToggle("testFeature", True, True, False)
+    calls_for_emission = FeatureToggle(
+        name="testFeature",
+        is_enabled=True,
+        is_found=True,
+        requires_impression_event_emission=True,
+    )
+    does_not_call_for_emission = FeatureToggle(
+        name="testFeature",
+        is_enabled=True,
+        is_found=True,
+        requires_impression_event_emission=False,
+    )
 
     assert calls_for_emission != does_not_call_for_emission
 

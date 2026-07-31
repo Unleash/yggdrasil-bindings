@@ -39,7 +39,7 @@ class YggdrasilError(Exception):
     pass
 
 
-@dataclass
+@dataclass(init=False)
 class FeatureToggle:
     """`FeatureToggle` is the result of querying if a feature is enabled."""
 
@@ -71,6 +71,19 @@ class FeatureToggle:
     `False` means that the SDK should not emit impression events. It also means
     the engine could not be asked, either because the lookup itself failed or
     because an earlier step of the evaluation did."""
+
+    def __init__(
+        self,
+        *,
+        name: str,
+        is_enabled: bool = False,
+        is_found: bool = False,
+        requires_impression_event_emission: bool = False,
+    ):
+        self.name = name
+        self.is_enabled = is_enabled
+        self.is_found = is_found
+        self.requires_impression_event_emission = requires_impression_event_emission
 
     def __bool__(self):
         raise TypeError(
@@ -296,7 +309,7 @@ class UnleashEngine:
         *,
         fallback_function: Optional[Callable[[str, dict], Any]] = None,
     ) -> FeatureToggle:
-        result = FeatureToggle(toggle_name)
+        result = FeatureToggle(name=toggle_name)
         try:
             status_code, value = self._do_is_enabled(toggle_name, context)
 
@@ -304,7 +317,7 @@ class UnleashEngine:
                 value = fallback_function(toggle_name, context)
 
             enabled = bool(value)
-            result = FeatureToggle(toggle_name, enabled, status_code == StatusCode.OK)
+            result = FeatureToggle(name=toggle_name, is_enabled=enabled, is_found=status_code == StatusCode.OK)
 
             self.count_toggle(toggle_name, enabled)
             result.requires_impression_event_emission = bool(
