@@ -61,6 +61,15 @@ class FeatureToggle:
     which is `is_found=True, is_enabled=False`.
     """
 
+    calls_for_impression_event_emission: bool = False
+    """Whether the engine expects its caller to emit an impression event.
+    
+    These bindings are not concerned with the publishing itself. However,
+    the engine is the source of whether a toggle has the publication of
+    impression events enabled.
+    
+    `False` means that the SDK should not emit impression events."""
+
     def __bool__(self):
         raise TypeError(
             f"FeatureToggle for {self.name!r} has no truth value. "
@@ -285,23 +294,19 @@ class UnleashEngine:
         *,
         fallback_function: Optional[Callable[[str, dict], Any]] = None,
     ) -> FeatureToggle:
-        try:
-            status_code, value = self._do_is_enabled(toggle_name, context)
-        except Exception:
-            _logger.warning(
-                "Failed to evaluate toggle %s, defaulting to disabled",
-                toggle_name,
-                exc_info=True,
-            )
-            status_code, value = StatusCode.ERROR, False
+        status_code, value = self._try_do_is_enabled(toggle_name, context)
 
         if status_code != StatusCode.OK and fallback_function is not None:
-            value = self._resolve_fallback(fallback_function, toggle_name, context)
+            value = self._try_fallback_function(fallback_function, toggle_name, context)
+
+        emits_impression_event = self._try_should_emit_impression_event(toggle_name)
 
         enabled = bool(value)
         self.count_toggle(toggle_name, enabled)
 
-        return FeatureToggle(toggle_name, enabled, status_code == StatusCode.OK)
+        return FeatureToggle(
+            toggle_name, enabled, status_code == StatusCode.OK, emits_impression_event
+        )
 
     def get_variant(self, toggle_name: str, context: dict) -> Optional[Variant]:
         serialized_context = json.dumps(context or {})
@@ -475,7 +480,18 @@ class UnleashEngine:
                 raise YggdrasilError(response.error_message)
             return response.status_code, response.value
 
-    def _resolve_fallback(
+    def _try_do_is_enabled(self, toggle_name: str, context: dict):
+        try:
+            return self._do_is_enabled(toggle_name, context)
+        except Exception:
+            _logger.warning(
+                "Failed to evaluate toggle %s, defaulting to disabled",
+                toggle_name,
+                exc_info=True,
+            )
+            return StatusCode.ERROR, False
+
+    def _try_fallback_function(
         self,
         fallback_function: Callable[[str, dict], Any],
         toggle_name: str,
@@ -486,6 +502,18 @@ class UnleashEngine:
         except Exception:
             _logger.warning(
                 "Fallback for toggle %s failed, defaulting to disabled",
+                toggle_name,
+                exc_info=True,
+            )
+            return False
+
+    def _try_should_emit_impression_event(self, toggle_name: str) -> bool:
+        try:
+            return bool(self.should_emit_impression_event(toggle_name))
+        except Exception:
+            _logger.warning(
+                "Failed to read impression data for toggle %s, "
+                "defaulting to no impression event",
                 toggle_name,
                 exc_info=True,
             )
