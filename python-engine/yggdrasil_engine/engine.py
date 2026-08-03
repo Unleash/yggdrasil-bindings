@@ -39,7 +39,7 @@ class YggdrasilError(Exception):
     pass
 
 
-@dataclass
+@dataclass(init=False)
 class FeatureToggle:
     """`FeatureToggle` is the result of querying if a feature is enabled."""
 
@@ -49,8 +49,8 @@ class FeatureToggle:
     is_enabled: bool = False
     """Whether the feature is enabled for the given context.
 
-    Defaults to `False` when the engine did not know the
-    toggle, or when evaluation failed and no fallback resolved a value.
+    Defaults to `False` when the engine did not know the toggle and no fallback
+    resolved a value, or when the evaluation failed.
     """
 
     is_found: bool = False
@@ -60,6 +60,30 @@ class FeatureToggle:
     errored. That is distinct from a known toggle that evaluated to disabled,
     which is `is_found=True, is_enabled=False`.
     """
+
+    requires_impression_event_emission: bool = False
+    """Whether the engine expects its caller to emit an impression event.
+    
+    These bindings are not concerned with the publishing itself. However,
+    the engine is the source of whether a toggle has the publication of
+    impression events enabled.
+    
+    `False` means that the SDK should not emit impression events. It also means
+    the engine could not be asked, either because the lookup itself failed or
+    because an earlier step of the evaluation did."""
+
+    def __init__(
+        self,
+        *,
+        name: str,
+        is_enabled: bool = False,
+        is_found: bool = False,
+        requires_impression_event_emission: bool = False,
+    ):
+        self.name = name
+        self.is_enabled = is_enabled
+        self.is_found = is_found
+        self.requires_impression_event_emission = requires_impression_event_emission
 
     def __bool__(self):
         raise TypeError(
@@ -285,23 +309,28 @@ class UnleashEngine:
         *,
         fallback_function: Optional[Callable[[str, dict], Any]] = None,
     ) -> FeatureToggle:
+        result = FeatureToggle(name=toggle_name)
         try:
             status_code, value = self._do_is_enabled(toggle_name, context)
+
+            if status_code != StatusCode.OK and fallback_function is not None:
+                value = fallback_function(toggle_name, context)
+
+            enabled = bool(value)
+            result = FeatureToggle(name=toggle_name, is_enabled=enabled, is_found=status_code == StatusCode.OK)
+
+            self.count_toggle(toggle_name, enabled)
+            result.requires_impression_event_emission = bool(
+                self.should_emit_impression_event(toggle_name)
+            )
         except Exception:
             _logger.warning(
-                "Failed to evaluate toggle %s, defaulting to disabled",
+                "Failed to fully evaluate toggle %s, returning %s",
                 toggle_name,
+                result,
                 exc_info=True,
             )
-            status_code, value = StatusCode.ERROR, False
-
-        if status_code != StatusCode.OK and fallback_function is not None:
-            value = self._resolve_fallback(fallback_function, toggle_name, context)
-
-        enabled = bool(value)
-        self.count_toggle(toggle_name, enabled)
-
-        return FeatureToggle(toggle_name, enabled, status_code == StatusCode.OK)
+        return result
 
     def get_variant(self, toggle_name: str, context: dict) -> Optional[Variant]:
         serialized_context = json.dumps(context or {})
@@ -474,19 +503,3 @@ class UnleashEngine:
             if response.status_code == StatusCode.ERROR:
                 raise YggdrasilError(response.error_message)
             return response.status_code, response.value
-
-    def _resolve_fallback(
-        self,
-        fallback_function: Callable[[str, dict], Any],
-        toggle_name: str,
-        context: dict,
-    ) -> bool:
-        try:
-            return bool(fallback_function(toggle_name, context))
-        except Exception:
-            _logger.warning(
-                "Fallback for toggle %s failed, defaulting to disabled",
-                toggle_name,
-                exc_info=True,
-            )
-            return False
