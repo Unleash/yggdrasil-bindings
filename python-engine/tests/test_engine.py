@@ -105,7 +105,7 @@ def test_custom_strategies_work_end_to_end():
 
     class BreadStrategy:
         def apply(self, _parameters, context):
-            return context.get("betterThanSlicedBread") == True
+            return context.get("betterThanSlicedBread") is True
 
     engine.register_custom_strategies({"breadStrategy": BreadStrategy()})
     engine.take_state(CUSTOM_STRATEGY_STATE)
