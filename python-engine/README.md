@@ -15,9 +15,18 @@ To run tests:
 
 ```poetry run pytest```
 
-For local development, it can be convenient to have a shell to work in:
+For local development, it can be convenient to have a shell to work in. On Poetry 2.0 and later this
+lives in the [shell plugin](https://github.com/python-poetry/poetry-plugin-shell):
 
 ```poetry shell```
+
+## Lint and format
+
+``` sh
+make install     # install dev dependencies
+make format      # apply black and ruff autofixes
+make lint        # check formatting, lint, and types
+```
 
 ## Publish
 
