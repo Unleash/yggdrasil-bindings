@@ -1,5 +1,6 @@
-from yggdrasil_engine.custom_strategy import CustomStrategyHandler
 import pytest
+
+from yggdrasil_engine.custom_strategy import CustomStrategyHandler
 
 RAW_STATE = """
 {

@@ -4,9 +4,10 @@ import logging
 import os
 import platform
 from contextlib import contextmanager
-from enum import Enum
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Type, TypeVar, cast
+
 from yggdrasil_engine.custom_strategy import CustomStrategyHandler
 
 
@@ -63,11 +64,11 @@ class FeatureToggle:
 
     requires_impression_event_emission: bool = False
     """Whether the engine expects its caller to emit an impression event.
-    
+
     These bindings are not concerned with the publishing itself. However,
     the engine is the source of whether a toggle has the publication of
     impression events enabled.
-    
+
     `False` means that the SDK should not emit impression events. It also means
     the engine could not be asked, either because the lookup itself failed or
     because an earlier step of the evaluation did."""
@@ -317,7 +318,11 @@ class UnleashEngine:
                 value = fallback_function(toggle_name, context)
 
             enabled = bool(value)
-            result = FeatureToggle(name=toggle_name, is_enabled=enabled, is_found=status_code == StatusCode.OK)
+            result = FeatureToggle(
+                name=toggle_name,
+                is_enabled=enabled,
+                is_found=status_code == StatusCode.OK,
+            )
 
             self.count_toggle(toggle_name, enabled)
             result.requires_impression_event_emission = bool(
@@ -359,7 +364,6 @@ class UnleashEngine:
             self.state, toggle_name.encode("utf-8"), enabled
         )
         self.lib.free_response(response_ptr)
-
 
     def count_variant(self, toggle_name: str, variant_name: str):
         response_ptr = self.lib.count_variant(
@@ -460,7 +464,9 @@ class UnleashEngine:
     def define_histogram(
         self, name: str, help_text: str, buckets: Optional[List[float]] = None
     ) -> None:
-        buckets_json = json.dumps(buckets if buckets is not None else []).encode("utf-8")
+        buckets_json = json.dumps(buckets if buckets is not None else []).encode(
+            "utf-8"
+        )
         response_ptr = self.lib.define_histogram(
             self.state,
             name.encode("utf-8"),

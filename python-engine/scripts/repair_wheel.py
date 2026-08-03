@@ -1,5 +1,5 @@
-import os
 import glob
+import os
 import sysconfig
 import zipfile
 
@@ -17,7 +17,7 @@ for whl in wheels:
     new_path = os.path.join("staging", new_name)
 
     with zipfile.ZipFile(old_path) as old_zip_file:
-        with zipfile.ZipFile(new_path, 'a') as new_zip_file:
+        with zipfile.ZipFile(new_path, "a") as new_zip_file:
             for item in old_zip_file.namelist():
 
                 if item.endswith(".dist-info/WHEEL"):
