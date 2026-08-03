@@ -4,7 +4,7 @@ import logging
 import os
 import platform
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Type, TypeVar, cast
 
@@ -108,6 +108,73 @@ class Variant:
             payload=data.get("payload"),
             enabled=data.get("enabled", False),
             feature_enabled=data.get("featureEnabled", False),
+        )
+
+
+DISABLED_VARIANT = Variant(
+    name="disabled", payload=None, enabled=False, feature_enabled=False
+)
+"""The variant the engine falls back to when no variant could be resolved.
+
+`payload` is `None` rather than an empty dict so that it drops out of
+serialization, matching what the engine itself hands back."""
+
+
+@dataclass(init=False)
+class FeatureVariant:
+    """`FeatureVariant` is the result of querying which variant a feature resolves to."""
+
+    name: str
+    """The name of the toggle that was queried."""
+
+    variant: Variant
+    """The variant the toggle resolved to for the given context.
+
+    Defaults to the disabled variant when the engine did not know the toggle,
+    or when the evaluation failed. Note that a known toggle can resolve to a
+    variant that looks exactly like it, so read `is_found` to tell the two
+    apart.
+    """
+
+    is_found: bool = False
+    """Whether the engine knew about the toggle at all.
+
+    `False` means the toggle was missing from the engine's state or evaluation
+    errored. That is distinct from a known toggle that resolved to the disabled
+    variant, which is `is_found=True`.
+    """
+
+    requires_impression_event_emission: bool = False
+    """Whether the engine expects its caller to emit an impression event.
+
+    These bindings are not concerned with the publishing itself. However,
+    the engine is the source of whether a toggle has the publication of
+    impression events enabled.
+
+    `False` means that the SDK should not emit impression events. It also means
+    the engine could not be asked, either because the lookup itself failed or
+    because an earlier step of the evaluation did."""
+
+    def __init__(
+        self,
+        *,
+        name: str,
+        variant: Optional[Variant] = None,
+        is_found: bool = False,
+        requires_impression_event_emission: bool = False,
+    ):
+        self.name = name
+        ## `Variant` is mutable, so every default gets its own copy; sharing one
+        ## would let a caller poison later results and the constant itself
+        self.variant = replace(DISABLED_VARIANT) if variant is None else variant
+        self.is_found = is_found
+        self.requires_impression_event_emission = requires_impression_event_emission
+
+    def __bool__(self):
+        raise TypeError(
+            f"FeatureVariant for {self.name!r} has no truth value. "
+            "Read .variant to get the variant the feature resolved to, "
+            "or .is_found to check whether the engine knew the toggle."
         )
 
 
@@ -337,24 +404,31 @@ class UnleashEngine:
             )
         return result
 
-    def get_variant(self, toggle_name: str, context: dict) -> Optional[Variant]:
-        serialized_context = json.dumps(context or {})
-        custom_strategy_results = json.dumps(
-            self.custom_strategy_handler.evaluate_custom_strategies(
-                toggle_name, context
-            )
-        )
+    def get_variant(self, toggle_name: str, context: dict) -> FeatureVariant:
+        result = FeatureVariant(name=toggle_name)
+        try:
+            status_code, value = self._do_get_variant(toggle_name, context)
 
-        response_ptr = self.lib.check_variant(
-            self.state,
-            toggle_name.encode("utf-8"),
-            serialized_context.encode("utf-8"),
-            custom_strategy_results.encode("utf-8"),
-        )
-        with self.materialize_pointer(response_ptr, Variant) as response:
-            if response.status_code == StatusCode.ERROR:
-                raise YggdrasilError(response.error_message)
-            return response.value
+            variant = replace(DISABLED_VARIANT) if value is None else value
+            result = FeatureVariant(
+                name=toggle_name,
+                variant=variant,
+                is_found=status_code == StatusCode.OK,
+            )
+
+            self.count_variant(toggle_name, variant.name)
+            self.count_toggle(toggle_name, variant.feature_enabled)
+            result.requires_impression_event_emission = bool(
+                self.should_emit_impression_event(toggle_name)
+            )
+        except Exception:
+            _logger.warning(
+                "Failed to fully evaluate variant for toggle %s, returning %s",
+                toggle_name,
+                result,
+                exc_info=True,
+            )
+        return result
 
     def register_custom_strategies(self, custom_strategies: dict):
         self.custom_strategy_handler.register_custom_strategies(custom_strategies)
@@ -506,6 +580,25 @@ class UnleashEngine:
             custom_strategy_results.encode("utf-8"),
         )
         with self.materialize_pointer(response_ptr, bool) as response:
+            if response.status_code == StatusCode.ERROR:
+                raise YggdrasilError(response.error_message)
+            return response.status_code, response.value
+
+    def _do_get_variant(self, toggle_name: str, context: dict):
+        serialized_context = json.dumps(context or {})
+        custom_strategy_results = json.dumps(
+            self.custom_strategy_handler.evaluate_custom_strategies(
+                toggle_name, context
+            )
+        )
+
+        response_ptr = self.lib.check_variant(
+            self.state,
+            toggle_name.encode("utf-8"),
+            serialized_context.encode("utf-8"),
+            custom_strategy_results.encode("utf-8"),
+        )
+        with self.materialize_pointer(response_ptr, Variant) as response:
             if response.status_code == StatusCode.ERROR:
                 raise YggdrasilError(response.error_message)
             return response.status_code, response.value

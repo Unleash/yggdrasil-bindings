@@ -6,8 +6,10 @@ from unittest.mock import Mock
 import pytest
 
 from yggdrasil_engine.engine import (
+    DISABLED_VARIANT,
     FeatureDefinition,
     FeatureToggle,
+    FeatureVariant,
     UnleashEngine,
     Variant,
     YggdrasilError,
@@ -53,7 +55,11 @@ def test_get_variant_does_not_crash():
         toggle_name = "testToggle"
 
         unleash_engine.take_state(json.dumps(state))
-        print(unleash_engine.get_variant(toggle_name, context))
+        result = unleash_engine.get_variant(toggle_name, context)
+
+        ## simple.json does not carry testToggle, so this exercises the
+        ## substituted disabled variant against a real state file
+        assert result == FeatureVariant(name="testToggle")
 
 
 def test_client_spec():
@@ -86,14 +92,12 @@ def test_client_spec():
             toggle_name = test["toggleName"]
             expected_result = test["expectedResult"]
 
-            result = unleash_engine.get_variant(toggle_name, context) or Variant(
-                "disabled", None, False, False
-            )
+            result = unleash_engine.get_variant(toggle_name, context)
 
             ## We get away with this right now because the casing in the spec tests for feature_enabled
             ## is snake_case. At some point this is going to change to camel case and this is going to break
             expected_json = json.dumps(expected_result)
-            actual_json = json.dumps(variant_to_dict(result))
+            actual_json = json.dumps(variant_to_dict(result.variant))
 
             assert expected_json == actual_json, (
                 f"Failed test '{test['description']}': expected {expected_json}, got {actual_json}"
@@ -123,7 +127,8 @@ def test_custom_strategies_work_end_to_end():
 
     assert enabled_when_better.is_enabled is True
     assert disabled_when_not_better.is_enabled is False
-    assert should_be_sour_dough.name == "sourDough"
+    assert should_be_sour_dough.variant.name == "sourDough"
+    assert should_be_sour_dough.is_found is True
 
 
 def test_increments_counts_for_yes_no_and_variants():
@@ -307,6 +312,44 @@ def _impression_state(name: str, enabled: bool, impression_data: bool) -> str:
                     "name": name,
                     "enabled": enabled,
                     "strategies": [{"name": "default"}],
+                    "impressionData": impression_data,
+                }
+            ],
+        }
+    )
+
+
+def _variant_state(name: str, enabled: bool, variant_name: str, payload=None) -> str:
+    return json.dumps(
+        {
+            "version": 1,
+            "features": [
+                {
+                    "name": name,
+                    "enabled": enabled,
+                    "strategies": [{"name": "default"}],
+                    ## A single variant at full weight makes resolution deterministic
+                    "variants": [
+                        {"name": variant_name, "weight": 100, "payload": payload}
+                    ],
+                }
+            ],
+        }
+    )
+
+
+def _variant_impression_state(
+    name: str, enabled: bool, variant_name: str, impression_data: bool
+) -> str:
+    return json.dumps(
+        {
+            "version": 1,
+            "features": [
+                {
+                    "name": name,
+                    "enabled": enabled,
+                    "strategies": [{"name": "default"}],
+                    "variants": [{"name": variant_name, "weight": 100}],
                     "impressionData": impression_data,
                 }
             ],
@@ -988,3 +1031,566 @@ def test_is_enabled_does_not_ask_for_impression_data_when_counting_fails(monkeyp
 
     should_emit.assert_not_called()
     assert result.requires_impression_event_emission is False
+
+
+def test_disabled_variant_is_the_engines_disabled_variant():
+    ## The payload is None rather than {} so that it drops out of serialization
+    assert DISABLED_VARIANT == Variant(
+        name="disabled", payload=None, enabled=False, feature_enabled=False
+    )
+
+
+def test_feature_variant_defaults_to_the_disabled_variant():
+    assert FeatureVariant(name="testFeature").variant == DISABLED_VARIANT
+
+
+def test_feature_variant_defaults_to_not_found():
+    assert FeatureVariant(name="testFeature").is_found is False
+
+
+def test_feature_variant_defaults_to_no_impression_event():
+    assert (
+        FeatureVariant(name="testFeature").requires_impression_event_emission is False
+    )
+
+
+def test_feature_variant_rejects_positional_arguments():
+    with pytest.raises(TypeError):
+        FeatureVariant("testFeature")
+
+
+def test_feature_variant_cannot_be_used_as_a_bool():
+    with pytest.raises(TypeError):
+        bool(FeatureVariant(name="testFeature"))
+
+
+def test_feature_variant_equality_includes_the_resolved_variant():
+    sour_dough = FeatureVariant(
+        name="Feature.A",
+        variant=Variant("sourDough", None, True, True),
+        is_found=True,
+    )
+    rye = FeatureVariant(
+        name="Feature.A",
+        variant=Variant("rye", None, True, True),
+        is_found=True,
+    )
+
+    assert sour_dough != rye
+
+
+def test_feature_variant_equality_includes_impression_event_flag():
+    calls_for_emission = FeatureVariant(
+        name="Feature.A",
+        variant=Variant("sourDough", None, True, True),
+        is_found=True,
+        requires_impression_event_emission=True,
+    )
+    does_not_call_for_emission = FeatureVariant(
+        name="Feature.A",
+        variant=Variant("sourDough", None, True, True),
+        is_found=True,
+        requires_impression_event_emission=False,
+    )
+
+    assert calls_for_emission != does_not_call_for_emission
+
+
+def test_feature_variant_defaults_do_not_share_one_variant_instance():
+    first = FeatureVariant(name="firstFeature")
+    second = FeatureVariant(name="secondFeature")
+
+    first.variant.name = "mutated"
+
+    ## Variant is mutable, so handing every default the same object would let one
+    ## caller poison every later result and the module constant itself
+    assert second.variant.name == "disabled"
+    assert DISABLED_VARIANT.name == "disabled"
+
+
+def test_get_variant_returns_the_resolved_variant_for_an_enabled_toggle():
+    engine = UnleashEngine()
+    engine.take_state(
+        _variant_state(
+            "testFeature", True, "sourDough", {"type": "string", "value": "crusty"}
+        )
+    )
+
+    result = engine.get_variant("testFeature", {})
+
+    assert result == FeatureVariant(
+        name="testFeature",
+        variant=Variant(
+            name="sourDough",
+            payload={"type": "string", "value": "crusty"},
+            enabled=True,
+            feature_enabled=True,
+        ),
+        is_found=True,
+    )
+
+
+def test_get_variant_names_the_queried_toggle():
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+
+    assert engine.get_variant("testFeature", {}).name == "testFeature"
+
+
+def test_get_variant_reports_found_for_an_enabled_toggle_without_variants():
+    engine = UnleashEngine()
+    engine.take_state(_toggle_state("testFeature", True))
+
+    result = engine.get_variant("testFeature", {})
+
+    assert result.is_found is True
+    assert result.variant == Variant(
+        name="disabled", payload=None, enabled=False, feature_enabled=True
+    )
+
+
+def test_get_variant_reports_found_for_a_known_but_disabled_toggle():
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("disabledFeature", False, "sourDough"))
+
+    result = engine.get_variant("disabledFeature", {})
+
+    ## A disabled toggle resolves to a variant that looks exactly like the
+    ## substituted one, so is_found must come from the engine's status code
+    assert result.variant == DISABLED_VARIANT
+    assert result.is_found is True
+
+
+def test_get_variant_resolves_the_variant_for_the_given_context():
+    engine = UnleashEngine()
+    state = {
+        "version": 1,
+        "features": [
+            {
+                "name": "testFeature",
+                "enabled": True,
+                "strategies": [{"name": "default"}],
+                "variants": [
+                    {"name": "sourDough", "weight": 100},
+                    {
+                        "name": "rye",
+                        "weight": 0,
+                        "overrides": [{"contextName": "userId", "values": ["123"]}],
+                    },
+                ],
+            }
+        ],
+    }
+    engine.take_state(json.dumps(state))
+
+    result = engine.get_variant("testFeature", {"userId": "123"})
+
+    ## Only the override can select the zero-weight variant, so this can only
+    ## hold if the context reached the engine
+    assert result.variant.name == "rye"
+
+
+def test_get_variant_result_cannot_be_used_as_a_bool():
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+
+    result = engine.get_variant("testFeature", {})
+
+    with pytest.raises(TypeError):
+        if result:
+            pass
+
+
+def test_get_variant_does_not_accept_a_fallback_function():
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+
+    ## Unlike is_enabled, there is no user supplied fallback; the disabled
+    ## variant is the only substitution
+    with pytest.raises(TypeError):
+        engine.get_variant("testFeature", {}, fallback_function=lambda name, ctx: None)
+
+
+def test_get_variant_returns_the_disabled_variant_for_an_unknown_toggle():
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+
+    result = engine.get_variant("nonExistentFeature", {})
+
+    assert result == FeatureVariant(name="nonExistentFeature")
+
+
+def test_get_variant_returns_the_disabled_variant_when_the_engine_has_no_state():
+    engine = UnleashEngine()
+
+    result = engine.get_variant("nonExistentFeature", {})
+
+    assert result.variant == DISABLED_VARIANT
+    assert result.is_found is False
+
+
+def test_get_variant_counts_the_resolved_variant():
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+
+    engine.get_variant("testFeature", {})
+
+    metrics = engine.get_metrics()
+
+    assert metrics["toggles"]["testFeature"]["variants"]["sourDough"] == 1
+
+
+def test_get_variant_counts_an_enabled_toggle_as_yes():
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+
+    engine.get_variant("testFeature", {})
+
+    metrics = engine.get_metrics()
+
+    assert metrics["toggles"]["testFeature"]["yes"] == 1
+    assert metrics["toggles"]["testFeature"].get("no", 0) == 0
+
+
+def test_get_variant_counts_a_disabled_toggle_as_no():
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("disabledFeature", False, "sourDough"))
+
+    engine.get_variant("disabledFeature", {})
+
+    metrics = engine.get_metrics()
+
+    assert metrics["toggles"]["disabledFeature"]["no"] == 1
+    assert metrics["toggles"]["disabledFeature"].get("yes", 0) == 0
+
+
+def test_get_variant_counts_an_enabled_toggle_without_variants_as_yes():
+    engine = UnleashEngine()
+    engine.take_state(_toggle_state("testFeature", True))
+
+    engine.get_variant("testFeature", {})
+
+    metrics = engine.get_metrics()
+
+    ## The variant is disabled but the feature is not, so the toggle count
+    ## follows feature_enabled rather than the variant's own enabled flag
+    assert metrics["toggles"]["testFeature"]["variants"]["disabled"] == 1
+    assert metrics["toggles"]["testFeature"]["yes"] == 1
+
+
+def test_get_variant_counts_the_substituted_disabled_variant_for_an_unknown_toggle():
+    engine = UnleashEngine()
+
+    engine.get_variant("nonExistentFeature", {})
+
+    metrics = engine.get_metrics()
+
+    assert metrics["toggles"]["nonExistentFeature"]["variants"]["disabled"] == 1
+
+
+def test_get_variant_counts_an_unknown_toggle_as_no():
+    engine = UnleashEngine()
+
+    engine.get_variant("nonExistentFeature", {})
+
+    metrics = engine.get_metrics()
+
+    assert metrics["toggles"]["nonExistentFeature"]["no"] == 1
+    assert metrics["toggles"]["nonExistentFeature"].get("yes", 0) == 0
+
+
+def test_get_variant_accumulates_counts_across_multiple_calls():
+    engine = UnleashEngine()
+    state = {
+        "version": 1,
+        "features": [
+            {
+                "name": "enabledFeature",
+                "enabled": True,
+                "strategies": [{"name": "default"}],
+                "variants": [{"name": "sourDough", "weight": 100}],
+            },
+            {
+                "name": "disabledFeature",
+                "enabled": False,
+                "strategies": [{"name": "default"}],
+                "variants": [{"name": "rye", "weight": 100}],
+            },
+        ],
+    }
+    engine.take_state(json.dumps(state))
+
+    engine.get_variant("enabledFeature", {})
+    engine.get_variant("enabledFeature", {})
+    engine.get_variant("disabledFeature", {})
+
+    metrics = engine.get_metrics()
+
+    assert metrics["toggles"]["enabledFeature"]["variants"]["sourDough"] == 2
+    assert metrics["toggles"]["enabledFeature"]["yes"] == 2
+    assert metrics["toggles"]["disabledFeature"]["variants"]["disabled"] == 1
+    assert metrics["toggles"]["disabledFeature"]["no"] == 1
+
+
+def test_get_variant_reports_impression_event_when_toggle_has_impression_data():
+    engine = UnleashEngine()
+    engine.take_state(_variant_impression_state("testFeature", True, "sourDough", True))
+
+    result = engine.get_variant("testFeature", {})
+
+    assert result.requires_impression_event_emission is True
+
+
+def test_get_variant_does_not_report_impression_event_without_impression_data():
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+
+    result = engine.get_variant("testFeature", {})
+
+    assert result.requires_impression_event_emission is False
+
+
+def test_get_variant_reports_impression_event_for_a_disabled_toggle():
+    engine = UnleashEngine()
+    engine.take_state(
+        _variant_impression_state("disabledFeature", False, "sourDough", True)
+    )
+
+    result = engine.get_variant("disabledFeature", {})
+
+    ## Impression events are emitted for disabled evaluations too, so the
+    ## lookup must not be gated on the resolved variant
+    assert result.variant == DISABLED_VARIANT
+    assert result.requires_impression_event_emission is True
+
+
+def test_get_variant_does_not_report_impression_event_for_unknown_toggle():
+    engine = UnleashEngine()
+
+    result = engine.get_variant("nonExistentFeature", {})
+
+    assert result.is_found is False
+    assert result.requires_impression_event_emission is False
+
+
+def test_get_variant_asks_the_engine_for_the_queried_toggle(monkeypatch):
+    engine = UnleashEngine()
+    engine.take_state(_variant_impression_state("testFeature", True, "sourDough", True))
+    should_emit = Mock(return_value=True)
+    monkeypatch.setattr(engine, "should_emit_impression_event", should_emit)
+
+    engine.get_variant("testFeature", {})
+
+    should_emit.assert_called_once_with("testFeature")
+
+
+def test_get_variant_asks_the_engine_even_when_toggle_is_unknown(monkeypatch):
+    engine = UnleashEngine()
+    should_emit = Mock(return_value=False)
+    monkeypatch.setattr(engine, "should_emit_impression_event", should_emit)
+
+    engine.get_variant("nonExistentFeature", {})
+
+    should_emit.assert_called_once_with("nonExistentFeature")
+
+
+def test_get_variant_returns_the_engines_impression_event_answer(monkeypatch):
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+    monkeypatch.setattr(engine, "should_emit_impression_event", Mock(return_value=True))
+
+    result = engine.get_variant("testFeature", {})
+
+    ## The state carries no impressionData, so a True here can only come from the engine
+    assert result.requires_impression_event_emission is True
+
+
+def test_get_variant_returns_the_engines_impression_event_denial(monkeypatch):
+    engine = UnleashEngine()
+    engine.take_state(_variant_impression_state("testFeature", True, "sourDough", True))
+    monkeypatch.setattr(
+        engine, "should_emit_impression_event", Mock(return_value=False)
+    )
+
+    result = engine.get_variant("testFeature", {})
+
+    assert result.requires_impression_event_emission is False
+
+
+def test_get_variant_coerces_impression_event_flag_to_bool(monkeypatch):
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+    monkeypatch.setattr(engine, "should_emit_impression_event", Mock(return_value=None))
+
+    result = engine.get_variant("testFeature", {})
+
+    assert result.requires_impression_event_emission is False
+
+
+def test_get_variant_returns_the_disabled_variant_when_engine_errors(monkeypatch):
+    engine = UnleashEngine()
+    monkeypatch.setattr(
+        engine,
+        "_do_get_variant",
+        Mock(side_effect=YggdrasilError("boom")),
+    )
+
+    result = engine.get_variant("testFeature", {})
+
+    assert result == FeatureVariant(name="testFeature")
+
+
+def test_get_variant_does_not_count_when_engine_errors(monkeypatch):
+    engine = UnleashEngine()
+    monkeypatch.setattr(
+        engine,
+        "_do_get_variant",
+        Mock(side_effect=YggdrasilError("boom")),
+    )
+
+    engine.get_variant("testFeature", {})
+
+    ## Nothing after the raise is attempted, so there is nothing to count
+    assert engine.get_metrics() is None
+
+
+def test_get_variant_does_not_raise_on_unexpected_engine_failure(monkeypatch):
+    engine = UnleashEngine()
+    monkeypatch.setattr(
+        engine,
+        "_do_get_variant",
+        Mock(side_effect=RuntimeError("kaboom")),
+    )
+
+    result = engine.get_variant("testFeature", {})
+
+    assert result.variant == DISABLED_VARIANT
+    assert result.is_found is False
+
+
+def test_get_variant_does_not_ask_for_impression_data_when_evaluation_errors(
+    monkeypatch,
+):
+    engine = UnleashEngine()
+    monkeypatch.setattr(
+        engine,
+        "_do_get_variant",
+        Mock(side_effect=YggdrasilError("boom")),
+    )
+    should_emit = Mock(return_value=True)
+    monkeypatch.setattr(engine, "should_emit_impression_event", should_emit)
+
+    result = engine.get_variant("testFeature", {})
+
+    ## Without an evaluation there is nothing to emit an impression event about
+    should_emit.assert_not_called()
+    assert result.requires_impression_event_emission is False
+
+
+def test_get_variant_defaults_impression_event_to_false_when_lookup_errors(monkeypatch):
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+    monkeypatch.setattr(
+        engine,
+        "should_emit_impression_event",
+        Mock(side_effect=YggdrasilError("boom")),
+    )
+
+    result = engine.get_variant("testFeature", {})
+
+    ## A failing impression lookup must not disturb the evaluation itself
+    assert result.requires_impression_event_emission is False
+    assert result.variant.name == "sourDough"
+    assert result.is_found is True
+
+
+def test_get_variant_defaults_impression_event_to_false_on_unexpected_lookup_failure(
+    monkeypatch,
+):
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+    monkeypatch.setattr(
+        engine,
+        "should_emit_impression_event",
+        Mock(side_effect=RuntimeError("kaboom")),
+    )
+
+    result = engine.get_variant("testFeature", {})
+
+    assert result.requires_impression_event_emission is False
+    assert result.variant.name == "sourDough"
+    assert result.is_found is True
+
+
+def test_get_variant_still_counts_when_impression_lookup_fails(monkeypatch):
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+    monkeypatch.setattr(
+        engine,
+        "should_emit_impression_event",
+        Mock(side_effect=YggdrasilError("boom")),
+    )
+
+    result = engine.get_variant("testFeature", {})
+
+    metrics = engine.get_metrics()
+
+    ## Both counts land before the impression lookup is attempted
+    assert result.requires_impression_event_emission is False
+    assert metrics["toggles"]["testFeature"]["variants"]["sourDough"] == 1
+    assert metrics["toggles"]["testFeature"]["yes"] == 1
+
+
+def test_get_variant_returns_the_evaluation_when_counting_fails(monkeypatch):
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+    monkeypatch.setattr(
+        engine, "count_variant", Mock(side_effect=YggdrasilError("boom"))
+    )
+
+    result = engine.get_variant("testFeature", {})
+
+    ## A metrics failure must not discard an evaluation that already succeeded
+    assert result.variant.name == "sourDough"
+    assert result.is_found is True
+
+
+def test_get_variant_does_not_raise_on_unexpected_counting_failure(monkeypatch):
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+    monkeypatch.setattr(
+        engine, "count_toggle", Mock(side_effect=RuntimeError("kaboom"))
+    )
+
+    result = engine.get_variant("testFeature", {})
+
+    assert result.variant.name == "sourDough"
+    assert result.is_found is True
+
+
+def test_get_variant_does_not_ask_for_impression_data_when_counting_fails(monkeypatch):
+    engine = UnleashEngine()
+    engine.take_state(_variant_impression_state("testFeature", True, "sourDough", True))
+    monkeypatch.setattr(
+        engine, "count_toggle", Mock(side_effect=YggdrasilError("boom"))
+    )
+    should_emit = Mock(return_value=True)
+    monkeypatch.setattr(engine, "should_emit_impression_event", should_emit)
+
+    result = engine.get_variant("testFeature", {})
+
+    should_emit.assert_not_called()
+    assert result.requires_impression_event_emission is False
+
+
+def test_get_variant_does_not_count_the_toggle_when_variant_counting_fails(monkeypatch):
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+    monkeypatch.setattr(
+        engine, "count_variant", Mock(side_effect=YggdrasilError("boom"))
+    )
+
+    engine.get_variant("testFeature", {})
+
+    ## The variant is counted first, so its failure leaves the toggle uncounted
+    assert engine.get_metrics() is None
