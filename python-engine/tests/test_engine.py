@@ -6,13 +6,13 @@ from unittest.mock import Mock
 import pytest
 
 from yggdrasil_engine.engine import (
-    DISABLED_VARIANT,
     FeatureDefinition,
     FeatureToggle,
     FeatureVariant,
     UnleashEngine,
     Variant,
     YggdrasilError,
+    disabled_variant,
 )
 
 CUSTOM_STRATEGY_STATE = """
@@ -61,7 +61,7 @@ def test_get_variant_does_not_crash():
         ## substituted disabled variant against a real state file
         assert result == FeatureVariant(
             name="testToggle",
-            variant=DISABLED_VARIANT,
+            variant=disabled_variant(),
             is_found=False,
             requires_impression_event_emission=False,
         )
@@ -1040,7 +1040,7 @@ def test_is_enabled_does_not_ask_for_impression_data_when_counting_fails(monkeyp
 
 def test_disabled_variant_is_the_engines_disabled_variant():
     ## The payload is None rather than {} so that it drops out of serialization
-    assert DISABLED_VARIANT == Variant(
+    assert disabled_variant() == Variant(
         name="disabled", payload=None, enabled=False, feature_enabled=False
     )
 
@@ -1048,7 +1048,7 @@ def test_disabled_variant_is_the_engines_disabled_variant():
 def test_feature_variant_cannot_be_mutated():
     result = FeatureVariant(
         name="testFeature",
-        variant=DISABLED_VARIANT,
+        variant=disabled_variant(),
         is_found=False,
         requires_impression_event_emission=False,
     )
@@ -1100,9 +1100,10 @@ def test_get_variant_does_not_share_one_disabled_variant_instance():
     first.variant.name = "mutated"
 
     ## Variant is mutable, so handing every substitution the same object would
-    ## let one caller poison every later result and the module constant itself
+    ## let one caller poison every later result; disabled_variant() builds a
+    ## fresh one per call for exactly that reason
     assert second.variant.name == "disabled"
-    assert DISABLED_VARIANT.name == "disabled"
+    assert disabled_variant().name == "disabled"
 
 
 def test_get_variant_returns_the_resolved_variant_for_an_enabled_toggle():
@@ -1155,7 +1156,7 @@ def test_get_variant_reports_found_for_a_known_but_disabled_toggle():
 
     ## A disabled toggle resolves to a variant that looks exactly like the
     ## substituted one, so is_found must come from the engine's status code
-    assert result.variant == DISABLED_VARIANT
+    assert result.variant == disabled_variant()
     assert result.is_found is True
 
 
@@ -1206,7 +1207,7 @@ def test_get_variant_returns_the_disabled_variant_for_an_unknown_toggle():
 
     assert result == FeatureVariant(
         name="nonExistentFeature",
-        variant=DISABLED_VARIANT,
+        variant=disabled_variant(),
         is_found=False,
         requires_impression_event_emission=False,
     )
@@ -1217,7 +1218,7 @@ def test_get_variant_returns_the_disabled_variant_when_the_engine_has_no_state()
 
     result = engine.get_variant("nonExistentFeature", {})
 
-    assert result.variant == DISABLED_VARIANT
+    assert result.variant == disabled_variant()
     assert result.is_found is False
 
 
@@ -1352,7 +1353,7 @@ def test_get_variant_reports_impression_event_for_a_disabled_toggle():
 
     ## Impression events are emitted for disabled evaluations too, so the
     ## lookup must not be gated on the resolved variant
-    assert result.variant == DISABLED_VARIANT
+    assert result.variant == disabled_variant()
     assert result.requires_impression_event_emission is True
 
 
@@ -1431,7 +1432,7 @@ def test_get_variant_returns_the_disabled_variant_when_engine_errors(monkeypatch
 
     assert result == FeatureVariant(
         name="testFeature",
-        variant=DISABLED_VARIANT,
+        variant=disabled_variant(),
         is_found=False,
         requires_impression_event_emission=False,
     )
@@ -1461,7 +1462,7 @@ def test_get_variant_does_not_raise_on_unexpected_engine_failure(monkeypatch):
 
     result = engine.get_variant("testFeature", {})
 
-    assert result.variant == DISABLED_VARIANT
+    assert result.variant == disabled_variant()
     assert result.is_found is False
 
 
@@ -1484,7 +1485,9 @@ def test_get_variant_does_not_ask_for_impression_data_when_evaluation_errors(
     assert result.requires_impression_event_emission is False
 
 
-def test_get_variant_defaults_impression_event_to_false_when_lookup_errors(monkeypatch):
+def test_get_variant_discards_the_evaluation_when_the_impression_lookup_errors(
+    monkeypatch,
+):
     engine = UnleashEngine()
     engine.take_state(_variant_state("testFeature", True, "sourDough"))
     monkeypatch.setattr(
@@ -1495,13 +1498,17 @@ def test_get_variant_defaults_impression_event_to_false_when_lookup_errors(monke
 
     result = engine.get_variant("testFeature", {})
 
-    ## A failing impression lookup must not disturb the evaluation itself
-    assert result.requires_impression_event_emission is False
-    assert result.variant.name == "sourDough"
-    assert result.is_found is True
+    ## The impression lookup is part of building the result, so its failure
+    ## takes the whole evaluation down to the fallback
+    assert result == FeatureVariant(
+        name="testFeature",
+        variant=disabled_variant(),
+        is_found=False,
+        requires_impression_event_emission=False,
+    )
 
 
-def test_get_variant_defaults_impression_event_to_false_on_unexpected_lookup_failure(
+def test_get_variant_discards_the_evaluation_on_unexpected_lookup_failure(
     monkeypatch,
 ):
     engine = UnleashEngine()
@@ -1514,12 +1521,15 @@ def test_get_variant_defaults_impression_event_to_false_on_unexpected_lookup_fai
 
     result = engine.get_variant("testFeature", {})
 
-    assert result.requires_impression_event_emission is False
-    assert result.variant.name == "sourDough"
-    assert result.is_found is True
+    assert result == FeatureVariant(
+        name="testFeature",
+        variant=disabled_variant(),
+        is_found=False,
+        requires_impression_event_emission=False,
+    )
 
 
-def test_get_variant_still_counts_when_impression_lookup_fails(monkeypatch):
+def test_get_variant_does_not_count_when_the_impression_lookup_fails(monkeypatch):
     engine = UnleashEngine()
     engine.take_state(_variant_state("testFeature", True, "sourDough"))
     monkeypatch.setattr(
@@ -1530,15 +1540,12 @@ def test_get_variant_still_counts_when_impression_lookup_fails(monkeypatch):
 
     result = engine.get_variant("testFeature", {})
 
-    metrics = engine.get_metrics()
-
-    ## Both counts land before the impression lookup is attempted
+    ## The impression lookup runs before either count, so nothing is recorded
     assert result.requires_impression_event_emission is False
-    assert metrics["toggles"]["testFeature"]["variants"]["sourDough"] == 1
-    assert metrics["toggles"]["testFeature"]["yes"] == 1
+    assert engine.get_metrics() is None
 
 
-def test_get_variant_returns_the_evaluation_when_counting_fails(monkeypatch):
+def test_get_variant_discards_the_evaluation_when_counting_fails(monkeypatch):
     engine = UnleashEngine()
     engine.take_state(_variant_state("testFeature", True, "sourDough"))
     monkeypatch.setattr(
@@ -1547,9 +1554,13 @@ def test_get_variant_returns_the_evaluation_when_counting_fails(monkeypatch):
 
     result = engine.get_variant("testFeature", {})
 
-    ## A metrics failure must not discard an evaluation that already succeeded
-    assert result.variant.name == "sourDough"
-    assert result.is_found is True
+    ## A metrics failure discards the evaluation that preceded it
+    assert result == FeatureVariant(
+        name="testFeature",
+        variant=disabled_variant(),
+        is_found=False,
+        requires_impression_event_emission=False,
+    )
 
 
 def test_get_variant_does_not_raise_on_unexpected_counting_failure(monkeypatch):
@@ -1561,11 +1572,15 @@ def test_get_variant_does_not_raise_on_unexpected_counting_failure(monkeypatch):
 
     result = engine.get_variant("testFeature", {})
 
-    assert result.variant.name == "sourDough"
-    assert result.is_found is True
+    assert result == FeatureVariant(
+        name="testFeature",
+        variant=disabled_variant(),
+        is_found=False,
+        requires_impression_event_emission=False,
+    )
 
 
-def test_get_variant_does_not_ask_for_impression_data_when_counting_fails(monkeypatch):
+def test_get_variant_asks_for_impression_data_before_counting(monkeypatch):
     engine = UnleashEngine()
     engine.take_state(_variant_impression_state("testFeature", True, "sourDough", True))
     monkeypatch.setattr(
@@ -1576,11 +1591,13 @@ def test_get_variant_does_not_ask_for_impression_data_when_counting_fails(monkey
 
     result = engine.get_variant("testFeature", {})
 
-    should_emit.assert_not_called()
+    ## The lookup lands before counting, but the counting failure still drops
+    ## the result it fed, so the answer never reaches the caller
+    should_emit.assert_called_once_with("testFeature")
     assert result.requires_impression_event_emission is False
 
 
-def test_get_variant_does_not_count_the_toggle_when_variant_counting_fails(monkeypatch):
+def test_get_variant_counts_the_toggle_before_the_variant(monkeypatch):
     engine = UnleashEngine()
     engine.take_state(_variant_state("testFeature", True, "sourDough"))
     monkeypatch.setattr(
@@ -1589,5 +1606,7 @@ def test_get_variant_does_not_count_the_toggle_when_variant_counting_fails(monke
 
     engine.get_variant("testFeature", {})
 
-    ## The variant is counted first, so its failure leaves the toggle uncounted
-    assert engine.get_metrics() is None
+    ## The toggle is counted first, so it lands even though the variant did not
+    metrics = engine.get_metrics()
+    assert metrics["toggles"]["testFeature"]["yes"] == 1
+    assert metrics["toggles"]["testFeature"]["variants"] == {}

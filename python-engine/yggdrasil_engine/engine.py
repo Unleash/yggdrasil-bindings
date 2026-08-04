@@ -4,7 +4,7 @@ import logging
 import os
 import platform
 from contextlib import contextmanager
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Type, TypeVar, cast
 
@@ -111,9 +111,10 @@ class Variant:
         )
 
 
-DISABLED_VARIANT = Variant(
-    name="disabled", payload=None, enabled=False, feature_enabled=False
-)
+def disabled_variant() -> Variant:
+    return Variant(name="disabled", payload=None, enabled=False, feature_enabled=False)
+
+
 """The variant the engine falls back to when no variant could be resolved.
 
 `payload` is `None` rather than an empty dict so that it drops out of
@@ -383,42 +384,37 @@ class UnleashEngine:
         return result
 
     def get_variant(self, toggle_name: str, context: dict) -> FeatureVariant:
-        ## `FeatureVariant` is frozen but `Variant` is not, so every fallback
-        ## gets its own copy; sharing one would let a caller poison later
-        ## results and the constant itself
-        result = FeatureVariant(
-            name=toggle_name,
-            variant=replace(DISABLED_VARIANT),
-            is_found=False,
-            requires_impression_event_emission=False,
-        )
         try:
             status_code, value = self._do_get_variant(toggle_name, context)
+            variant = value if value is not None else disabled_variant()
 
-            variant = replace(DISABLED_VARIANT) if value is None else value
             result = FeatureVariant(
                 name=toggle_name,
                 variant=variant,
                 is_found=status_code == StatusCode.OK,
-                requires_impression_event_emission=False,
-            )
-
-            self.count_variant(toggle_name, variant.name)
-            self.count_toggle(toggle_name, variant.feature_enabled)
-            result = replace(
-                result,
                 requires_impression_event_emission=bool(
                     self.should_emit_impression_event(toggle_name)
                 ),
             )
+
+            self.count_toggle(toggle_name, variant.feature_enabled)
+            self.count_variant(toggle_name, variant.name)
+
+            return result
         except Exception:
+            result = FeatureVariant(
+                name=toggle_name,
+                variant=disabled_variant(),
+                is_found=False,
+                requires_impression_event_emission=False,
+            )
             _logger.warning(
-                "Failed to fully evaluate variant for toggle %s, returning %s",
+                "Failed to evaluate variant for toggle %s, returning %s",
                 toggle_name,
                 result,
                 exc_info=True,
             )
-        return result
+            return result
 
     def register_custom_strategies(self, custom_strategies: dict):
         self.custom_strategy_handler.register_custom_strategies(custom_strategies)
