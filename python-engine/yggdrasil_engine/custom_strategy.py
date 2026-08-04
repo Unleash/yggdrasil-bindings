@@ -30,7 +30,6 @@ def get_features_json(message):
 
 
 class CustomStrategyHandler:
-
     def __init__(self):
         self.strategy_definitions = {}
         self.strategy_implementations = {}

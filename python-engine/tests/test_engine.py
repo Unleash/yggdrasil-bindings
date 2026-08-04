@@ -77,9 +77,9 @@ def test_client_spec():
 
             result = unleash_engine.is_enabled(toggle_name, context).is_enabled or False
 
-            assert (
-                result == expected_result
-            ), f"Failed test '{test['description']}': expected {expected_result}, got {result}"
+            assert result == expected_result, (
+                f"Failed test '{test['description']}': expected {expected_result}, got {result}"
+            )
 
         for test in suite_data.get("variantTests", []):
             context = test["context"]
@@ -95,9 +95,9 @@ def test_client_spec():
             expected_json = json.dumps(expected_result)
             actual_json = json.dumps(variant_to_dict(result))
 
-            assert (
-                expected_json == actual_json
-            ), f"Failed test '{test['description']}': expected {expected_json}, got {actual_json}"
+            assert expected_json == actual_json, (
+                f"Failed test '{test['description']}': expected {expected_json}, got {actual_json}"
+            )
 
 
 def test_custom_strategies_work_end_to_end():

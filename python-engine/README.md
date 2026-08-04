@@ -31,6 +31,8 @@ poetry run ruff check --fix .       # apply lint autofixes
 poetry run ruff format --check .    # verify formatting
 poetry run ruff check .             # verify lint
 poetry run basedpyright             # verify types
+
+poetry run basedpyright --writebaseline   # re-baseline after formatting or refactors
 ```
 
 ## Publish
