@@ -1,11 +1,17 @@
-from dataclasses import asdict
-import json
-from unittest.mock import Mock
-import pytest
-from yggdrasil_engine.engine import UnleashEngine, Variant, FeatureToggle, FeatureDefinition, YggdrasilError
 import json
 import os
+from dataclasses import asdict
+from unittest.mock import Mock
 
+import pytest
+
+from yggdrasil_engine.engine import (
+    FeatureDefinition,
+    FeatureToggle,
+    UnleashEngine,
+    Variant,
+    YggdrasilError,
+)
 
 CUSTOM_STRATEGY_STATE = """
 {
@@ -71,9 +77,9 @@ def test_client_spec():
 
             result = unleash_engine.is_enabled(toggle_name, context).is_enabled or False
 
-            assert (
-                result == expected_result
-            ), f"Failed test '{test['description']}': expected {expected_result}, got {result}"
+            assert result == expected_result, (
+                f"Failed test '{test['description']}': expected {expected_result}, got {result}"
+            )
 
         for test in suite_data.get("variantTests", []):
             context = test["context"]
@@ -89,9 +95,9 @@ def test_client_spec():
             expected_json = json.dumps(expected_result)
             actual_json = json.dumps(variant_to_dict(result))
 
-            assert (
-                expected_json == actual_json
-            ), f"Failed test '{test['description']}': expected {expected_json}, got {actual_json}"
+            assert expected_json == actual_json, (
+                f"Failed test '{test['description']}': expected {expected_json}, got {actual_json}"
+            )
 
 
 def test_custom_strategies_work_end_to_end():
@@ -99,7 +105,7 @@ def test_custom_strategies_work_end_to_end():
 
     class BreadStrategy:
         def apply(self, _parameters, context):
-            return context.get("betterThanSlicedBread") == True
+            return context.get("betterThanSlicedBread") is True
 
     engine.register_custom_strategies({"breadStrategy": BreadStrategy()})
     engine.take_state(CUSTOM_STRATEGY_STATE)
@@ -193,18 +199,25 @@ def test_list_empty_toggles_yields_empty_list():
 
     assert engine.list_known_toggles() == []
 
+
 def test_get_state_and_roundtrip():
     """Test get_state returns valid JSON and supports roundtrip"""
     engine = UnleashEngine()
 
     empty_state = engine.get_state()
     assert '"features": []' in empty_state
-    assert 'status_code' not in empty_state
-    assert 'error_message' not in empty_state
-    
+    assert "status_code" not in empty_state
+    assert "error_message" not in empty_state
+
     test_state = {
         "version": 1,
-        "features": [{"name": "testFeature", "enabled": True, "strategies": [{"name": "default"}]}]
+        "features": [
+            {
+                "name": "testFeature",
+                "enabled": True,
+                "strategies": [{"name": "default"}],
+            }
+        ],
     }
 
     engine.take_state(json.dumps(test_state))
@@ -214,8 +227,9 @@ def test_get_state_and_roundtrip():
     assert '"version": 1' in retrieved_state
     assert '"name": "testFeature"' in retrieved_state
     assert '"name": "default"' in retrieved_state
-    assert 'status_code' not in retrieved_state
-    assert 'error_message' not in retrieved_state
+    assert "status_code" not in retrieved_state
+    assert "error_message" not in retrieved_state
+
 
 def test_is_enabled_counts_toggle():
     engine = UnleashEngine()
@@ -223,7 +237,11 @@ def test_is_enabled_counts_toggle():
     state = {
         "version": 1,
         "features": [
-            {"name": "testFeature", "enabled": True, "strategies": [{"name": "default"}]}
+            {
+                "name": "testFeature",
+                "enabled": True,
+                "strategies": [{"name": "default"}],
+            }
         ],
     }
     engine.take_state(json.dumps(state))
@@ -235,13 +253,18 @@ def test_is_enabled_counts_toggle():
     assert metrics is not None
     assert metrics["toggles"]["testFeature"]["yes"] == 1
 
+
 def test_is_enabled_ignores_callback_value_if_engine_responded():
     engine = UnleashEngine()
 
     state = {
         "version": 1,
         "features": [
-            {"name": "testFeature", "enabled": True, "strategies": [{"name": "default"}]}
+            {
+                "name": "testFeature",
+                "enabled": True,
+                "strategies": [{"name": "default"}],
+            }
         ],
     }
     engine.take_state(json.dumps(state))
@@ -253,6 +276,7 @@ def test_is_enabled_ignores_callback_value_if_engine_responded():
     assert result.is_enabled is True
     assert result.is_found is True
 
+
 def test_is_enabled_returns_callback_value_if_engine_did_not_respond():
     engine = UnleashEngine()
 
@@ -261,6 +285,7 @@ def test_is_enabled_returns_callback_value_if_engine_did_not_respond():
     )
 
     assert result.is_enabled is True
+
 
 def _toggle_state(name: str, enabled: bool) -> str:
     return json.dumps(
@@ -271,6 +296,7 @@ def _toggle_state(name: str, enabled: bool) -> str:
             ],
         }
     )
+
 
 def _impression_state(name: str, enabled: bool, impression_data: bool) -> str:
     return json.dumps(
@@ -287,6 +313,7 @@ def _impression_state(name: str, enabled: bool, impression_data: bool) -> str:
         }
     )
 
+
 def test_is_enabled_ignores_callback_value_when_engine_returns_false():
     engine = UnleashEngine()
     engine.take_state(_toggle_state("disabledFeature", False))
@@ -297,6 +324,7 @@ def test_is_enabled_ignores_callback_value_when_engine_returns_false():
 
     assert result.is_enabled is False
 
+
 def test_is_enabled_fallback_returning_false_is_respected():
     engine = UnleashEngine()
 
@@ -305,6 +333,7 @@ def test_is_enabled_fallback_returning_false_is_respected():
     )
 
     assert result.is_enabled is False
+
 
 def test_is_enabled_fallback_receives_toggle_name_and_context():
     engine = UnleashEngine()
@@ -315,6 +344,7 @@ def test_is_enabled_fallback_receives_toggle_name_and_context():
 
     fallback.assert_called_once_with("nonExistentFeature", context)
 
+
 def test_is_enabled_fallback_not_invoked_when_toggle_found():
     engine = UnleashEngine()
     engine.take_state(_toggle_state("testFeature", True))
@@ -323,6 +353,7 @@ def test_is_enabled_fallback_not_invoked_when_toggle_found():
     engine.is_enabled("testFeature", {}, fallback_function=fallback)
 
     fallback.assert_not_called()
+
 
 def test_is_enabled_counts_fallback_resolved_value_not_raw_response():
     engine = UnleashEngine()
@@ -336,6 +367,7 @@ def test_is_enabled_counts_fallback_resolved_value_not_raw_response():
     assert metrics["toggles"]["nonExistentFeature"]["yes"] == 1
     assert metrics["toggles"]["nonExistentFeature"].get("no", 0) == 0
 
+
 def test_is_enabled_reports_not_found_when_toggle_missing_without_fallback():
     engine = UnleashEngine()
 
@@ -343,8 +375,11 @@ def test_is_enabled_reports_not_found_when_toggle_missing_without_fallback():
 
     metrics = engine.get_metrics()
 
-    assert result == FeatureToggle(name="nonExistentFeature", is_enabled=False, is_found=False)
+    assert result == FeatureToggle(
+        name="nonExistentFeature", is_enabled=False, is_found=False
+    )
     assert metrics["toggles"]["nonExistentFeature"]["no"] == 1
+
 
 def test_is_enabled_counts_disabled_toggle_as_no():
     engine = UnleashEngine()
@@ -357,6 +392,7 @@ def test_is_enabled_counts_disabled_toggle_as_no():
     assert metrics["toggles"]["disabledFeature"]["no"] == 1
     assert metrics["toggles"]["disabledFeature"].get("yes", 0) == 0
 
+
 def test_is_enabled_returns_feature_toggle_for_enabled_toggle():
     engine = UnleashEngine()
     engine.take_state(_toggle_state("testFeature", True))
@@ -365,13 +401,17 @@ def test_is_enabled_returns_feature_toggle_for_enabled_toggle():
 
     assert result == FeatureToggle(name="testFeature", is_enabled=True, is_found=True)
 
+
 def test_is_enabled_returns_found_feature_toggle_when_toggle_is_disabled():
     engine = UnleashEngine()
     engine.take_state(_toggle_state("disabledFeature", False))
 
     result = engine.is_enabled("disabledFeature", {})
 
-    assert result == FeatureToggle(name="disabledFeature", is_enabled=False, is_found=True)
+    assert result == FeatureToggle(
+        name="disabledFeature", is_enabled=False, is_found=True
+    )
+
 
 def test_is_enabled_reports_not_found_when_fallback_resolves_value():
     engine = UnleashEngine()
@@ -384,11 +424,13 @@ def test_is_enabled_reports_not_found_when_fallback_resolves_value():
     assert result.is_enabled is True
     assert result.is_found is False
 
+
 def test_is_enabled_names_the_queried_toggle():
     engine = UnleashEngine()
     engine.take_state(_toggle_state("testFeature", True))
 
     assert engine.is_enabled("testFeature", {}).name == "testFeature"
+
 
 def test_is_enabled_coerces_fallback_value_to_bool():
     engine = UnleashEngine()
@@ -399,9 +441,11 @@ def test_is_enabled_coerces_fallback_value_to_bool():
 
     assert result.is_enabled is True
 
+
 def test_feature_toggle_cannot_be_used_as_a_bool():
     with pytest.raises(TypeError):
         bool(FeatureToggle(name="testFeature", is_enabled=True, is_found=True))
+
 
 def test_is_enabled_result_cannot_be_used_as_a_bool():
     engine = UnleashEngine()
@@ -412,6 +456,7 @@ def test_is_enabled_result_cannot_be_used_as_a_bool():
     with pytest.raises(TypeError):
         if result:
             pass
+
 
 def test_is_enabled_accumulates_counts_across_multiple_calls():
     engine = UnleashEngine()
@@ -443,6 +488,7 @@ def test_is_enabled_accumulates_counts_across_multiple_calls():
     assert metrics["toggles"]["disabledFeature"]["no"] == 1
     assert metrics["toggles"]["disabledFeature"].get("yes", 0) == 0
 
+
 def test_is_enabled_returns_disabled_toggle_when_engine_errors(monkeypatch):
     engine = UnleashEngine()
     monkeypatch.setattr(
@@ -454,6 +500,7 @@ def test_is_enabled_returns_disabled_toggle_when_engine_errors(monkeypatch):
     result = engine.is_enabled("testFeature", {})
 
     assert result == FeatureToggle(name="testFeature", is_enabled=False, is_found=False)
+
 
 def test_is_enabled_does_not_count_the_toggle_when_engine_errors(monkeypatch):
     engine = UnleashEngine()
@@ -468,6 +515,7 @@ def test_is_enabled_does_not_count_the_toggle_when_engine_errors(monkeypatch):
     ## Nothing after the raise is attempted, so there is nothing to count
     assert engine.get_metrics() is None
 
+
 def test_is_enabled_does_not_raise_on_unexpected_engine_failure(monkeypatch):
     engine = UnleashEngine()
     monkeypatch.setattr(
@@ -480,6 +528,7 @@ def test_is_enabled_does_not_raise_on_unexpected_engine_failure(monkeypatch):
 
     assert result.is_enabled is False
     assert result.is_found is False
+
 
 def test_is_enabled_does_not_use_the_fallback_when_engine_errors(monkeypatch):
     engine = UnleashEngine()
@@ -496,6 +545,7 @@ def test_is_enabled_does_not_use_the_fallback_when_engine_errors(monkeypatch):
     assert result.is_enabled is False
     assert result.is_found is False
 
+
 def test_is_enabled_defaults_to_disabled_when_fallback_raises():
     engine = UnleashEngine()
 
@@ -511,6 +561,7 @@ def test_is_enabled_defaults_to_disabled_when_fallback_raises():
     ## A raising fallback leaves no usable value, so there is nothing to count
     assert engine.get_metrics() is None
 
+
 def test_is_enabled_fallback_function_must_be_passed_as_keyword():
     engine = UnleashEngine()
     engine.take_state(_toggle_state("testFeature", True))
@@ -522,6 +573,7 @@ def test_is_enabled_fallback_function_must_be_passed_as_keyword():
         assert False, "expected TypeError for positional fallback_function"
     except TypeError:
         pass
+
 
 def test_inc_counter_increments_value():
     engine = UnleashEngine()
@@ -549,8 +601,12 @@ def test_inc_counter_with_labels():
 
     assert counter is not None
     assert len(counter["samples"]) == 2
-    test_sample = next((s for s in counter["samples"] if s["labels"].get("env") == "test"), None)
-    prod_sample = next((s for s in counter["samples"] if s["labels"].get("env") == "prod"), None)
+    test_sample = next(
+        (s for s in counter["samples"] if s["labels"].get("env") == "test"), None
+    )
+    prod_sample = next(
+        (s for s in counter["samples"] if s["labels"].get("env") == "prod"), None
+    )
     assert test_sample["value"] == 5
     assert prod_sample["value"] == 3
 
@@ -581,15 +637,21 @@ def test_set_gauge_with_labels():
 
     assert gauge is not None
     assert len(gauge["samples"]) == 2
-    test_sample = next((s for s in gauge["samples"] if s["labels"].get("env") == "test"), None)
-    prod_sample = next((s for s in gauge["samples"] if s["labels"].get("env") == "prod"), None)
+    test_sample = next(
+        (s for s in gauge["samples"] if s["labels"].get("env") == "test"), None
+    )
+    prod_sample = next(
+        (s for s in gauge["samples"] if s["labels"].get("env") == "prod"), None
+    )
     assert test_sample["value"] == 5
     assert prod_sample["value"] == 3
 
 
 def test_observe_histogram_observes_values():
     engine = UnleashEngine()
-    engine.define_histogram("request_duration", "Request duration", [0.1, 0.5, 1.0, 5.0])
+    engine.define_histogram(
+        "request_duration", "Request duration", [0.1, 0.5, 1.0, 5.0]
+    )
     engine.observe_histogram("request_duration", 0.05)
     engine.observe_histogram("request_duration", 0.75)
     engine.observe_histogram("request_duration", 3.0)
@@ -605,7 +667,9 @@ def test_observe_histogram_observes_values():
 
 def test_observe_histogram_with_labels():
     engine = UnleashEngine()
-    engine.define_histogram("request_duration", "Request duration", [0.1, 0.5, 1.0, 5.0])
+    engine.define_histogram(
+        "request_duration", "Request duration", [0.1, 0.5, 1.0, 5.0]
+    )
     engine.observe_histogram("request_duration", 0.05, {"env": "test"})
     engine.observe_histogram("request_duration", 0.75, {"env": "prod"})
 
@@ -614,8 +678,12 @@ def test_observe_histogram_with_labels():
 
     assert histogram is not None
     assert len(histogram["samples"]) == 2
-    test_sample = next((s for s in histogram["samples"] if s["labels"].get("env") == "test"), None)
-    prod_sample = next((s for s in histogram["samples"] if s["labels"].get("env") == "prod"), None)
+    test_sample = next(
+        (s for s in histogram["samples"] if s["labels"].get("env") == "test"), None
+    )
+    prod_sample = next(
+        (s for s in histogram["samples"] if s["labels"].get("env") == "prod"), None
+    )
     assert test_sample is not None
     assert prod_sample is not None
 
@@ -661,9 +729,15 @@ def test_restore_impact_metrics():
 
     restored_metrics = engine.collect_impact_metrics()
     assert len(restored_metrics) == 3
-    restored_counter = next((m for m in restored_metrics if m["name"] == "test_counter"), None)
-    restored_gauge = next((m for m in restored_metrics if m["name"] == "test_gauge"), None)
-    restored_histogram = next((m for m in restored_metrics if m["name"] == "test_histogram"), None)
+    restored_counter = next(
+        (m for m in restored_metrics if m["name"] == "test_counter"), None
+    )
+    restored_gauge = next(
+        (m for m in restored_metrics if m["name"] == "test_gauge"), None
+    )
+    restored_histogram = next(
+        (m for m in restored_metrics if m["name"] == "test_histogram"), None
+    )
     assert restored_counter["samples"][0]["value"] == 10
     assert restored_gauge["samples"][0]["value"] == 42
     assert restored_histogram is not None
@@ -672,9 +746,11 @@ def test_restore_impact_metrics():
 def test_feature_toggle_defaults_to_no_impression_event():
     assert FeatureToggle(name="testFeature").requires_impression_event_emission is False
 
+
 def test_feature_toggle_rejects_positional_arguments():
     with pytest.raises(TypeError):
         FeatureToggle("testFeature")
+
 
 def test_feature_toggle_equality_includes_impression_event_flag():
     calls_for_emission = FeatureToggle(
@@ -692,6 +768,7 @@ def test_feature_toggle_equality_includes_impression_event_flag():
 
     assert calls_for_emission != does_not_call_for_emission
 
+
 def test_is_enabled_reports_impression_event_when_toggle_has_impression_data():
     engine = UnleashEngine()
     engine.take_state(_impression_state("testFeature", True, True))
@@ -700,6 +777,7 @@ def test_is_enabled_reports_impression_event_when_toggle_has_impression_data():
 
     assert result.requires_impression_event_emission is True
 
+
 def test_is_enabled_does_not_report_impression_event_without_impression_data():
     engine = UnleashEngine()
     engine.take_state(_toggle_state("testFeature", True))
@@ -707,6 +785,7 @@ def test_is_enabled_does_not_report_impression_event_without_impression_data():
     result = engine.is_enabled("testFeature", {})
 
     assert result.requires_impression_event_emission is False
+
 
 def test_is_enabled_reports_impression_event_for_disabled_toggle():
     engine = UnleashEngine()
@@ -719,6 +798,7 @@ def test_is_enabled_reports_impression_event_for_disabled_toggle():
     assert result.is_enabled is False
     assert result.requires_impression_event_emission is True
 
+
 def test_is_enabled_does_not_report_impression_event_for_unknown_toggle():
     engine = UnleashEngine()
 
@@ -727,17 +807,17 @@ def test_is_enabled_does_not_report_impression_event_for_unknown_toggle():
     assert result.is_found is False
     assert result.requires_impression_event_emission is False
 
+
 def test_is_enabled_returns_the_engines_impression_event_answer(monkeypatch):
     engine = UnleashEngine()
     engine.take_state(_toggle_state("testFeature", True))
-    monkeypatch.setattr(
-        engine, "should_emit_impression_event", Mock(return_value=True)
-    )
+    monkeypatch.setattr(engine, "should_emit_impression_event", Mock(return_value=True))
 
     result = engine.is_enabled("testFeature", {})
 
     ## The state carries no impressionData, so a True here can only come from the engine
     assert result.requires_impression_event_emission is True
+
 
 def test_is_enabled_returns_the_engines_impression_event_denial(monkeypatch):
     engine = UnleashEngine()
@@ -750,6 +830,7 @@ def test_is_enabled_returns_the_engines_impression_event_denial(monkeypatch):
 
     assert result.requires_impression_event_emission is False
 
+
 def test_is_enabled_asks_the_engine_for_the_queried_toggle(monkeypatch):
     engine = UnleashEngine()
     engine.take_state(_impression_state("testFeature", True, True))
@@ -760,16 +841,16 @@ def test_is_enabled_asks_the_engine_for_the_queried_toggle(monkeypatch):
 
     should_emit.assert_called_once_with("testFeature")
 
+
 def test_is_enabled_coerces_impression_event_flag_to_bool(monkeypatch):
     engine = UnleashEngine()
     engine.take_state(_toggle_state("testFeature", True))
-    monkeypatch.setattr(
-        engine, "should_emit_impression_event", Mock(return_value=None)
-    )
+    monkeypatch.setattr(engine, "should_emit_impression_event", Mock(return_value=None))
 
     result = engine.is_enabled("testFeature", {})
 
     assert result.requires_impression_event_emission is False
+
 
 def test_is_enabled_asks_the_engine_even_when_toggle_is_unknown(monkeypatch):
     engine = UnleashEngine()
@@ -779,6 +860,7 @@ def test_is_enabled_asks_the_engine_even_when_toggle_is_unknown(monkeypatch):
     engine.is_enabled("nonExistentFeature", {})
 
     should_emit.assert_called_once_with("nonExistentFeature")
+
 
 def test_is_enabled_asks_the_engine_when_a_fallback_resolves_the_value(monkeypatch):
     engine = UnleashEngine()
@@ -794,7 +876,10 @@ def test_is_enabled_asks_the_engine_when_a_fallback_resolves_the_value(monkeypat
     assert result.is_found is False
     assert result.requires_impression_event_emission is False
 
-def test_is_enabled_does_not_ask_for_impression_data_when_evaluation_errors(monkeypatch):
+
+def test_is_enabled_does_not_ask_for_impression_data_when_evaluation_errors(
+    monkeypatch,
+):
     engine = UnleashEngine()
     monkeypatch.setattr(
         engine,
@@ -809,6 +894,7 @@ def test_is_enabled_does_not_ask_for_impression_data_when_evaluation_errors(monk
     ## Without an evaluation there is nothing to emit an impression event about
     should_emit.assert_not_called()
     assert result.requires_impression_event_emission is False
+
 
 def test_is_enabled_defaults_impression_event_to_false_when_lookup_errors(monkeypatch):
     engine = UnleashEngine()
@@ -825,6 +911,7 @@ def test_is_enabled_defaults_impression_event_to_false_when_lookup_errors(monkey
     assert result.requires_impression_event_emission is False
     assert result.is_enabled is True
     assert result.is_found is True
+
 
 def test_is_enabled_defaults_impression_event_to_false_on_unexpected_lookup_failure(
     monkeypatch,
@@ -843,6 +930,7 @@ def test_is_enabled_defaults_impression_event_to_false_on_unexpected_lookup_fail
     assert result.is_enabled is True
     assert result.is_found is True
 
+
 def test_is_enabled_still_counts_the_toggle_when_impression_lookup_fails(monkeypatch):
     engine = UnleashEngine()
     engine.take_state(_impression_state("testFeature", True, True))
@@ -859,6 +947,7 @@ def test_is_enabled_still_counts_the_toggle_when_impression_lookup_fails(monkeyp
     assert result.requires_impression_event_emission is False
     assert metrics["toggles"]["testFeature"]["yes"] == 1
 
+
 def test_is_enabled_returns_the_evaluation_when_counting_fails(monkeypatch):
     engine = UnleashEngine()
     engine.take_state(_impression_state("testFeature", True, True))
@@ -872,6 +961,7 @@ def test_is_enabled_returns_the_evaluation_when_counting_fails(monkeypatch):
     assert result.is_enabled is True
     assert result.is_found is True
 
+
 def test_is_enabled_does_not_raise_on_unexpected_counting_failure(monkeypatch):
     engine = UnleashEngine()
     engine.take_state(_impression_state("testFeature", True, True))
@@ -883,6 +973,7 @@ def test_is_enabled_does_not_raise_on_unexpected_counting_failure(monkeypatch):
 
     assert result.is_enabled is True
     assert result.is_found is True
+
 
 def test_is_enabled_does_not_ask_for_impression_data_when_counting_fails(monkeypatch):
     engine = UnleashEngine()

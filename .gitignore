@@ -23,7 +23,6 @@
 /ruby-engine/lib/libyggdrasilffi*.*
 /python-engine/yggdrasil_engine/lib/
 /python-engine/dist
-/python-engine/poetry.lock
 /python-engine/.tox
 /python-engine/binaries
 /python-engine/staging

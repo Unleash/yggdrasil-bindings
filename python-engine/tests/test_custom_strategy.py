@@ -1,5 +1,6 @@
-from yggdrasil_engine.custom_strategy import CustomStrategyHandler
 import pytest
+
+from yggdrasil_engine.custom_strategy import CustomStrategyHandler
 
 RAW_STATE = """
 {
@@ -35,17 +36,17 @@ RAW_STATE = """
 def test_computing_strategies_respects_their_contained_logic():
     class TestStrategy:
         def apply(self, _parameters, context):
-            return context.get("jimRubsBirds") == True
+            return context.get("jimRubsBirds") is True
 
     handler = CustomStrategyHandler()
     handler.update_strategies(RAW_STATE)
     handler.register_custom_strategies({"custom": TestStrategy()})
 
     results = handler.evaluate_custom_strategies("Feature.A", {"jimRubsBirds": True})
-    assert results["customStrategy1"] == True
+    assert results["customStrategy1"] is True
 
     results = handler.evaluate_custom_strategies("Feature.A", {"jimRubsBirds": "What?"})
-    assert results["customStrategy1"] == False
+    assert results["customStrategy1"] is False
 
 
 def test_returns_a_result_for_every_strategy_registered():
@@ -60,8 +61,8 @@ def test_returns_a_result_for_every_strategy_registered():
     )
 
     results = handler.evaluate_custom_strategies("Feature.A", {})
-    assert results["customStrategy1"] == True
-    assert results["customStrategy2"] == True
+    assert results["customStrategy1"] is True
+    assert results["customStrategy2"] is True
 
 
 def test_returns_false_for_custom_strategies_not_registered():
@@ -74,8 +75,8 @@ def test_returns_false_for_custom_strategies_not_registered():
     handler.register_custom_strategies({"custom": TestStrategy()})
 
     results = handler.evaluate_custom_strategies("Feature.A", {})
-    assert results["customStrategy1"] == True
-    assert results["customStrategy2"] == False
+    assert results["customStrategy1"] is True
+    assert results["customStrategy2"] is False
 
 
 def test_register_custom_strategy_rejects_strategies_without_apply_method():
