@@ -358,16 +358,17 @@ class UnleashEngine:
     ) -> FeatureToggle:
         result = FeatureToggle(name=toggle_name)
         try:
-            status_code, value = self._do_is_enabled(toggle_name, context)
+            value = self._do_is_enabled(toggle_name, context)
+            is_found = value is not None
 
-            if status_code != StatusCode.OK and fallback_function is not None:
+            if not is_found and fallback_function is not None:
                 value = fallback_function(toggle_name, context)
 
             enabled = bool(value)
             result = FeatureToggle(
                 name=toggle_name,
                 is_enabled=enabled,
-                is_found=status_code == StatusCode.OK,
+                is_found=is_found,
             )
 
             self.count_toggle(toggle_name, enabled)
@@ -385,13 +386,13 @@ class UnleashEngine:
 
     def get_variant(self, toggle_name: str, context: dict) -> FeatureVariant:
         try:
-            status_code, value = self._do_get_variant(toggle_name, context)
+            value = self._do_get_variant(toggle_name, context)
             variant = value if value is not None else disabled_variant()
 
             result = FeatureVariant(
                 name=toggle_name,
                 variant=variant,
-                is_found=status_code == StatusCode.OK,
+                is_found=value is not None,
                 requires_impression_event_emission=bool(
                     self.should_emit_impression_event(toggle_name)
                 ),
@@ -551,7 +552,7 @@ class UnleashEngine:
             if response.status_code == StatusCode.ERROR:
                 raise YggdrasilError(response.error_message)
 
-    def _do_is_enabled(self, toggle_name: str, context: dict):
+    def _do_is_enabled(self, toggle_name: str, context: dict) -> Optional[bool]:
         serialized_context = json.dumps(context or {})
         custom_strategy_results = json.dumps(
             self.custom_strategy_handler.evaluate_custom_strategies(
@@ -568,9 +569,10 @@ class UnleashEngine:
         with self.materialize_pointer(response_ptr, bool) as response:
             if response.status_code == StatusCode.ERROR:
                 raise YggdrasilError(response.error_message)
-            return response.status_code, response.value
+            ## `None` is the engine saying it does not know this toggle
+            return response.value
 
-    def _do_get_variant(self, toggle_name: str, context: dict):
+    def _do_get_variant(self, toggle_name: str, context: dict) -> Optional[Variant]:
         serialized_context = json.dumps(context or {})
         custom_strategy_results = json.dumps(
             self.custom_strategy_handler.evaluate_custom_strategies(
@@ -587,4 +589,5 @@ class UnleashEngine:
         with self.materialize_pointer(response_ptr, Variant) as response:
             if response.status_code == StatusCode.ERROR:
                 raise YggdrasilError(response.error_message)
-            return response.status_code, response.value
+            ## `None` is the engine saying it does not know this toggle
+            return response.value
