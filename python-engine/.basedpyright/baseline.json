@@ -2180,26 +2180,26 @@
                 }
             },
             {
-                "code": "reportUnusedCallResult",
+                "code": "reportAttributeAccessIssue",
                 "range": {
-                    "startColumn": 8,
-                    "endColumn": 37,
+                    "startColumn": 15,
+                    "endColumn": 23,
                     "lineCount": 1
                 }
             },
             {
-                "code": "reportCallIssue",
+                "code": "reportUnknownMemberType",
                 "range": {
-                    "startColumn": 23,
-                    "endColumn": 36,
+                    "startColumn": 12,
+                    "endColumn": 30,
                     "lineCount": 1
                 }
             },
             {
-                "code": "reportUnusedCallResult",
+                "code": "reportUnknownMemberType",
                 "range": {
-                    "startColumn": 8,
-                    "endColumn": 48,
+                    "startColumn": 13,
+                    "endColumn": 31,
                     "lineCount": 1
                 }
             },
@@ -2280,30 +2280,6 @@
                 "range": {
                     "startColumn": 13,
                     "endColumn": 31,
-                    "lineCount": 1
-                }
-            },
-            {
-                "code": "reportUnusedCallResult",
-                "range": {
-                    "startColumn": 4,
-                    "endColumn": 71,
-                    "lineCount": 1
-                }
-            },
-            {
-                "code": "reportUnknownMemberType",
-                "range": {
-                    "startColumn": 13,
-                    "endColumn": 31,
-                    "lineCount": 1
-                }
-            },
-            {
-                "code": "reportGeneralTypeIssues",
-                "range": {
-                    "startColumn": 11,
-                    "endColumn": 17,
                     "lineCount": 1
                 }
             },
@@ -3717,14 +3693,6 @@
                     "startColumn": 28,
                     "endColumn": 61,
                     "lineCount": 1
-                }
-            },
-            {
-                "code": "reportImplicitStringConcatenation",
-                "range": {
-                    "startColumn": 12,
-                    "endColumn": 71,
-                    "lineCount": 3
                 }
             },
             {

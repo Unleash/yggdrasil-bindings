@@ -120,7 +120,7 @@ DISABLED_VARIANT = Variant(
 serialization, matching what the engine itself hands back."""
 
 
-@dataclass(init=False)
+@dataclass(frozen=True)
 class FeatureVariant:
     """`FeatureVariant` is the result of querying which variant a feature resolves to."""
 
@@ -130,13 +130,13 @@ class FeatureVariant:
     variant: Variant
     """The variant the toggle resolved to for the given context.
 
-    Defaults to the disabled variant when the engine did not know the toggle,
-    or when the evaluation failed. Note that a known toggle can resolve to a
-    variant that looks exactly like it, so read `is_found` to tell the two
-    apart.
+    `get_variant` hands back the disabled variant when the engine did not know
+    the toggle, or when the evaluation failed. Note that a known toggle can
+    resolve to a variant that looks exactly like it, so read `is_found` to tell
+    the two apart.
     """
 
-    is_found: bool = False
+    is_found: bool
     """Whether the engine knew about the toggle at all.
 
     `False` means the toggle was missing from the engine's state or evaluation
@@ -144,7 +144,7 @@ class FeatureVariant:
     variant, which is `is_found=True`.
     """
 
-    requires_impression_event_emission: bool = False
+    requires_impression_event_emission: bool
     """Whether the engine expects its caller to emit an impression event.
 
     These bindings are not concerned with the publishing itself. However,
@@ -154,28 +154,6 @@ class FeatureVariant:
     `False` means that the SDK should not emit impression events. It also means
     the engine could not be asked, either because the lookup itself failed or
     because an earlier step of the evaluation did."""
-
-    def __init__(
-        self,
-        *,
-        name: str,
-        variant: Optional[Variant] = None,
-        is_found: bool = False,
-        requires_impression_event_emission: bool = False,
-    ):
-        self.name = name
-        ## `Variant` is mutable, so every default gets its own copy; sharing one
-        ## would let a caller poison later results and the constant itself
-        self.variant = replace(DISABLED_VARIANT) if variant is None else variant
-        self.is_found = is_found
-        self.requires_impression_event_emission = requires_impression_event_emission
-
-    def __bool__(self):
-        raise TypeError(
-            f"FeatureVariant for {self.name!r} has no truth value. "
-            "Read .variant to get the variant the feature resolved to, "
-            "or .is_found to check whether the engine knew the toggle."
-        )
 
 
 @dataclass
@@ -405,7 +383,15 @@ class UnleashEngine:
         return result
 
     def get_variant(self, toggle_name: str, context: dict) -> FeatureVariant:
-        result = FeatureVariant(name=toggle_name)
+        ## `FeatureVariant` is frozen but `Variant` is not, so every fallback
+        ## gets its own copy; sharing one would let a caller poison later
+        ## results and the constant itself
+        result = FeatureVariant(
+            name=toggle_name,
+            variant=replace(DISABLED_VARIANT),
+            is_found=False,
+            requires_impression_event_emission=False,
+        )
         try:
             status_code, value = self._do_get_variant(toggle_name, context)
 
@@ -414,12 +400,16 @@ class UnleashEngine:
                 name=toggle_name,
                 variant=variant,
                 is_found=status_code == StatusCode.OK,
+                requires_impression_event_emission=False,
             )
 
             self.count_variant(toggle_name, variant.name)
             self.count_toggle(toggle_name, variant.feature_enabled)
-            result.requires_impression_event_emission = bool(
-                self.should_emit_impression_event(toggle_name)
+            result = replace(
+                result,
+                requires_impression_event_emission=bool(
+                    self.should_emit_impression_event(toggle_name)
+                ),
             )
         except Exception:
             _logger.warning(

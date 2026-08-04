@@ -1,6 +1,6 @@
 import json
 import os
-from dataclasses import asdict
+from dataclasses import FrozenInstanceError, asdict
 from unittest.mock import Mock
 
 import pytest
@@ -59,7 +59,12 @@ def test_get_variant_does_not_crash():
 
         ## simple.json does not carry testToggle, so this exercises the
         ## substituted disabled variant against a real state file
-        assert result == FeatureVariant(name="testToggle")
+        assert result == FeatureVariant(
+            name="testToggle",
+            variant=DISABLED_VARIANT,
+            is_found=False,
+            requires_impression_event_emission=False,
+        )
 
 
 def test_client_spec():
@@ -1040,28 +1045,16 @@ def test_disabled_variant_is_the_engines_disabled_variant():
     )
 
 
-def test_feature_variant_defaults_to_the_disabled_variant():
-    assert FeatureVariant(name="testFeature").variant == DISABLED_VARIANT
-
-
-def test_feature_variant_defaults_to_not_found():
-    assert FeatureVariant(name="testFeature").is_found is False
-
-
-def test_feature_variant_defaults_to_no_impression_event():
-    assert (
-        FeatureVariant(name="testFeature").requires_impression_event_emission is False
+def test_feature_variant_cannot_be_mutated():
+    result = FeatureVariant(
+        name="testFeature",
+        variant=DISABLED_VARIANT,
+        is_found=False,
+        requires_impression_event_emission=False,
     )
 
-
-def test_feature_variant_rejects_positional_arguments():
-    with pytest.raises(TypeError):
-        FeatureVariant("testFeature")
-
-
-def test_feature_variant_cannot_be_used_as_a_bool():
-    with pytest.raises(TypeError):
-        bool(FeatureVariant(name="testFeature"))
+    with pytest.raises(FrozenInstanceError):
+        result.is_found = True
 
 
 def test_feature_variant_equality_includes_the_resolved_variant():
@@ -1069,11 +1062,13 @@ def test_feature_variant_equality_includes_the_resolved_variant():
         name="Feature.A",
         variant=Variant("sourDough", None, True, True),
         is_found=True,
+        requires_impression_event_emission=False,
     )
     rye = FeatureVariant(
         name="Feature.A",
         variant=Variant("rye", None, True, True),
         is_found=True,
+        requires_impression_event_emission=False,
     )
 
     assert sour_dough != rye
@@ -1096,14 +1091,16 @@ def test_feature_variant_equality_includes_impression_event_flag():
     assert calls_for_emission != does_not_call_for_emission
 
 
-def test_feature_variant_defaults_do_not_share_one_variant_instance():
-    first = FeatureVariant(name="firstFeature")
-    second = FeatureVariant(name="secondFeature")
+def test_get_variant_does_not_share_one_disabled_variant_instance():
+    engine = UnleashEngine()
+
+    first = engine.get_variant("firstFeature", {})
+    second = engine.get_variant("secondFeature", {})
 
     first.variant.name = "mutated"
 
-    ## Variant is mutable, so handing every default the same object would let one
-    ## caller poison every later result and the module constant itself
+    ## Variant is mutable, so handing every substitution the same object would
+    ## let one caller poison every later result and the module constant itself
     assert second.variant.name == "disabled"
     assert DISABLED_VARIANT.name == "disabled"
 
@@ -1127,6 +1124,7 @@ def test_get_variant_returns_the_resolved_variant_for_an_enabled_toggle():
             feature_enabled=True,
         ),
         is_found=True,
+        requires_impression_event_emission=False,
     )
 
 
@@ -1190,17 +1188,6 @@ def test_get_variant_resolves_the_variant_for_the_given_context():
     assert result.variant.name == "rye"
 
 
-def test_get_variant_result_cannot_be_used_as_a_bool():
-    engine = UnleashEngine()
-    engine.take_state(_variant_state("testFeature", True, "sourDough"))
-
-    result = engine.get_variant("testFeature", {})
-
-    with pytest.raises(TypeError):
-        if result:
-            pass
-
-
 def test_get_variant_does_not_accept_a_fallback_function():
     engine = UnleashEngine()
     engine.take_state(_variant_state("testFeature", True, "sourDough"))
@@ -1217,7 +1204,12 @@ def test_get_variant_returns_the_disabled_variant_for_an_unknown_toggle():
 
     result = engine.get_variant("nonExistentFeature", {})
 
-    assert result == FeatureVariant(name="nonExistentFeature")
+    assert result == FeatureVariant(
+        name="nonExistentFeature",
+        variant=DISABLED_VARIANT,
+        is_found=False,
+        requires_impression_event_emission=False,
+    )
 
 
 def test_get_variant_returns_the_disabled_variant_when_the_engine_has_no_state():
@@ -1437,7 +1429,12 @@ def test_get_variant_returns_the_disabled_variant_when_engine_errors(monkeypatch
 
     result = engine.get_variant("testFeature", {})
 
-    assert result == FeatureVariant(name="testFeature")
+    assert result == FeatureVariant(
+        name="testFeature",
+        variant=DISABLED_VARIANT,
+        is_found=False,
+        requires_impression_event_emission=False,
+    )
 
 
 def test_get_variant_does_not_count_when_engine_errors(monkeypatch):
