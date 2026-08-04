@@ -8,7 +8,7 @@ This project uses [poetry](https://python-poetry.org/).
 Before you begin, you'll need to setup the native library. You'll need a Rust compiler. If you're on Windows, you'll need bash or just read the script and do the equivalent powershell steps.
 
 ``` sh
-./build.sh
+./build-and-vendor-ffi.sh
 ```
 
 To run tests:

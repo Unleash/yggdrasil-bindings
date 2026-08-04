@@ -48,7 +48,7 @@ jobs:
 
       - name: Build ffi binaries for Python
         working-directory: python-engine
-        run: bash ./build.sh
+        run: bash ./build-and-vendor-ffi.sh
 
       - name: Set up Python
         uses: actions/setup-python@v5
