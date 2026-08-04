@@ -23,9 +23,14 @@ lives in the [shell plugin](https://github.com/python-poetry/poetry-plugin-shell
 ## Lint and format
 
 ``` sh
-make install     # install dev dependencies
-make format      # apply black and ruff autofixes
-make lint        # check formatting, lint, and types
+poetry install                      # install dev dependencies
+
+poetry run ruff format .            # apply formatting
+poetry run ruff check --fix .       # apply lint autofixes
+
+poetry run ruff format --check .    # verify formatting
+poetry run ruff check .             # verify lint
+poetry run basedpyright             # verify types
 ```
 
 ## Publish

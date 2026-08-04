@@ -18,9 +18,8 @@ python = "^3.8"
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
 tox = "^4.0.0"
-black = "^24.8.0"
 ruff = "^0.16.1"
-mypy = "^1.14.1"
+basedpyright = "^1.39.9"
 
 [tool.poetry.build]
 generate-setup-file = false
@@ -49,6 +48,6 @@ lint.fixable = ["I"]
 [tool.ruff.lint.pylint]
 max-args = 25
 
-[tool.mypy]
-strict_optional = false
-ignore_missing_imports = true
+[tool.basedpyright]
+pythonVersion = "3.8"
+include = ["yggdrasil_engine", "tests"]
