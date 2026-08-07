@@ -18,11 +18,32 @@ plugins {
 version = project.findProperty("version") as String
 
 val binariesDir = file("binaries")
+val yggdrasilCoreVersion = project.findProperty("yggdrasilCoreVersion") as String
 val sonatypeUsername: String? by project
 val sonatypePassword: String? by project
 val signingKey: String? by project
 val signingPassphrase: String? by project
 val mavenCentralToken: String? by project
+
+fun versionedBinaryName(originalName: String): String = when {
+    originalName.endsWith(".so") -> "libyggdrasilffi-$yggdrasilCoreVersion.so"
+    originalName.endsWith(".dylib") -> "libyggdrasilffi-$yggdrasilCoreVersion.dylib"
+    originalName.endsWith(".dll") -> "yggdrasilffi-$yggdrasilCoreVersion.dll"
+    else -> throw GradleException("Unsupported native binary name: $originalName")
+}
+
+fun nativePlatformDirectory(binaryName: String): String = when {
+    binaryName == "libyggdrasilffi_x86_64.so" -> "linux-x86_64"
+    binaryName == "libyggdrasilffi_arm64.so" -> "linux-arm64"
+    binaryName == "libyggdrasilffi_x86_64-musl.so" -> "linux-x86_64-musl"
+    binaryName == "libyggdrasilffi_arm64-musl.so" -> "linux-arm64-musl"
+    binaryName == "libyggdrasilffi_x86_64.dylib" -> "macos-x86_64"
+    binaryName == "libyggdrasilffi_arm64.dylib" -> "macos-arm64"
+    binaryName == "yggdrasilffi_x86_64.dll" -> "windows-x86_64"
+    binaryName == "yggdrasilffi_arm64.dll" -> "windows-arm64"
+    binaryName == "yggdrasilffi_i686.dll" -> "windows-i686"
+    else -> throw GradleException("Unsupported native binary name: $binaryName")
+}
 
 repositories {
     mavenCentral()
@@ -59,8 +80,20 @@ tasks.jar {
             "Implementation-Version" to project.version
         )
     }
-    from(binariesDir) {
-        into("native")
+    binariesDir.listFiles()?.filter { it.isFile }?.forEach { binary ->
+        from(binary) {
+            into("native/${nativePlatformDirectory(binary.name)}")
+            rename { versionedBinaryName(binary.name) }
+        }
+    }
+}
+
+tasks.processResources {
+    inputs.property("yggdrasilCoreVersion", yggdrasilCoreVersion)
+    filesMatching("io/getunleash/engine/version.properties") {
+        expand(
+            "yggdrasilCoreVersion" to yggdrasilCoreVersion
+        )
     }
 }
 
@@ -89,12 +122,16 @@ val copyTestBinary by tasks.register<Copy>("copyTestBinary") {
     val binaryName = when {
         os.contains("mac") && (platform.contains("arm") || platform.contains("aarch")) -> "libyggdrasilffi_arm64.dylib"
         os.contains("mac") -> "libyggdrasilffi_x86_64.dylib"
-        os.contains("win") -> "yggdrasilffi_x86_64.dll"
+        os.contains("win") && (platform.contains("arm") || platform.contains("aarch")) -> "yggdrasilffi_arm64.dll"
+        os.contains("win") && platform.contains("64") -> "yggdrasilffi_x86_64.dll"
+        os.contains("win") -> "yggdrasilffi_i686.dll"
+        os.contains("linux") && (platform.contains("arm") || platform.contains("aarch")) -> "libyggdrasilffi_arm64.so"
         os.contains("linux") -> "libyggdrasilffi_x86_64.so"
         else -> throw GradleException("Unsupported OS")
     }
     from(sourcePath) {
-        rename { binaryName }
+        into(nativePlatformDirectory(binaryName))
+        rename { versionedBinaryName(binaryName) }
     }
     into(targetPath)
     outputs.upToDateWhen { false }
