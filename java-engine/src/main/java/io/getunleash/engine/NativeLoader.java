@@ -55,10 +55,20 @@ final class NativeLoader {
 
   private static void moveIntoPlace(Path source, Path destination) throws IOException {
     try {
-      Files.move(
-          source, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-    } catch (AtomicMoveNotSupportedException e) {
-      Files.move(source, destination, StandardCopyOption.REPLACE_EXISTING);
+      try {
+        Files.move(
+            source,
+            destination,
+            StandardCopyOption.ATOMIC_MOVE,
+            StandardCopyOption.REPLACE_EXISTING);
+      } catch (AtomicMoveNotSupportedException e) {
+        Files.move(source, destination, StandardCopyOption.REPLACE_EXISTING);
+      }
+    } catch (IOException e) {
+      if (Files.exists(destination)) {
+        return;
+      }
+      throw e;
     }
   }
 }
