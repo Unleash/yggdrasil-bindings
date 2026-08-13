@@ -14,7 +14,7 @@ final class NativeLoader {
       }
       System.load(tmp.toAbsolutePath().toString());
     } catch (Exception e) {
-      throw new RuntimeException("Failed to load native lib " + library.fileName(), e);
+      throw new RuntimeException("Failed to load native lib " + library.resourcePath(), e);
     }
   }
 }
