@@ -70,5 +70,9 @@ final class LibNames {
     String fileName() {
       return fileName;
     }
+
+    String platformDirectory() {
+      return platformDirectory;
+    }
   }
 }
