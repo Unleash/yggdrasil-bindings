@@ -30,10 +30,16 @@ final class NativeLoader {
   }
 
   private static Path extractedLibraryPath(LibNames.NativeLibrary library) {
+    var classLoader = NativeLoader.class.getClassLoader();
+    var classLoaderId =
+        classLoader == null
+            ? "bootstrap"
+            : Integer.toHexString(System.identityHashCode(classLoader));
     return Path.of(
         System.getProperty("java.io.tmpdir"),
         "io.getunleash",
         "yggdrasil-engine",
+        classLoaderId,
         library.platformDirectory(),
         library.fileName());
   }
