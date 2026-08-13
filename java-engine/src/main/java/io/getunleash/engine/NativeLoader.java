@@ -9,6 +9,15 @@ import java.nio.file.StandardCopyOption;
 final class NativeLoader {
 
   static void loadFromResources(LibNames.NativeLibrary library) {
+    try {
+      System.loadLibrary(library.libraryName());
+      return;
+    } catch (UnsatisfiedLinkError e) {
+      // It was a long shot anyway, but it's polite to have checked
+      // the standard paths that a binary can be expected at first
+      // before unpacking and dumping stuff into the temp directory
+    }
+
     var extractedLibrary = extractedLibraryPath(library);
     try {
       if (Files.exists(extractedLibrary)) {
