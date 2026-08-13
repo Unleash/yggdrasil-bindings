@@ -73,7 +73,21 @@ tasks.withType<Javadoc> {
     exclude("io/getunleash/engine/Payload.java")
     exclude("io/getunelash/engine/IStrategy.java")
 }
+
+val verifyNativeBinariesForJar by tasks.registering {
+    group = "verification"
+    description = "Verifies native binaries are available before assembling the JAR"
+
+    doLast {
+        val nativeBinaries = binariesDir.listFiles()?.filter { it.isFile }.orEmpty()
+        if (nativeBinaries.isEmpty()) {
+            throw GradleException("No native binaries found in ${binariesDir.absolutePath}")
+        }
+    }
+}
+
 tasks.jar {
+    dependsOn(verifyNativeBinariesForJar)
     manifest {
         attributes(
             "Implementation-Title" to project.name,
