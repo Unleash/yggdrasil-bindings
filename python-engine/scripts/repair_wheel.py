@@ -24,7 +24,9 @@ for whl in wheels:
                     new_wheel_data = []
                     for line in wheel_data:
                         if line.startswith("Tag:"):
-                            new_wheel_data.append(f"Tag: py3-{abi_tag}-{platform_tag}")
+                            new_wheel_data.append(
+                                f"Tag: {python_version}-{abi_tag}-{platform_tag}"
+                            )
                         elif line.startswith("Root-Is-Purelib:"):
                             new_wheel_data.append("Root-Is-Purelib: false")
                         else:
