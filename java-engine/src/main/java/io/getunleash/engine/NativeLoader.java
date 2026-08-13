@@ -24,7 +24,7 @@ final class NativeLoader {
 
       extractLibrary(library, extractedLibrary);
       System.load(extractedLibrary.toAbsolutePath().toString());
-    } catch (Exception e) {
+    } catch (Exception | UnsatisfiedLinkError e) {
       throw new RuntimeException("Failed to load native lib " + library.resourcePath(), e);
     }
   }
