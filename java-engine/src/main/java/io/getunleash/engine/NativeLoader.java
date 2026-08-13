@@ -7,7 +7,9 @@ final class NativeLoader {
   static final String NATIVE_LIBRARY_PATH_PROPERTY = "io.getunleash.engine.native.path";
 
   static void loadFromResources(LibNames.NativeLibrary library) {
-    loadFromConfiguredPath(library);
+    if (loadFromConfiguredPath(library)) {
+      return;
+    }
 
     try (var in = NativeLoader.class.getResourceAsStream(library.resourcePath())) {
       if (in == null) throw new IllegalStateException("Missing " + library.resourcePath());
@@ -22,15 +24,16 @@ final class NativeLoader {
     }
   }
 
-  private static void loadFromConfiguredPath(LibNames.NativeLibrary library) {
+  private static boolean loadFromConfiguredPath(LibNames.NativeLibrary library) {
     var configuredPath = System.getProperty(NATIVE_LIBRARY_PATH_PROPERTY);
     if (configuredPath == null || configuredPath.trim().isEmpty()) {
-      return;
+      return false;
     }
 
     var libraryPath = configuredLibraryPath(configuredPath.trim(), library).toAbsolutePath();
     try {
       System.load(libraryPath.toString());
+      return true;
     } catch (UnsatisfiedLinkError e) {
       throw new RuntimeException(
           "Failed to load native lib from "
