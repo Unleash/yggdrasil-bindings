@@ -1610,3 +1610,365 @@ def test_get_variant_counts_the_toggle_before_the_variant(monkeypatch):
     metrics = engine.get_metrics()
     assert metrics["toggles"]["testFeature"]["yes"] == 1
     assert metrics["toggles"]["testFeature"]["variants"] == {}
+
+
+def test_check_enabled_returns_feature_toggle_for_enabled_toggle():
+    engine = UnleashEngine()
+    engine.take_state(_toggle_state("testFeature", True))
+
+    result = engine.check_enabled("testFeature", {})
+
+    assert result == FeatureToggle(name="testFeature", is_enabled=True, is_found=True)
+
+
+def test_check_enabled_returns_found_feature_toggle_when_toggle_is_disabled():
+    engine = UnleashEngine()
+    engine.take_state(_toggle_state("disabledFeature", False))
+
+    result = engine.check_enabled("disabledFeature", {})
+
+    assert result == FeatureToggle(
+        name="disabledFeature", is_enabled=False, is_found=True
+    )
+
+
+def test_check_enabled_reports_not_found_when_toggle_missing_without_fallback():
+    engine = UnleashEngine()
+
+    result = engine.check_enabled("nonExistentFeature", {})
+
+    assert result == FeatureToggle(
+        name="nonExistentFeature", is_enabled=False, is_found=False
+    )
+
+
+def test_check_enabled_resolves_the_toggle_for_the_given_context():
+    engine = UnleashEngine()
+    state = {
+        "version": 1,
+        "features": [
+            {
+                "name": "testFeature",
+                "enabled": True,
+                "strategies": [
+                    {
+                        "name": "userWithId",
+                        "parameters": {"userIds": "123"},
+                    }
+                ],
+            }
+        ],
+    }
+    engine.take_state(json.dumps(state))
+
+    assert engine.check_enabled("testFeature", {"userId": "123"}).is_enabled is True
+    assert engine.check_enabled("testFeature", {"userId": "456"}).is_enabled is False
+
+
+def test_check_enabled_does_not_count_the_toggle():
+    engine = UnleashEngine()
+    engine.take_state(_toggle_state("testFeature", True))
+
+    engine.is_enabled("testFeature", {})
+    engine.check_enabled("testFeature", {})
+    engine.check_enabled("testFeature", {})
+
+    ## The whole point of check_enabled: the query leaves no trace in metrics.
+    ## The is_enabled call is what makes this provable, since an engine that
+    ## counted nothing at all would satisfy an empty bucket just as well
+    metrics = engine.get_metrics()
+    assert metrics["toggles"]["testFeature"]["yes"] == 1
+    assert metrics["toggles"]["testFeature"]["no"] == 0
+
+
+def test_check_enabled_does_not_ask_the_engine_about_impression_events(monkeypatch):
+    engine = UnleashEngine()
+    engine.take_state(_impression_state("testFeature", True, True))
+    should_emit = Mock(return_value=True)
+    monkeypatch.setattr(engine, "should_emit_impression_event", should_emit)
+
+    result = engine.check_enabled("testFeature", {})
+
+    should_emit.assert_not_called()
+    assert result.requires_impression_event_emission is False
+
+
+def test_check_enabled_never_requires_an_impression_event():
+    engine = UnleashEngine()
+    engine.take_state(_impression_state("testFeature", True, True))
+
+    result = engine.check_enabled("testFeature", {})
+
+    ## The toggle carries impression data, but a silent query never asks the
+    ## caller to emit anything
+    assert result.is_enabled is True
+    assert result.requires_impression_event_emission is False
+
+
+def test_check_enabled_returns_callback_value_if_engine_did_not_respond():
+    engine = UnleashEngine()
+
+    result = engine.check_enabled(
+        "nonExistentFeature", {}, fallback_function=lambda name, ctx: True
+    )
+
+    assert result.is_enabled is True
+    assert result.is_found is False
+
+
+def test_check_enabled_fallback_receives_toggle_name_and_context():
+    engine = UnleashEngine()
+    context = {"userId": "123"}
+    fallback = Mock(return_value=True)
+
+    engine.check_enabled("nonExistentFeature", context, fallback_function=fallback)
+
+    fallback.assert_called_once_with("nonExistentFeature", context)
+
+
+def test_check_enabled_fallback_not_invoked_when_toggle_found():
+    engine = UnleashEngine()
+    engine.take_state(_toggle_state("testFeature", True))
+    fallback = Mock(return_value=True)
+
+    engine.check_enabled("testFeature", {}, fallback_function=fallback)
+
+    fallback.assert_not_called()
+
+
+def test_check_enabled_coerces_fallback_value_to_bool():
+    engine = UnleashEngine()
+
+    result = engine.check_enabled(
+        "nonExistentFeature", {}, fallback_function=lambda name, ctx: "truthy"
+    )
+
+    assert result.is_enabled is True
+
+
+def test_check_enabled_fallback_function_must_be_passed_as_keyword():
+    engine = UnleashEngine()
+    engine.take_state(_toggle_state("testFeature", True))
+
+    ## This TypeError comes from binding the arguments, before any of the
+    ## never-raises handling inside check_enabled can run
+    with pytest.raises(TypeError):
+        engine.check_enabled("testFeature", {}, lambda name, ctx: True)
+
+
+def test_check_enabled_returns_disabled_toggle_when_engine_errors(monkeypatch):
+    engine = UnleashEngine()
+    monkeypatch.setattr(
+        engine,
+        "_do_is_enabled",
+        Mock(side_effect=YggdrasilError("boom")),
+    )
+
+    result = engine.check_enabled("testFeature", {})
+
+    assert result == FeatureToggle(name="testFeature", is_enabled=False, is_found=False)
+
+
+def test_check_enabled_does_not_raise_on_unexpected_engine_failure(monkeypatch):
+    engine = UnleashEngine()
+    monkeypatch.setattr(
+        engine,
+        "_do_is_enabled",
+        Mock(side_effect=RuntimeError("kaboom")),
+    )
+
+    result = engine.check_enabled("testFeature", {})
+
+    assert result.is_enabled is False
+    assert result.is_found is False
+
+
+def test_check_enabled_does_not_use_the_fallback_when_engine_errors(monkeypatch):
+    engine = UnleashEngine()
+    monkeypatch.setattr(
+        engine,
+        "_do_is_enabled",
+        Mock(side_effect=YggdrasilError("boom")),
+    )
+    fallback = Mock(return_value=True)
+
+    result = engine.check_enabled("testFeature", {}, fallback_function=fallback)
+
+    fallback.assert_not_called()
+    assert result.is_enabled is False
+    assert result.is_found is False
+
+
+def test_check_enabled_defaults_to_disabled_when_fallback_raises():
+    engine = UnleashEngine()
+
+    def exploding_fallback(name, ctx):
+        raise RuntimeError("bad fallback")
+
+    result = engine.check_enabled(
+        "nonExistentFeature", {}, fallback_function=exploding_fallback
+    )
+
+    assert result.is_enabled is False
+    assert result.is_found is False
+
+
+def test_check_enabled_result_cannot_be_used_as_a_bool():
+    engine = UnleashEngine()
+    engine.take_state(_toggle_state("testFeature", True))
+
+    result = engine.check_enabled("testFeature", {})
+
+    with pytest.raises(TypeError):
+        if result:
+            pass
+
+
+def test_check_variant_returns_the_resolved_variant():
+    engine = UnleashEngine()
+    engine.take_state(
+        _variant_state(
+            "testFeature", True, "sourDough", {"type": "string", "value": "crusty"}
+        )
+    )
+
+    result = engine.check_variant("testFeature", {})
+
+    assert result == FeatureVariant(
+        name="testFeature",
+        variant=Variant(
+            name="sourDough",
+            payload={"type": "string", "value": "crusty"},
+            enabled=True,
+            feature_enabled=True,
+        ),
+        is_found=True,
+        requires_impression_event_emission=False,
+    )
+
+
+def test_check_variant_reports_found_for_a_known_but_disabled_toggle():
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("disabledFeature", False, "sourDough"))
+
+    result = engine.check_variant("disabledFeature", {})
+
+    ## A disabled toggle resolves to a variant that looks exactly like the
+    ## substituted one, so is_found must come from the engine's status code
+    assert result.variant == disabled_variant()
+    assert result.is_found is True
+
+
+def test_check_variant_returns_the_disabled_variant_for_an_unknown_toggle():
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+
+    result = engine.check_variant("nonExistentFeature", {})
+
+    assert result == FeatureVariant(
+        name="nonExistentFeature",
+        variant=disabled_variant(),
+        is_found=False,
+        requires_impression_event_emission=False,
+    )
+
+
+def test_check_variant_resolves_the_variant_for_the_given_context():
+    engine = UnleashEngine()
+    state = {
+        "version": 1,
+        "features": [
+            {
+                "name": "testFeature",
+                "enabled": True,
+                "strategies": [{"name": "default"}],
+                "variants": [
+                    {"name": "sourDough", "weight": 100},
+                    {
+                        "name": "rye",
+                        "weight": 0,
+                        "overrides": [{"contextName": "userId", "values": ["123"]}],
+                    },
+                ],
+            }
+        ],
+    }
+    engine.take_state(json.dumps(state))
+
+    result = engine.check_variant("testFeature", {"userId": "123"})
+
+    ## Only the override can select the zero-weight variant, so this can only
+    ## hold if the context reached the engine
+    assert result.variant.name == "rye"
+
+
+def test_check_variant_does_not_count_the_toggle_or_the_variant():
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+
+    engine.get_variant("testFeature", {})
+    engine.check_variant("testFeature", {})
+    engine.check_variant("testFeature", {})
+
+    ## The whole point of check_variant: the query leaves no trace in metrics.
+    ## The get_variant call is what makes this provable, since an engine that
+    ## counted nothing at all would satisfy an empty bucket just as well
+    metrics = engine.get_metrics()
+    assert metrics["toggles"]["testFeature"]["yes"] == 1
+    assert metrics["toggles"]["testFeature"]["variants"] == {"sourDough": 1}
+
+
+def test_check_variant_does_not_ask_the_engine_about_impression_events(monkeypatch):
+    engine = UnleashEngine()
+    engine.take_state(_variant_impression_state("testFeature", True, "sourDough", True))
+    should_emit = Mock(return_value=True)
+    monkeypatch.setattr(engine, "should_emit_impression_event", should_emit)
+
+    result = engine.check_variant("testFeature", {})
+
+    should_emit.assert_not_called()
+    assert result.requires_impression_event_emission is False
+
+
+def test_check_variant_never_requires_an_impression_event():
+    engine = UnleashEngine()
+    engine.take_state(_variant_impression_state("testFeature", True, "sourDough", True))
+
+    result = engine.check_variant("testFeature", {})
+
+    ## The toggle carries impression data, but a silent query never asks the
+    ## caller to emit anything
+    assert result.variant.name == "sourDough"
+    assert result.requires_impression_event_emission is False
+
+
+def test_check_variant_returns_the_disabled_variant_when_engine_errors(monkeypatch):
+    engine = UnleashEngine()
+    monkeypatch.setattr(
+        engine,
+        "_do_get_variant",
+        Mock(side_effect=YggdrasilError("boom")),
+    )
+
+    result = engine.check_variant("testFeature", {})
+
+    assert result == FeatureVariant(
+        name="testFeature",
+        variant=disabled_variant(),
+        is_found=False,
+        requires_impression_event_emission=False,
+    )
+
+
+def test_check_variant_does_not_raise_on_unexpected_engine_failure(monkeypatch):
+    engine = UnleashEngine()
+    monkeypatch.setattr(
+        engine,
+        "_do_get_variant",
+        Mock(side_effect=RuntimeError("kaboom")),
+    )
+
+    result = engine.check_variant("testFeature", {})
+
+    assert result.variant == disabled_variant()
+    assert result.is_found is False
