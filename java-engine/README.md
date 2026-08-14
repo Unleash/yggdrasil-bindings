@@ -17,8 +17,7 @@ The Java engine uses JNI and must load a native Yggdrasil library before the eng
 The loader tries native libraries in this order:
 
 1. A path configured with the `io.getunleash.engine.native.path` system property.
-2. The JVM's standard native library lookup using `System.loadLibrary`.
-3. The bundled native library from the JAR.
+2. The bundled native library from the JAR.
 
 The configured path can point either to the exact native library file or to a directory containing the versioned native library for the current platform:
 
@@ -32,7 +31,7 @@ For example, on Linux with Yggdrasil core version `0.20.7`, the directory above 
 /opt/unleash/native/libyggdrasilffi-0.20.7.so
 ```
 
-The same versioned names are used for standard JVM native library lookup:
+The configured directory must use the versioned native library name for the current platform:
 
 ```text
 Linux:   libyggdrasilffi-0.20.7.so

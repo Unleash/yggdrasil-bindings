@@ -9,8 +9,7 @@ import org.junit.jupiter.api.io.TempDir;
 class NativeLoaderTest {
 
   private static final LibNames.NativeLibrary NATIVE_LIBRARY =
-      new LibNames.NativeLibrary(
-          "linux-x86_64", "libyggdrasilffi-0.20.7.so", "yggdrasilffi-0.20.7");
+      new LibNames.NativeLibrary("linux-x86_64", "libyggdrasilffi-0.20.7.so");
 
   @Test
   void configuredLibraryPathUsesDirectFilePath() {
