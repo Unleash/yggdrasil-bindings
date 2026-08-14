@@ -944,7 +944,9 @@ def test_is_enabled_does_not_ask_for_impression_data_when_evaluation_errors(
     assert result.requires_impression_event_emission is False
 
 
-def test_is_enabled_defaults_impression_event_to_false_when_lookup_errors(monkeypatch):
+def test_is_enabled_discards_the_evaluation_when_the_impression_lookup_errors(
+    monkeypatch,
+):
     engine = UnleashEngine()
     engine.take_state(_impression_state("testFeature", True, True))
     monkeypatch.setattr(
@@ -955,13 +957,10 @@ def test_is_enabled_defaults_impression_event_to_false_when_lookup_errors(monkey
 
     result = engine.is_enabled("testFeature", {})
 
-    ## A failing impression lookup must not disturb the evaluation itself
-    assert result.requires_impression_event_emission is False
-    assert result.is_enabled is True
-    assert result.is_found is True
+    assert result == FeatureToggle(name="testFeature")
 
 
-def test_is_enabled_defaults_impression_event_to_false_on_unexpected_lookup_failure(
+def test_is_enabled_discards_the_evaluation_on_unexpected_lookup_failure(
     monkeypatch,
 ):
     engine = UnleashEngine()
@@ -974,12 +973,10 @@ def test_is_enabled_defaults_impression_event_to_false_on_unexpected_lookup_fail
 
     result = engine.is_enabled("testFeature", {})
 
-    assert result.requires_impression_event_emission is False
-    assert result.is_enabled is True
-    assert result.is_found is True
+    assert result == FeatureToggle(name="testFeature")
 
 
-def test_is_enabled_still_counts_the_toggle_when_impression_lookup_fails(monkeypatch):
+def test_is_enabled_does_not_count_when_the_impression_lookup_fails(monkeypatch):
     engine = UnleashEngine()
     engine.take_state(_impression_state("testFeature", True, True))
     monkeypatch.setattr(
@@ -990,13 +987,11 @@ def test_is_enabled_still_counts_the_toggle_when_impression_lookup_fails(monkeyp
 
     result = engine.is_enabled("testFeature", {})
 
-    metrics = engine.get_metrics()
-
     assert result.requires_impression_event_emission is False
-    assert metrics["toggles"]["testFeature"]["yes"] == 1
+    assert engine.get_metrics() is None
 
 
-def test_is_enabled_returns_the_evaluation_when_counting_fails(monkeypatch):
+def test_is_enabled_discards_the_evaluation_when_counting_fails(monkeypatch):
     engine = UnleashEngine()
     engine.take_state(_impression_state("testFeature", True, True))
     monkeypatch.setattr(
@@ -1005,9 +1000,7 @@ def test_is_enabled_returns_the_evaluation_when_counting_fails(monkeypatch):
 
     result = engine.is_enabled("testFeature", {})
 
-    ## A metrics failure must not discard an evaluation that already succeeded
-    assert result.is_enabled is True
-    assert result.is_found is True
+    assert result == FeatureToggle(name="testFeature")
 
 
 def test_is_enabled_does_not_raise_on_unexpected_counting_failure(monkeypatch):
@@ -1019,11 +1012,10 @@ def test_is_enabled_does_not_raise_on_unexpected_counting_failure(monkeypatch):
 
     result = engine.is_enabled("testFeature", {})
 
-    assert result.is_enabled is True
-    assert result.is_found is True
+    assert result == FeatureToggle(name="testFeature")
 
 
-def test_is_enabled_does_not_ask_for_impression_data_when_counting_fails(monkeypatch):
+def test_is_enabled_asks_for_impression_data_before_counting(monkeypatch):
     engine = UnleashEngine()
     engine.take_state(_impression_state("testFeature", True, True))
     monkeypatch.setattr(
@@ -1034,7 +1026,7 @@ def test_is_enabled_does_not_ask_for_impression_data_when_counting_fails(monkeyp
 
     result = engine.is_enabled("testFeature", {})
 
-    should_emit.assert_not_called()
+    should_emit.assert_called_once_with("testFeature")
     assert result.requires_impression_event_emission is False
 
 
@@ -1681,7 +1673,7 @@ def test_check_enabled_does_not_count_the_toggle():
     assert metrics["toggles"]["testFeature"]["no"] == 0
 
 
-def test_check_enabled_does_not_ask_the_engine_about_impression_events(monkeypatch):
+def test_check_enabled_asks_the_engine_about_impression_events(monkeypatch):
     engine = UnleashEngine()
     engine.take_state(_impression_state("testFeature", True, True))
     should_emit = Mock(return_value=True)
@@ -1689,20 +1681,74 @@ def test_check_enabled_does_not_ask_the_engine_about_impression_events(monkeypat
 
     result = engine.check_enabled("testFeature", {})
 
-    should_emit.assert_not_called()
-    assert result.requires_impression_event_emission is False
+    should_emit.assert_called_once_with("testFeature")
+    assert result.requires_impression_event_emission is True
 
 
-def test_check_enabled_never_requires_an_impression_event():
+def test_check_enabled_reports_impression_event_when_toggle_has_impression_data():
     engine = UnleashEngine()
     engine.take_state(_impression_state("testFeature", True, True))
 
     result = engine.check_enabled("testFeature", {})
 
-    ## The toggle carries impression data, but a silent query never asks the
-    ## caller to emit anything
+    ## Skipping the metrics is not the same as skipping impression events: the
+    ## caller still has to emit one for a toggle that carries impression data
     assert result.is_enabled is True
+    assert result.requires_impression_event_emission is True
+
+
+def test_check_enabled_does_not_report_impression_event_without_impression_data():
+    engine = UnleashEngine()
+    engine.take_state(_impression_state("testFeature", True, False))
+
+    result = engine.check_enabled("testFeature", {})
+
     assert result.requires_impression_event_emission is False
+
+
+def test_check_enabled_coerces_impression_event_flag_to_bool(monkeypatch):
+    engine = UnleashEngine()
+    engine.take_state(_toggle_state("testFeature", True))
+    monkeypatch.setattr(engine, "should_emit_impression_event", Mock(return_value=None))
+
+    result = engine.check_enabled("testFeature", {})
+
+    assert result.requires_impression_event_emission is False
+
+
+def test_check_enabled_does_not_ask_for_impression_data_when_evaluation_errors(
+    monkeypatch,
+):
+    engine = UnleashEngine()
+    monkeypatch.setattr(
+        engine,
+        "_do_is_enabled",
+        Mock(side_effect=YggdrasilError("boom")),
+    )
+    should_emit = Mock(return_value=True)
+    monkeypatch.setattr(engine, "should_emit_impression_event", should_emit)
+
+    result = engine.check_enabled("testFeature", {})
+
+    ## Without an evaluation there is nothing to emit an impression event about
+    should_emit.assert_not_called()
+    assert result.requires_impression_event_emission is False
+
+
+def test_check_enabled_discards_the_evaluation_when_the_impression_lookup_errors(
+    monkeypatch,
+):
+    engine = UnleashEngine()
+    engine.take_state(_impression_state("testFeature", True, True))
+    monkeypatch.setattr(
+        engine,
+        "should_emit_impression_event",
+        Mock(side_effect=YggdrasilError("boom")),
+    )
+
+    result = engine.check_enabled("testFeature", {})
+
+    assert result == FeatureToggle(name="testFeature")
 
 
 def test_check_enabled_returns_callback_value_if_engine_did_not_respond():
@@ -1918,7 +1964,7 @@ def test_check_variant_does_not_count_the_toggle_or_the_variant():
     assert metrics["toggles"]["testFeature"]["variants"] == {"sourDough": 1}
 
 
-def test_check_variant_does_not_ask_the_engine_about_impression_events(monkeypatch):
+def test_check_variant_asks_the_engine_about_impression_events(monkeypatch):
     engine = UnleashEngine()
     engine.take_state(_variant_impression_state("testFeature", True, "sourDough", True))
     should_emit = Mock(return_value=True)
@@ -1926,20 +1972,83 @@ def test_check_variant_does_not_ask_the_engine_about_impression_events(monkeypat
 
     result = engine.check_variant("testFeature", {})
 
-    should_emit.assert_not_called()
-    assert result.requires_impression_event_emission is False
+    should_emit.assert_called_once_with("testFeature")
+    assert result.requires_impression_event_emission is True
 
 
-def test_check_variant_never_requires_an_impression_event():
+def test_check_variant_reports_impression_event_when_toggle_has_impression_data():
     engine = UnleashEngine()
     engine.take_state(_variant_impression_state("testFeature", True, "sourDough", True))
 
     result = engine.check_variant("testFeature", {})
 
-    ## The toggle carries impression data, but a silent query never asks the
-    ## caller to emit anything
+    ## Skipping the metrics is not the same as skipping impression events: the
+    ## caller still has to emit one for a toggle that carries impression data
     assert result.variant.name == "sourDough"
+    assert result.requires_impression_event_emission is True
+
+
+def test_check_variant_does_not_report_impression_event_without_impression_data():
+    engine = UnleashEngine()
+    engine.take_state(
+        _variant_impression_state("testFeature", True, "sourDough", False)
+    )
+
+    result = engine.check_variant("testFeature", {})
+
     assert result.requires_impression_event_emission is False
+
+
+def test_check_variant_coerces_impression_event_flag_to_bool(monkeypatch):
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+    monkeypatch.setattr(engine, "should_emit_impression_event", Mock(return_value=None))
+
+    result = engine.check_variant("testFeature", {})
+
+    assert result.requires_impression_event_emission is False
+
+
+def test_check_variant_does_not_ask_for_impression_data_when_evaluation_errors(
+    monkeypatch,
+):
+    engine = UnleashEngine()
+    monkeypatch.setattr(
+        engine,
+        "_do_get_variant",
+        Mock(side_effect=YggdrasilError("boom")),
+    )
+    should_emit = Mock(return_value=True)
+    monkeypatch.setattr(engine, "should_emit_impression_event", should_emit)
+
+    result = engine.check_variant("testFeature", {})
+
+    ## Without an evaluation there is nothing to emit an impression event about
+    should_emit.assert_not_called()
+    assert result.requires_impression_event_emission is False
+
+
+def test_check_variant_discards_the_evaluation_when_the_impression_lookup_errors(
+    monkeypatch,
+):
+    engine = UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+    monkeypatch.setattr(
+        engine,
+        "should_emit_impression_event",
+        Mock(side_effect=YggdrasilError("boom")),
+    )
+
+    result = engine.check_variant("testFeature", {})
+
+    ## The impression lookup is part of building the result, so its failure
+    ## takes the whole evaluation down to the fallback
+    assert result == FeatureVariant(
+        name="testFeature",
+        variant=disabled_variant(),
+        is_found=False,
+        requires_impression_event_emission=False,
+    )
 
 
 def test_check_variant_returns_the_disabled_variant_when_engine_errors(monkeypatch):

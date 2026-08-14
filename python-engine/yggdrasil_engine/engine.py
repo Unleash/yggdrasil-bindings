@@ -381,18 +381,17 @@ class UnleashEngine:
         """Ask whether a feature is enabled, and record the query.
 
         This records the evaluation against the engine's metrics, so the toggle
-        shows up in the next `get_metrics()` payload, and it asks the engine
-        whether the caller must emit an impression event. Use `check_enabled`
-        to ask the same question without either of those.
+        shows up in the next `get_metrics()` payload. Use `check_enabled` to
+        ask the same question without recording it; both report impression
+        events the same way.
 
         `fallback_function` is consulted only when the engine does not know the
         toggle; its answer sets `is_enabled` but leaves `is_found` at `False`.
 
-        Never raises: a failed evaluation comes back as the disabled toggle. A
-        failure to record the metrics does not discard an evaluation that has
-        already succeeded.
+        Never raises, and answers all or nothing: whatever fails, whether the
+        evaluation, the impression lookup or the recording, the caller gets the
+        disabled toggle rather than a half built answer.
         """
-        result = FeatureToggle(name=toggle_name)
         try:
             evaluation = self._is_enabled_or_fallback(
                 toggle_name, context, fallback_function
@@ -401,20 +400,23 @@ class UnleashEngine:
                 name=toggle_name,
                 is_enabled=evaluation.is_enabled,
                 is_found=evaluation.is_found,
+                requires_impression_event_emission=bool(
+                    self.should_emit_impression_event(toggle_name)
+                ),
             )
 
             self.count_toggle(toggle_name, evaluation.is_enabled)
-            result.requires_impression_event_emission = bool(
-                self.should_emit_impression_event(toggle_name)
-            )
+
+            return result
         except Exception:
+            result = FeatureToggle(name=toggle_name)
             _logger.warning(
-                "Failed to fully evaluate toggle %s, returning %s",
+                "Failed to evaluate toggle %s, returning %s",
                 toggle_name,
                 result,
                 exc_info=True,
             )
-        return result
+            return result
 
     def check_enabled(
         self,
@@ -426,15 +428,21 @@ class UnleashEngine:
         """Ask whether a feature is enabled, without recording the query.
 
         The answer matches `is_enabled`, but nothing is counted towards the
-        engine's metrics and the engine is never asked about impression events,
-        so `requires_impression_event_emission` is always `False`. Reach for
-        `is_enabled` when the query is a real feature check that should be
-        reported back to Unleash.
+        engine's metrics, so the toggle does not show up in the next
+        `get_metrics()` payload. Reach for `is_enabled` when the query is a
+        real feature check that should be reported back to Unleash.
+
+        Impression events are not part of that difference: the engine is still
+        asked whether the caller must emit one, and
+        `requires_impression_event_emission` carries the same answer it would
+        under `is_enabled`.
 
         `fallback_function` is consulted only when the engine does not know the
         toggle; its answer sets `is_enabled` but leaves `is_found` at `False`.
 
-        Never raises: a failed evaluation comes back as the disabled toggle.
+        Never raises, and answers all or nothing: whatever fails, whether the
+        evaluation or the impression lookup, the caller gets the disabled
+        toggle rather than a half built answer.
         """
         try:
             evaluation = self._is_enabled_or_fallback(
@@ -444,6 +452,9 @@ class UnleashEngine:
                 name=toggle_name,
                 is_enabled=evaluation.is_enabled,
                 is_found=evaluation.is_found,
+                requires_impression_event_emission=bool(
+                    self.should_emit_impression_event(toggle_name)
+                ),
             )
         except Exception:
             result = FeatureToggle(name=toggle_name)
@@ -459,14 +470,13 @@ class UnleashEngine:
         """Ask which variant a feature resolves to, and record the query.
 
         This records both the toggle and the resolved variant against the
-        engine's metrics, so they show up in the next `get_metrics()` payload,
-        and it asks the engine whether the caller must emit an impression
-        event. Use `check_variant` to ask the same question without either of
-        those.
+        engine's metrics, so they show up in the next `get_metrics()` payload.
+        Use `check_variant` to ask the same question without recording it; both
+        report impression events the same way.
 
-        Never raises: a failed evaluation comes back as the disabled variant.
-        Recording the metrics is part of the evaluation here, so a failure to
-        count discards the answer that preceded it.
+        Never raises, and answers all or nothing: whatever fails, whether the
+        evaluation, the impression lookup or the recording, the caller gets the
+        disabled variant rather than a half built answer.
         """
         try:
             variant, is_found = self._query_variant(toggle_name, context)
@@ -503,12 +513,18 @@ class UnleashEngine:
         """Ask which variant a feature resolves to, without recording the query.
 
         The answer matches `get_variant`, but neither the toggle nor the
-        variant is counted towards the engine's metrics and the engine is never
-        asked about impression events, so `requires_impression_event_emission`
-        is always `False`. Reach for `get_variant` when the query is a real
-        feature check that should be reported back to Unleash.
+        variant is counted towards the engine's metrics, so neither shows up in
+        the next `get_metrics()` payload. Reach for `get_variant` when the
+        query is a real feature check that should be reported back to Unleash.
 
-        Never raises: a failed evaluation comes back as the disabled variant.
+        Impression events are not part of that difference: the engine is still
+        asked whether the caller must emit one, and
+        `requires_impression_event_emission` carries the same answer it would
+        under `get_variant`.
+
+        Never raises, and answers all or nothing: whatever fails, whether the
+        evaluation or the impression lookup, the caller gets the disabled
+        variant rather than a half built answer.
         """
         try:
             variant, is_found = self._query_variant(toggle_name, context)
@@ -517,7 +533,9 @@ class UnleashEngine:
                 name=toggle_name,
                 variant=variant,
                 is_found=is_found,
-                requires_impression_event_emission=False,
+                requires_impression_event_emission=bool(
+                    self.should_emit_impression_event(toggle_name)
+                ),
             )
         except Exception:
             result = FeatureVariant(
