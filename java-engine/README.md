@@ -10,6 +10,55 @@ The Java Engine embeds the Yggdrasil engine using Flatbuffers to communicate wit
 
 The `UnleashEngine` class provides a pure Java wrapper around the Yggdrasil feature evaluation engine. It allows you to evaluate feature toggles and variants entirely in-memory, without calling back to a remote Unleash server at runtime. This is intended to be used as part of a larger project that's capable of fetching the feature toggle definitions.
 
+### Native Library Loading
+
+The Java engine uses JNI and must load a native Yggdrasil library before the engine can be used. By default, the native library is bundled in the JAR and extracted to a temporary file at runtime.
+
+The loader tries native libraries in this order:
+
+1. A path configured with the `io.getunleash.engine.native.path` system property.
+2. The bundled native library from the JAR.
+
+The configured path can point either to the exact native library file or to a directory containing the versioned native library for the current platform:
+
+```bash
+java -Dio.getunleash.engine.native.path=/opt/unleash/native -jar app.jar
+```
+
+For example, on Linux with Yggdrasil core version `0.20.7`, the directory above should contain:
+
+```text
+/opt/unleash/native/libyggdrasilffi-0.20.7.so
+```
+
+The configured directory must use the versioned native library name for the current platform:
+
+```text
+Linux:   libyggdrasilffi-0.20.7.so
+macOS:   libyggdrasilffi-0.20.7.dylib
+Windows: yggdrasilffi-0.20.7.dll
+```
+
+The matching native binaries are also included in the published JAR under `native/<platform>/`. You can inspect them with:
+
+```bash
+jar tf yggdrasil-engine-<version>.jar | grep '^native/'
+```
+
+You can extract all bundled native binaries with:
+
+```bash
+jar xf yggdrasil-engine-<version>.jar native
+```
+
+Or extract only the platform you need:
+
+```bash
+jar xf yggdrasil-engine-<version>.jar native/linux-x86_64
+```
+
+Then point `io.getunleash.engine.native.path` at the extracted platform directory.
+
 ### 📥 Loading State
 
 Before evaluating any features, you must initialize the engine with feature toggle definitions. This is done using the `takeState` method. The input to takeState should be the raw JSON response from the Unleash `/api/client/features endpoint`. For example:
@@ -136,4 +185,3 @@ You can then run the local publish
 ```
 
 This will build a JAR and make it available in your local maven repository
-
