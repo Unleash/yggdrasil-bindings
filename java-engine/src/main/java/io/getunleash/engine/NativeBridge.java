@@ -4,7 +4,8 @@ import java.nio.ByteBuffer;
 
 public final class NativeBridge {
   static {
-    NativeLoader.loadFromResources(LibNames.pickForCurrentOsArch());
+    NativeLoader.loadFromResources(
+        LibNames.pickForCurrentOsArch(EngineVersions.getBundledYggdrasilCoreVersion()));
   }
 
   // Engine lifecycle

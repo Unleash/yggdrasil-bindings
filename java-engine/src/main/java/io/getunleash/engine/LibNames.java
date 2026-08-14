@@ -6,26 +6,30 @@ import java.io.IOException;
 import java.util.Locale;
 
 final class LibNames {
-  static String pickForCurrentOsArch() {
+  static NativeLibrary pickForCurrentOsArch(String version) {
     String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
     String arch = System.getProperty("os.arch").toLowerCase(Locale.ROOT);
     if (os.contains("mac")) {
       return arch.contains("aarch64") || arch.contains("arm64")
-          ? "libyggdrasilffi_arm64.dylib"
-          : "libyggdrasilffi_x86_64.dylib";
+          ? new NativeLibrary("macos-arm64", "libyggdrasilffi-" + version + ".dylib")
+          : new NativeLibrary("macos-x86_64", "libyggdrasilffi-" + version + ".dylib");
     } else if (os.contains("win")) {
-      if (arch.contains("arm64")) return "yggdrasilffi_arm64.dll";
-      if (arch.contains("64")) return "yggdrasilffi_x86_64.dll";
-      return "yggdrasilffi_i686.dll";
+      if (arch.contains("arm64")) {
+        return new NativeLibrary("windows-arm64", "yggdrasilffi-" + version + ".dll");
+      }
+      if (arch.contains("64")) {
+        return new NativeLibrary("windows-x86_64", "yggdrasilffi-" + version + ".dll");
+      }
+      return new NativeLibrary("windows-i686", "yggdrasilffi-" + version + ".dll");
     } else { // linux
       if (isMusl()) {
         return arch.contains("aarch64") || arch.contains("arm64")
-            ? "libyggdrasilffi_arm64-musl.so"
-            : "libyggdrasilffi_x86_64-musl.so";
+            ? new NativeLibrary("linux-arm64-musl", "libyggdrasilffi-" + version + ".so")
+            : new NativeLibrary("linux-x86_64-musl", "libyggdrasilffi-" + version + ".so");
       }
       return arch.contains("aarch64") || arch.contains("arm64")
-          ? "libyggdrasilffi_arm64.so"
-          : "libyggdrasilffi_x86_64.so";
+          ? new NativeLibrary("linux-arm64", "libyggdrasilffi-" + version + ".so")
+          : new NativeLibrary("linux-x86_64", "libyggdrasilffi-" + version + ".so");
     }
   }
 
@@ -48,5 +52,23 @@ final class LibNames {
               + e.getMessage());
     }
     return false;
+  }
+
+  static final class NativeLibrary {
+    private final String platformDirectory;
+    private final String fileName;
+
+    NativeLibrary(String platformDirectory, String fileName) {
+      this.platformDirectory = platformDirectory;
+      this.fileName = fileName;
+    }
+
+    String resourcePath() {
+      return "/native/" + platformDirectory + "/" + fileName;
+    }
+
+    String fileName() {
+      return fileName;
+    }
   }
 }
