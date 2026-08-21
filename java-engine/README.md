@@ -25,18 +25,18 @@ The configured path can point either to the exact native library file or to a di
 java -Dio.getunleash.engine.native.path=/opt/unleash/native -jar app.jar
 ```
 
-For example, on Linux with Yggdrasil core version `0.20.7`, the directory above should contain:
+For example, on Linux with Yggdrasil core version `0.20.8`, the directory above should contain:
 
 ```text
-/opt/unleash/native/libyggdrasilffi-0.20.7.so
+/opt/unleash/native/libyggdrasilffi-0.20.8.so
 ```
 
 The configured directory must use the versioned native library name for the current platform:
 
 ```text
-Linux:   libyggdrasilffi-0.20.7.so
-macOS:   libyggdrasilffi-0.20.7.dylib
-Windows: yggdrasilffi-0.20.7.dll
+Linux:   libyggdrasilffi-0.20.8.so
+macOS:   libyggdrasilffi-0.20.8.dylib
+Windows: yggdrasilffi-0.20.8.dll
 ```
 
 The matching native binaries are also included in the published JAR under `native/<platform>/`. You can inspect them with:
