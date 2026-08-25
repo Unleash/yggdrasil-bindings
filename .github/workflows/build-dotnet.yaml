@@ -61,7 +61,7 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "6.0.x"
+          dotnet-version: "8.0.x"
 
       - name: Restore dependencies
         run: |
@@ -94,3 +94,21 @@ jobs:
         run: |
           cd dotnet-engine/Yggdrasil.Engine.Tests
           dotnet test --configuration Release --no-restore
+
+      # Native AOT regression guard. Publishing (not building) runs the trim/AOT
+      # whole-program analysis, and running the binary proves the engine works
+      # under Native AOT. If reflection-based JSON or native loading is
+      # reintroduced, this step fails either at publish or at runtime.
+      #
+      # Runs on Linux only: the trim/AOT analysis is over managed code and is
+      # platform-independent, so one OS is sufficient. (Per-platform native
+      # loading is already covered by the Test step on all three OSes.)
+      - name: AOT publish smoke test
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+          cd dotnet-engine
+          dotnet publish Yggdrasil.Engine.AotSmokeTest/Yggdrasil.Engine.AotSmokeTest.csproj \
+            --configuration Release -r linux-x64 -o ./aot-out
+          echo "Running AOT-compiled binary"
+          ./aot-out/Yggdrasil.Engine.AotSmokeTest
