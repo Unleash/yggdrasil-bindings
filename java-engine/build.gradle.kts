@@ -220,6 +220,12 @@ publishing {
             }
         }
     }
+    repositories {
+        maven {
+            name = "ci"
+            url = uri(layout.buildDirectory.dir("ci-repo"))
+        }
+    }
 }
 
 java {
