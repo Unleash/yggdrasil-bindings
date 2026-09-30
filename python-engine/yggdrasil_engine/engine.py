@@ -20,6 +20,9 @@ from typing import (
     cast,
 )
 
+import flatbuffers
+
+from yggdrasil_engine import enabled_message_generated as messages
 from yggdrasil_engine.custom_strategy import CustomStrategyHandler
 
 
@@ -228,6 +231,14 @@ class _ToggleEvaluation(NamedTuple):
     is_found: bool
 
 
+class _Buf(ctypes.Structure):
+    _fields_ = [
+        ("ptr", ctypes.c_void_p),
+        ("len", ctypes.c_size_t),
+        ("cap", ctypes.c_size_t),
+    ]
+
+
 class UnleashEngine:
     def __init__(self):
         binary_path = _get_binary_path()
@@ -339,6 +350,15 @@ class UnleashEngine:
             ctypes.c_char_p,
         ]
         self.lib.observe_histogram.restype = ctypes.POINTER(ctypes.c_char)
+
+        self.lib.flat_check_enabled.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_char_p,
+            ctypes.c_uint64,
+        ]
+        self.lib.flat_check_enabled.restype = _Buf
+        self.lib.flat_buf_free.argtypes = [_Buf]
+        self.lib.flat_buf_free.restype = None
 
         self.state = self.lib.new_engine()
         self.custom_strategy_handler = CustomStrategyHandler()
@@ -705,24 +725,72 @@ class UnleashEngine:
         return (value if value is not None else disabled_variant()), value is not None
 
     def _do_is_enabled(self, toggle_name: str, context: dict) -> Optional[bool]:
-        serialized_context = json.dumps(context or {})
-        custom_strategy_results = json.dumps(
-            self.custom_strategy_handler.evaluate_custom_strategies(
-                toggle_name, context
-            )
-        )
+        context = context or {}
+        builder = flatbuffers.Builder(256)
 
-        response_ptr = self.lib.check_enabled(
-            self.state,
-            toggle_name.encode("utf-8"),
-            serialized_context.encode("utf-8"),
-            custom_strategy_results.encode("utf-8"),
+        property_offsets = []
+        for key, value in (context.get("properties") or {}).items():
+            key_offset = builder.CreateString(key)
+            value_offset = builder.CreateString(str(value))
+            messages.PropertyEntryStart(builder)
+            messages.PropertyEntryAddKey(builder, key_offset)
+            messages.PropertyEntryAddValue(builder, value_offset)
+            property_offsets.append(messages.PropertyEntryEnd(builder))
+        messages.ContextMessageStartPropertiesVector(builder, len(property_offsets))
+        for offset in reversed(property_offsets):
+            builder.PrependUOffsetTRelative(offset)
+        properties_offset = builder.EndVector()
+
+        result_offsets = []
+        for key, value in self.custom_strategy_handler.evaluate_custom_strategies(
+            toggle_name, context
+        ).items():
+            key_offset = builder.CreateString(key)
+            messages.CustomStrategyResultStart(builder)
+            messages.CustomStrategyResultAddKey(builder, key_offset)
+            messages.CustomStrategyResultAddValue(builder, value)
+            result_offsets.append(messages.CustomStrategyResultEnd(builder))
+        messages.ContextMessageStartCustomStrategiesResultsVector(
+            builder, len(result_offsets)
         )
-        with self.materialize_pointer(response_ptr, bool) as response:
-            if response.status_code == StatusCode.ERROR:
-                raise YggdrasilError(response.error_message)
-            ## `None` is the engine saying it does not know this toggle
-            return response.value
+        for offset in reversed(result_offsets):
+            builder.PrependUOffsetTRelative(offset)
+        results_offset = builder.EndVector()
+
+        toggle_name_offset = builder.CreateString(toggle_name)
+        field_offsets = [
+            (add_field, builder.CreateString(context[key]))
+            for key, add_field in (
+                ("userId", messages.ContextMessageAddUserId),
+                ("sessionId", messages.ContextMessageAddSessionId),
+                ("environment", messages.ContextMessageAddEnvironment),
+                ("appName", messages.ContextMessageAddAppName),
+                ("currentTime", messages.ContextMessageAddCurrentTime),
+                ("remoteAddress", messages.ContextMessageAddRemoteAddress),
+            )
+            if isinstance(context.get(key), str)
+        ]
+
+        messages.ContextMessageStart(builder)
+        messages.ContextMessageAddToggleName(builder, toggle_name_offset)
+        for add_field, offset in field_offsets:
+            add_field(builder, offset)
+        messages.ContextMessageAddProperties(builder, properties_offset)
+        messages.ContextMessageAddCustomStrategiesResults(builder, results_offset)
+        builder.Finish(messages.ContextMessageEnd(builder))
+        message = bytes(builder.Output())
+
+        buf = self.lib.flat_check_enabled(self.state, message, len(message))
+        try:
+            data = ctypes.string_at(buf.ptr, buf.len)
+        finally:
+            self.lib.flat_buf_free(buf)
+
+        response = messages.Response.GetRootAs(data)
+        if response.Error() is not None:
+            raise YggdrasilError(response.Error().decode("utf-8"))
+        
+        return response.Enabled() if response.HasEnabled() else None
 
     def _do_get_variant(self, toggle_name: str, context: dict) -> Optional[Variant]:
         serialized_context = json.dumps(context or {})
