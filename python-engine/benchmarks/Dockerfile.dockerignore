@@ -1,0 +1,10 @@
+.git
+**/target
+**/.venv
+**/__pycache__
+**/.pytest_cache
+python-engine/yggdrasil_engine/lib
+python-engine/dist
+python-engine/staging
+python-engine/binaries
+client-specification
