@@ -16,6 +16,19 @@ import org.slf4j.LoggerFactory;
 public class UnleashEngine {
   private static final Logger LOGGER = LoggerFactory.getLogger(UnleashEngine.class);
   private static final Cleaner CLEANER = Cleaner.create();
+
+  // Allocating a direct buffer per call contends on the JVM-global Cleaner lock, so each thread
+  // reuses one builder. Its factory keeps grown buffers direct, as JNI requires.
+  private static final FlatBufferBuilder.ByteBufferFactory DIRECT_BUFFERS =
+      new FlatBufferBuilder.ByteBufferFactory() {
+        @Override
+        public ByteBuffer newByteBuffer(int capacity) {
+          return ByteBuffer.allocateDirect(capacity).order(ByteOrder.LITTLE_ENDIAN);
+        }
+      };
+  private static final ThreadLocal<FlatBufferBuilder> BUILDERS =
+      ThreadLocal.withInitial(
+          () -> new FlatBufferBuilder(DIRECT_BUFFERS.newByteBuffer(1024), DIRECT_BUFFERS));
   private final NativeInterface nativeEngine;
   private final CustomStrategiesEvaluator customStrategiesEvaluator;
 
@@ -109,8 +122,8 @@ public class UnleashEngine {
 
   private static ByteBuffer buildMessage(
       String toggleName, Context context, Map<String, Boolean> customStrategyResults) {
-    ByteBuffer buffer = ByteBuffer.allocateDirect(1024).order(ByteOrder.LITTLE_ENDIAN);
-    FlatBufferBuilder builder = new FlatBufferBuilder(buffer);
+    FlatBufferBuilder builder = BUILDERS.get();
+    builder.clear();
 
     int toggleNameOffset = builder.createString(toggleName);
 
@@ -173,13 +186,9 @@ public class UnleashEngine {
 
     int ctx = ContextMessage.endContextMessage(builder);
     builder.finish(ctx);
-    // Exact-size byte array
-    byte[] arr = builder.sizedByteArray();
-
-    // Copy into direct, little-endian buffer for JNI
-    ByteBuffer direct = ByteBuffer.allocateDirect(arr.length).order(ByteOrder.LITTLE_ENDIAN);
-    direct.put(arr).flip(); // position=0, limit=len
-    return direct;
+    // View of the finished message: starts at the message (JNI reads from the base address) and
+    // remaining() is its length. Valid until the next buildMessage call on this thread.
+    return builder.dataBuffer().slice().order(ByteOrder.LITTLE_ENDIAN);
   }
 
   public void takeState(String clientFeatures) throws YggdrasilInvalidInputException {
