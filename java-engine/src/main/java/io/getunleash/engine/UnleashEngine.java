@@ -185,8 +185,6 @@ public class UnleashEngine {
 
     int ctx = ContextMessage.endContextMessage(builder);
     builder.finish(ctx);
-    // View of the finished message: starts at the message (JNI reads from the base address) and
-    // remaining() is its length. Valid until the next buildMessage call on this thread.
     return builder.dataBuffer().slice().order(ByteOrder.LITTLE_ENDIAN);
   }
 
