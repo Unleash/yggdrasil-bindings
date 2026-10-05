@@ -9,6 +9,8 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +18,8 @@ import org.slf4j.LoggerFactory;
 public class UnleashEngine {
   private static final Logger LOGGER = LoggerFactory.getLogger(UnleashEngine.class);
   private static final Cleaner CLEANER = Cleaner.create();
+  private static final int MESSAGE_BUFFER_SIZE = 1024;
+  private static final PooledDirectBuffers MESSAGE_BUFFERS = new PooledDirectBuffers();
   private final NativeInterface nativeEngine;
   private final CustomStrategiesEvaluator customStrategiesEvaluator;
 
@@ -107,11 +111,55 @@ public class UnleashEngine {
     return offsets.stream().mapToInt(Integer::intValue).toArray();
   }
 
-  private static ByteBuffer buildMessage(
-      String toggleName, Context context, Map<String, Boolean> customStrategyResults) {
-    ByteBuffer buffer = ByteBuffer.allocateDirect(1024).order(ByteOrder.LITTLE_ENDIAN);
-    FlatBufferBuilder builder = new FlatBufferBuilder(buffer);
+  /**
+   * Pool of direct buffers for building context messages. Allocating a direct buffer per message
+   * registers a Cleaner each time, which serialises all evaluations on a JVM-global lock.
+   */
+  static final class PooledDirectBuffers extends FlatBufferBuilder.ByteBufferFactory {
+    private static final int MAX_POOLED = 256;
+    private final Queue<ByteBuffer> pool = new ConcurrentLinkedQueue<>();
+    private final AtomicInteger pooled = new AtomicInteger();
 
+    @Override
+    public ByteBuffer newByteBuffer(int capacity) {
+      ByteBuffer buffer = pool.poll();
+      if (buffer != null) {
+        pooled.decrementAndGet();
+        if (buffer.capacity() >= capacity) {
+          buffer.clear();
+          return buffer;
+        }
+      }
+      return ByteBuffer.allocateDirect(Math.max(capacity, MESSAGE_BUFFER_SIZE))
+          .order(ByteOrder.LITTLE_ENDIAN);
+    }
+
+    @Override
+    public void releaseByteBuffer(ByteBuffer buffer) {
+      if (pooled.get() < MAX_POOLED) {
+        pooled.incrementAndGet();
+        pool.offer(buffer);
+      }
+    }
+  }
+
+  private static FlatBufferBuilder newMessageBuilder() {
+    return new FlatBufferBuilder(MESSAGE_BUFFER_SIZE, MESSAGE_BUFFERS);
+  }
+
+  private static void releaseMessageBuilder(FlatBufferBuilder builder) {
+    MESSAGE_BUFFERS.releaseByteBuffer(builder.dataBuffer());
+  }
+
+  /**
+   * Builds the context message in the builder's pooled direct buffer. The returned buffer is a view
+   * of that buffer, so it is only valid until {@link #releaseMessageBuilder} is called.
+   */
+  private static ByteBuffer buildMessage(
+      FlatBufferBuilder builder,
+      String toggleName,
+      Context context,
+      Map<String, Boolean> customStrategyResults) {
     int toggleNameOffset = builder.createString(toggleName);
 
     if (context != null) {
@@ -173,13 +221,8 @@ public class UnleashEngine {
 
     int ctx = ContextMessage.endContextMessage(builder);
     builder.finish(ctx);
-    // Exact-size byte array
-    byte[] arr = builder.sizedByteArray();
-
-    // Copy into direct, little-endian buffer for JNI
-    ByteBuffer direct = ByteBuffer.allocateDirect(arr.length).order(ByteOrder.LITTLE_ENDIAN);
-    direct.put(arr).flip(); // position=0, limit=len
-    return direct;
+    // JNI reads from the buffer's base address, so slice to start the view at the message
+    return builder.dataBuffer().slice().order(ByteOrder.LITTLE_ENDIAN);
   }
 
   public void takeState(String clientFeatures) throws YggdrasilInvalidInputException {
@@ -207,9 +250,10 @@ public class UnleashEngine {
     if (toggleName == null) {
       return new FlatResponse<>(false, false);
     }
+    FlatBufferBuilder builder = newMessageBuilder();
     try {
       Map<String, Boolean> strategyResults = customStrategiesEvaluator.eval(toggleName, context);
-      ByteBuffer contextBytes = buildMessage(toggleName, context, strategyResults);
+      ByteBuffer contextBytes = buildMessage(builder, toggleName, context, strategyResults);
       Response response = this.nativeEngine.checkEnabled(contextBytes);
 
       if (response.error() != null) {
@@ -225,6 +269,8 @@ public class UnleashEngine {
     } catch (RuntimeException e) {
       LOGGER.warn("Could not check if toggle is enabled: {}", e.getMessage(), e);
       return new FlatResponse<>(false, null);
+    } finally {
+      releaseMessageBuilder(builder);
     }
   }
 
@@ -238,9 +284,10 @@ public class UnleashEngine {
    */
   public FlatResponse<VariantDef> getVariant(String toggleName, Context context)
       throws YggdrasilInvalidInputException {
+    FlatBufferBuilder builder = newMessageBuilder();
     try {
       Map<String, Boolean> strategyResults = customStrategiesEvaluator.eval(toggleName, context);
-      ByteBuffer contextBytes = buildMessage(toggleName, context, strategyResults);
+      ByteBuffer contextBytes = buildMessage(builder, toggleName, context, strategyResults);
 
       Variant variant = this.nativeEngine.checkVariant(contextBytes);
       if (variant.name() != null) {
@@ -268,6 +315,8 @@ public class UnleashEngine {
     } catch (RuntimeException e) {
       LOGGER.warn("Could not get variant for toggle '{}': {}", toggleName, e.getMessage(), e);
       return new FlatResponse<>(false, null);
+    } finally {
+      releaseMessageBuilder(builder);
     }
   }
 
