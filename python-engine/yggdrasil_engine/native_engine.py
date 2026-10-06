@@ -9,7 +9,7 @@ and the context dict is read directly, with no JSON.
 import logging
 from typing import Any, Callable, Optional
 
-from yggdrasil_native import NativeEngine
+from yggdrasil_engine.yggdrasil_native import NativeEngine
 
 from yggdrasil_engine.custom_strategy import CustomStrategyHandler
 from yggdrasil_engine.engine import FeatureToggle

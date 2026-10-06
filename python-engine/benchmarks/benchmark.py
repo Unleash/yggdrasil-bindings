@@ -184,7 +184,7 @@ def main():
     print(f"python {sys.version.split()[0]}, {CALLS:,} calls per cell")
     print(f"current:  {sys.modules['yggdrasil_engine'].__file__}")
     print(f"reporter: {sys.modules['ct_unleash_engine'].__file__}")
-    print(f"pyo3_poc: {sys.modules['yggdrasil_native'].__file__}")
+    print(f"pyo3_poc: {sys.modules['yggdrasil_engine.yggdrasil_native'].__file__}")
     if hasattr(os, "getloadavg"):
         print(f"load avg {os.getloadavg()}")
 

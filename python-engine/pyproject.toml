@@ -1,19 +1,20 @@
-[tool.poetry]
+[project]
 name = "yggdrasil-engine"
 version = "2.0.0a1"
 description = "Engine for evaluating Unleash feature flags"
-authors = ["Simon Hornby <liquidwicked64@gmail.com>"]
+authors = [{ name = "Simon Hornby", email = "liquidwicked64@gmail.com" }]
 license = "MIT"
 readme = "README.md"
-packages = [
-    { include = "yggdrasil_engine" }
-]
-include = [
-    "yggdrasil_engine/lib/*"
-]
+requires-python = ">=3.8"
 
-[tool.poetry.dependencies]
-python = "^3.8"
+[tool.maturin]
+manifest-path = "../yggdrasil-pyo3/Cargo.toml"
+module-name = "yggdrasil_engine.yggdrasil_native"
+python-source = "."
+exclude = [
+    "yggdrasil_engine/**/__pycache__/**",
+    "yggdrasil_engine/lib/**",
+]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
@@ -21,12 +22,9 @@ tox = "^4.0.0"
 ruff = "^0.16.1"
 basedpyright = "^1.39.9"
 
-[tool.poetry.build]
-generate-setup-file = false
-
 [build-system]
-requires = ["poetry-core", "setuptools"]
-build-backend = "poetry.core.masonry.api"
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

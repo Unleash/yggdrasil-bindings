@@ -1,0 +1,198 @@
+---
+## pyO3 packaging spike: build the Python engine with maturin for every platform
+## we ship today, then install and smoke test each wheel on a real machine of
+## that platform
+name: Python PyO3 build spike
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - spike/pyo3-packaging
+
+jobs:
+  build-wheels:
+    name: build ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: manylinux-x86_64
+            runner: ubuntu-latest
+            target: x86_64
+            manylinux: "2014"
+          - name: manylinux-aarch64
+            runner: ubuntu-24.04-arm
+            target: aarch64
+            manylinux: "2014"
+          - name: musllinux-x86_64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            manylinux: musllinux_1_2
+          - name: musllinux-aarch64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            manylinux: musllinux_1_2
+          - name: macos-x86_64
+            runner: macos-14
+            target: x86_64
+          - name: macos-arm64
+            runner: macos-14
+            target: aarch64
+          - name: windows-x64
+            runner: windows-latest
+            target: x64
+          - name: windows-arm64
+            runner: windows-11-arm
+            target: aarch64
+    env:
+      ## same minimum macOS as today's wheels (macosx_11_0)
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
+    steps:
+      - uses: actions/checkout@v6
+
+      ## Linux builds run inside manylinux/musllinux containers that bring their
+      ## own Python; macOS and Windows need one on the runner
+      - uses: actions/setup-python@v6
+        if: runner.os != 'Linux'
+        with:
+          python-version: "3.13"
+
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: python-engine
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux || 'auto' }}
+          args: --release --out dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.name }}
+          path: python-engine/dist/*.whl
+
+  build-sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: python-engine
+          command: sdist
+          args: --out dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: python-engine/dist/*.tar.gz
+
+  ## Linux: every check runs in Docker on a real x86_64 or arm64 machine, against
+  ## the folder of ALL wheels, so pip has to pick the right one by its tags
+  test-linux:
+    name: test linux ${{ matrix.arch }}
+    needs: build-wheels
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheel-*
+          merge-multiple: true
+          path: wheels
+
+      - name: List wheels
+        run: ls -l wheels
+
+      - name: Install and smoke test
+        run: |
+          failed=0
+          check() { # $1 = label, $2 = image, $3 = python executable
+            echo "::group::$1 ($2)"
+            if docker run --rm --network none -v "$PWD":/w:ro "$2" sh -c \
+                "$3 -m pip install -q --disable-pip-version-check --root-user-action=ignore \
+                   --no-index --only-binary :all: --find-links /w/wheels yggdrasil-engine \
+                 && $3 /w/python-engine/scripts/smoke_test.py"; then
+              echo "PASS: $1"
+            else
+              echo "FAIL: $1"; failed=1
+            fi
+            echo "::endgroup::"
+          }
+          check "glibc, python 3.8"  python:3.8-slim   python
+          check "glibc, python 3.14" python:3.14-slim  python
+          check "musl, python 3.8"   python:3.8-alpine  python
+          check "musl, python 3.14"  python:3.14-alpine python
+          check "glibc 2.17 (CentOS 7), python 3.9" \
+            quay.io/pypa/manylinux2014_${{ matrix.arch }} /opt/python/cp39-cp39/bin/python
+          exit $failed
+
+  ## macOS and Windows: install on the runner's own Python. Oldest version is
+  ## 3.8 where the runner offers it; Windows arm64 Python starts at 3.11.
+  test-native:
+    name: test ${{ matrix.runner }} python ${{ matrix.python }}
+    needs: build-wheels
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: macos-15-intel, python: "3.8" }
+          - { runner: macos-15-intel, python: "3.14" }
+          - { runner: macos-14, python: "3.8" }
+          - { runner: macos-14, python: "3.14" }
+          - { runner: windows-latest, python: "3.8" }
+          - { runner: windows-latest, python: "3.14" }
+          - { runner: windows-11-arm, python: "3.11" }
+          - { runner: windows-11-arm, python: "3.14" }
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheel-*
+          merge-multiple: true
+          path: wheels
+
+      - name: Install and smoke test
+        shell: bash
+        run: |
+          python -m pip install --disable-pip-version-check \
+            --no-index --only-binary :all: --find-links wheels yggdrasil-engine
+          python python-engine/scripts/smoke_test.py
+
+  ## sdist: pip compiles it from source (Rust is preinstalled on the runner)
+  test-sdist:
+    needs: build-sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdist
+          path: sdist
+
+      - name: Install from source and smoke test
+        run: |
+          python -m pip install --disable-pip-version-check sdist/*.tar.gz
+          python python-engine/scripts/smoke_test.py
