@@ -17,7 +17,8 @@ public class UnleashEngine {
   private static final Logger LOGGER = LoggerFactory.getLogger(UnleashEngine.class);
   private static final Cleaner CLEANER = Cleaner.create();
 
-  // Allocating one buffer per thread, instead of per call, avoids contention on the JVM-global Cleaner lock.
+  // Allocating one buffer per thread, instead of per call, avoids contention on the JVM-global
+  // Cleaner lock.
   private static final FlatBufferBuilder.ByteBufferFactory DIRECT_BUFFERS =
       new FlatBufferBuilder.ByteBufferFactory() {
         @Override
