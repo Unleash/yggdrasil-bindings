@@ -16,6 +16,19 @@ import org.slf4j.LoggerFactory;
 public class UnleashEngine {
   private static final Logger LOGGER = LoggerFactory.getLogger(UnleashEngine.class);
   private static final Cleaner CLEANER = Cleaner.create();
+
+  // Allocating one buffer per thread, instead of per call, avoids contention on the JVM-global
+  // Cleaner lock.
+  private static final FlatBufferBuilder.ByteBufferFactory DIRECT_BUFFERS =
+      new FlatBufferBuilder.ByteBufferFactory() {
+        @Override
+        public ByteBuffer newByteBuffer(int capacity) {
+          return ByteBuffer.allocateDirect(capacity).order(ByteOrder.LITTLE_ENDIAN);
+        }
+      };
+  private static final ThreadLocal<FlatBufferBuilder> BUILDERS =
+      ThreadLocal.withInitial(
+          () -> new FlatBufferBuilder(DIRECT_BUFFERS.newByteBuffer(1024), DIRECT_BUFFERS));
   private final NativeInterface nativeEngine;
   private final CustomStrategiesEvaluator customStrategiesEvaluator;
 
@@ -109,8 +122,8 @@ public class UnleashEngine {
 
   private static ByteBuffer buildMessage(
       String toggleName, Context context, Map<String, Boolean> customStrategyResults) {
-    ByteBuffer buffer = ByteBuffer.allocateDirect(1024).order(ByteOrder.LITTLE_ENDIAN);
-    FlatBufferBuilder builder = new FlatBufferBuilder(buffer);
+    FlatBufferBuilder builder = BUILDERS.get();
+    builder.clear();
 
     int toggleNameOffset = builder.createString(toggleName);
 
@@ -173,13 +186,7 @@ public class UnleashEngine {
 
     int ctx = ContextMessage.endContextMessage(builder);
     builder.finish(ctx);
-    // Exact-size byte array
-    byte[] arr = builder.sizedByteArray();
-
-    // Copy into direct, little-endian buffer for JNI
-    ByteBuffer direct = ByteBuffer.allocateDirect(arr.length).order(ByteOrder.LITTLE_ENDIAN);
-    direct.put(arr).flip(); // position=0, limit=len
-    return direct;
+    return builder.dataBuffer().slice().order(ByteOrder.LITTLE_ENDIAN);
   }
 
   public void takeState(String clientFeatures) throws YggdrasilInvalidInputException {
