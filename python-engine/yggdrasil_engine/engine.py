@@ -347,6 +347,15 @@ class UnleashEngine:
         if hasattr(self, "state") and self.state is not None:
             self.lib.free_engine(self.state)
 
+    @staticmethod
+    def get_core_version() -> str:
+        """The version of the Yggdrasil core this engine runs.
+        Read from the native library, so it always matches the binary in use.
+        """
+        lib = ctypes.CDLL(_get_binary_path())
+        lib.get_core_version.restype = ctypes.c_char_p
+        return cast(bytes, lib.get_core_version()).decode("utf-8")
+
     @contextmanager
     def materialize_pointer(self, ptr, value_type: Type[T]):
         try:
