@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from dataclasses import FrozenInstanceError, asdict
 from unittest.mock import Mock
 
@@ -2081,3 +2082,7 @@ def test_check_variant_does_not_raise_on_unexpected_engine_failure(monkeypatch):
 
     assert result.variant == disabled_variant()
     assert result.is_found is False
+
+
+def test_get_core_version_reads_a_version_from_the_library_without_an_engine():
+    assert re.fullmatch(r"\d+\.\d+\.\d+", UnleashEngine.get_core_version())
