@@ -1,4 +1,5 @@
 import ctypes
+import functools
 import json
 import logging
 import os
@@ -348,6 +349,7 @@ class UnleashEngine:
             self.lib.free_engine(self.state)
 
     @staticmethod
+    @functools.lru_cache(maxsize=1)
     def get_core_version() -> str:
         """The version of the Yggdrasil core this engine runs.
         Read from the native library, so it always matches the binary in use.
