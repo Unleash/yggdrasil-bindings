@@ -1,18 +1,5 @@
 using Yggdrasil;
 
-// This program is published with Native AOT (see the .csproj) and executed in CI.
-// It exists purely as a regression guard: if anyone reintroduces reflection-based
-// JSON serialization or native-library loading into Yggdrasil.Engine, the AOT
-// publish will emit trim/AOT analysis warnings (treated as errors) and/or this
-// program will crash at runtime. A plain `dotnet build` does not catch either of
-// those, because the trim/AOT whole-program analysis only runs on publish.
-//
-// The happy path below deliberately exercises every AOT-sensitive code path:
-//   - `new YggdrasilEngine()`  -> native library extraction + load (NativeLoader)
-//   - `TakeState(...)`         -> source-generated JSON deserialization (FeatureCollection)
-//   - `GetState()`             -> source-generated JSON serialization (Object)
-//   - `IsEnabled(...)`         -> full FFI + flatbuffer roundtrip
-
 const string state =
     "{\"version\":1,\"features\":[{\"name\":\"testFeature\",\"enabled\":true,\"strategies\":[{\"name\":\"default\"}]}]}";
 
