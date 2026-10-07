@@ -56,7 +56,11 @@ internal class CustomStrategies
     }
     internal void MapFeatures(string json)
     {
+#if NET8_0_OR_GREATER
+        var features = JsonSerializer.Deserialize(json, YggdrasilJsonSerializerContext.Default.FeatureCollection)?.Features;
+#else
         var features = JsonSerializer.Deserialize<FeatureCollection>(json, options)?.Features;
+#endif
         mappedFeatures = features?
             .Select(feature => new MappedFeature(feature, MapCustomStrategies(feature.Strategies)))
             .ToDictionary(feature => feature.Name);
@@ -85,7 +89,11 @@ internal class CustomStrategies
             .ToDictionary(strategy => strategy.ResultName,
                 strategy => strategy.IsEnabled(context));
 
+#if NET8_0_OR_GREATER
+        return JsonSerializer.Serialize(strategies, YggdrasilJsonSerializerContext.Default.DictionaryStringBoolean);
+#else
         return JsonSerializer.Serialize(strategies, options);
+#endif
     }
 
     internal IReadOnlyDictionary<string, bool> GetCustomStrategyResults(string toggleName, Context context)
