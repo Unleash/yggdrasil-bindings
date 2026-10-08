@@ -11,12 +11,8 @@ from typing import (
     Any,
     Callable,
     ClassVar,
-    Dict,
-    List,
     NamedTuple,
     Optional,
-    Tuple,
-    Type,
     TypeVar,
     cast,
 )
@@ -110,7 +106,7 @@ class FeatureToggle:
 @dataclass
 class Variant:
     name: str
-    payload: Optional[Dict[str, str]] = field(default_factory=dict)
+    payload: Optional[dict[str, str]] = field(default_factory=dict)
     enabled: bool = False
     feature_enabled: bool = False
 
@@ -185,7 +181,7 @@ class FeatureDefinition:
         )
 
 
-def load_feature_defs(raw_defs: List[dict]) -> List[FeatureDefinition]:
+def load_feature_defs(raw_defs: list[dict]) -> list[FeatureDefinition]:
     return [FeatureDefinition.from_dict(defn) for defn in raw_defs]
 
 
@@ -195,13 +191,13 @@ class Response:
     value: Optional[any]
     error_message: Optional[str]
 
-    deserializers: ClassVar[Dict[Type, Callable[[Any], Any]]] = {
+    deserializers: ClassVar[dict[type, Callable[[Any], Any]]] = {
         Variant: Variant.from_dict,
-        List[FeatureDefinition]: load_feature_defs,
+        list[FeatureDefinition]: load_feature_defs,
     }
 
     @staticmethod
-    def from_json(data: str, value_type: Type[T]) -> "Response[T]":
+    def from_json(data: str, value_type: type[T]) -> "Response[T]":
         status_code = StatusCode(data["status_code"])
         raw_value = data.get("value")
         error_message = data.get("error_message")
@@ -359,17 +355,17 @@ class UnleashEngine:
         return cast(bytes, lib.get_core_version()).decode("utf-8")
 
     @contextmanager
-    def materialize_pointer(self, ptr, value_type: Type[T]):
+    def materialize_pointer(self, ptr, value_type: type[T]):
         try:
             response = ctypes.cast(ptr, ctypes.c_char_p).value.decode("utf-8")
             yield Response.from_json(json.loads(response), value_type)
         finally:
             self.lib.free_response(ptr)
 
-    def take_state(self, state_json: str) -> Optional[List[Warning]]:
+    def take_state(self, state_json: str) -> Optional[list[Warning]]:
         response_ptr = self.lib.take_state(self.state, state_json.encode("utf-8"))
         self.custom_strategy_handler.update_strategies(state_json)
-        with self.materialize_pointer(response_ptr, List[Warning]) as result:
+        with self.materialize_pointer(response_ptr, list[Warning]) as result:
             if result.value:
                 warnings = "\n".join(
                     [f"{warning.toggle_name}: {warning.message}" for warning in result]
@@ -578,9 +574,9 @@ class UnleashEngine:
         )
         self.lib.free_response(response_ptr)
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         metrics_ptr = self.lib.get_metrics(self.state)
-        with self.materialize_pointer(metrics_ptr, Dict[str, Any]) as response:
+        with self.materialize_pointer(metrics_ptr, dict[str, Any]) as response:
             if response.status_code == StatusCode.ERROR:
                 raise YggdrasilError(response.error_message)
             return response.value
@@ -594,10 +590,10 @@ class UnleashEngine:
                 raise YggdrasilError(response.error_message)
             return response.value
 
-    def list_known_toggles(self) -> List[FeatureDefinition]:
+    def list_known_toggles(self) -> list[FeatureDefinition]:
         response_ptr = self.lib.list_known_toggles(self.state)
         with self.materialize_pointer(
-            response_ptr, List[FeatureDefinition]
+            response_ptr, list[FeatureDefinition]
         ) as response:
             if response.status_code == StatusCode.ERROR:
                 raise YggdrasilError(response.error_message)
@@ -614,7 +610,7 @@ class UnleashEngine:
                 raise YggdrasilError(response.error_message)
 
     def inc_counter(
-        self, name: str, value: int = 1, labels: Optional[Dict[str, str]] = None
+        self, name: str, value: int = 1, labels: Optional[dict[str, str]] = None
     ) -> None:
         labels_json = json.dumps(labels).encode("utf-8") if labels else None
         response_ptr = self.lib.inc_counter(
@@ -627,14 +623,14 @@ class UnleashEngine:
             if response.status_code == StatusCode.ERROR:
                 raise YggdrasilError(response.error_message)
 
-    def collect_impact_metrics(self) -> List[Dict[str, Any]]:
+    def collect_impact_metrics(self) -> list[dict[str, Any]]:
         response_ptr = self.lib.collect_impact_metrics(self.state)
-        with self.materialize_pointer(response_ptr, List[Dict[str, Any]]) as response:
+        with self.materialize_pointer(response_ptr, list[dict[str, Any]]) as response:
             if response.status_code == StatusCode.ERROR:
                 raise YggdrasilError(response.error_message)
             return response.value or []
 
-    def restore_impact_metrics(self, metrics: List[Dict[str, Any]]) -> None:
+    def restore_impact_metrics(self, metrics: list[dict[str, Any]]) -> None:
         metrics_json = json.dumps(metrics).encode("utf-8")
         response_ptr = self.lib.restore_impact_metrics(
             self.state,
@@ -655,7 +651,7 @@ class UnleashEngine:
                 raise YggdrasilError(response.error_message)
 
     def set_gauge(
-        self, name: str, value: float, labels: Optional[Dict[str, str]] = None
+        self, name: str, value: float, labels: Optional[dict[str, str]] = None
     ) -> None:
         labels_json = json.dumps(labels).encode("utf-8") if labels else None
         response_ptr = self.lib.set_gauge(
@@ -669,7 +665,7 @@ class UnleashEngine:
                 raise YggdrasilError(response.error_message)
 
     def define_histogram(
-        self, name: str, help_text: str, buckets: Optional[List[float]] = None
+        self, name: str, help_text: str, buckets: Optional[list[float]] = None
     ) -> None:
         buckets_json = json.dumps(buckets if buckets is not None else []).encode(
             "utf-8"
@@ -685,7 +681,7 @@ class UnleashEngine:
                 raise YggdrasilError(response.error_message)
 
     def observe_histogram(
-        self, name: str, value: float, labels: Optional[Dict[str, str]] = None
+        self, name: str, value: float, labels: Optional[dict[str, str]] = None
     ) -> None:
         labels_json = json.dumps(labels).encode("utf-8") if labels else None
         response_ptr = self.lib.observe_histogram(
@@ -711,7 +707,7 @@ class UnleashEngine:
 
         return _ToggleEvaluation(is_enabled=bool(value), is_found=is_found)
 
-    def _query_variant(self, toggle_name: str, context: dict) -> Tuple[Variant, bool]:
+    def _query_variant(self, toggle_name: str, context: dict) -> tuple[Variant, bool]:
         value = self._do_get_variant(toggle_name, context)
         return (value if value is not None else disabled_variant()), value is not None
 
