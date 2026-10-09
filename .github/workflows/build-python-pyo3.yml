@@ -1,0 +1,77 @@
+---
+name: Python PyO3 engine build
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'yggdrasil-pyo3/**'
+      - '.github/workflows/build-python-pyo3.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'yggdrasil-pyo3/**'
+      - '.github/workflows/build-python-pyo3.yml'
+  workflow_dispatch:
+
+jobs:
+  build-python-pyo3:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: yggdrasil-pyo3
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install rust
+        run: |
+          rustup set auto-self-update disable
+          rustup toolchain install stable --profile default
+          rustup show
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: yggdrasil-pyo3 -> target
+
+      - name: Check the Rust crate
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets --all-features -- -D warnings
+          cargo test --all-features
+
+      - name: Get client spec
+        uses: actions/checkout@v6
+        with:
+          repository: Unleash/client-specification
+          ref: v6.1.0
+          path: client-specification
+
+      ## maturin builds the package with the compiled module, and pip installs it,
+      ## so the tests run against the package as built
+      - name: Build the engine and install dev dependencies
+        id: deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --group dev .
+          python -c "import yggdrasil_pyo3.yggdrasil_native"
+
+      - name: Check formatting
+        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
+        run: ruff format --check .
+
+      - name: Lint
+        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
+        run: ruff check .
+
+      - name: Run Python tests
+        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
+        run: pytest
