@@ -28,6 +28,25 @@ impl NativeEngine {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
+
+    /// Evaluates, looks up the impression flag and, with `count`, counts a
+    /// known toggle, under one lock. Shared by both context readers.
+    fn check(
+        &self,
+        name: &str,
+        context: &Context,
+        custom_results: Option<&HashMap<String, bool>>,
+        count: bool,
+    ) -> (Option<bool>, bool) {
+        let enriched = EnrichedContext::from(context, name, custom_results);
+        let engine = self.lock();
+        let enabled = engine.check_enabled(&enriched);
+        let impression = engine.should_emit_impression_event(name);
+        if let (true, Some(enabled)) = (count, enabled) {
+            engine.count_toggle(name, enabled);
+        }
+        (enabled, impression)
+    }
 }
 fn guard<T>(action: impl FnOnce() -> PyResult<T>) -> PyResult<T> {
     panic::catch_unwind(AssertUnwindSafe(action)).unwrap_or_else(|_| {
@@ -70,16 +89,25 @@ impl NativeEngine {
         count: bool,
     ) -> PyResult<(Option<bool>, bool)> {
         guard(|| {
-        
             let context = context_from_dict(context)?;
-            let enriched = EnrichedContext::from(&context, name, custom_results.as_ref());
-            let engine = self.lock();
-            let enabled = engine.check_enabled(&enriched);
-            let impression = engine.should_emit_impression_event(name);
-            if let (true, Some(enabled)) = (count, enabled) {
-                engine.count_toggle(name, enabled);
-            }
-            Ok((enabled, impression))
+            Ok(self.check(name, &context, custom_results.as_ref(), count))
+        })
+    }
+
+    /// Same as `check_enabled`, but reads the context with `pythonize`, through
+    /// `Context`'s own deserializer (the JSON path's rules, `Context::from_map`)
+    /// instead of `context_from_dict`. For comparing the two readers.
+    #[pyo3(signature = (name, context, custom_results=None, count=true))]
+    fn check_enabled_pythonize(
+        &self,
+        name: &str,
+        context: &Bound<'_, PyAny>,
+        custom_results: Option<HashMap<String, bool>>,
+        count: bool,
+    ) -> PyResult<(Option<bool>, bool)> {
+        guard(|| {
+            let context: Context = pythonize::depythonize(context)?;
+            Ok(self.check(name, &context, custom_results.as_ref(), count))
         })
     }
 

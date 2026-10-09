@@ -18,8 +18,16 @@ _logger = logging.getLogger(__name__)
 
 
 class NativeUnleashEngine:
-    def __init__(self):
+    def __init__(self, context_reader: str = "dict"):
+        """`context_reader` picks how Rust reads the context dict: "dict" (the
+        hand-written reader) or "pythonize" (`Context`'s own deserializer, via
+        pythonize). Only for comparing the two in the benchmark."""
         self._native = NativeEngine()
+        self._check_enabled = (
+            self._native.check_enabled_pythonize
+            if context_reader == "pythonize"
+            else self._native.check_enabled
+        )
         self.custom_strategy_handler = CustomStrategyHandler()
 
     def take_state(self, state_json: str) -> Optional[str]:
@@ -51,7 +59,7 @@ class NativeUnleashEngine:
                 ## No results means none to pass, which saves converting an empty dict
                 or None
             )
-            value, impression = self._native.check_enabled(
+            value, impression = self._check_enabled(
                 toggle_name, context or {}, custom_strategy_results, True
             )
             is_found = value is not None

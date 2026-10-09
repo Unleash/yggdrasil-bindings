@@ -5,6 +5,9 @@
             timed as eval + impression + count (three native
             calls), like its own bench.py "full" row
 - pyo3_poc: our PyO3 POC, yggdrasil_engine.native_engine.NativeUnleashEngine
+- pyo3_pythonize: the same POC, but Rust reads the context with pythonize
+            (through Context's own deserializer) instead of the hand-written
+            reader
 
 3 flags (simple -> complex) x 3 contexts (minimal -> complex), single
 thread, plus 8 threads on the rollout flag and standard context.
@@ -141,9 +144,10 @@ def ns_per_call(fn, calls=CALLS):
 
 def make_engines():
     current, reporter, pyo3_poc = CurrentEngine(), ReporterEngine(), Pyo3PocEngine()
-    for engine in (current, reporter, pyo3_poc):
+    pyo3_pythonize = Pyo3PocEngine(context_reader="pythonize")
+    for engine in (current, reporter, pyo3_poc, pyo3_pythonize):
         engine.take_state(STATE)
-    return current, reporter, pyo3_poc
+    return current, reporter, pyo3_poc, pyo3_pythonize
 
 
 
@@ -179,7 +183,7 @@ def threaded(fn):
 
 
 def main():
-    current, reporter, pyo3_poc = make_engines()
+    current, reporter, pyo3_poc, pyo3_pythonize = make_engines()
 
     print(f"python {sys.version.split()[0]}, {CALLS:,} calls per cell")
     print(f"current:  {sys.modules['yggdrasil_engine'].__file__}")
@@ -191,7 +195,8 @@ def main():
     print("\nis_enabled, single thread (ns per call)")
     header = (
         f"{'flag':8s} {'context':8s} {'current':>10s} {'reporter':>10s} {'pyo3_poc':>10s}"
-        f" {'pyo3_poc vs current':>20s}"
+        f" {'pyo3_pythonize':>15s} {'pyo3_poc vs current':>20s}"
+        f" {'pyo3_pythonize vs current':>26s}"
     )
     print(header)
     print("-" * len(header))
@@ -200,9 +205,12 @@ def main():
             current_ns = ns_per_call(lambda: current.is_enabled(flag, context))
             reporter_ns = ns_per_call(lambda: reporter_is_enabled(reporter, flag, context))
             pyo3_poc_ns = ns_per_call(lambda: pyo3_poc.is_enabled(flag, context))
+            pythonize_ns = ns_per_call(lambda: pyo3_pythonize.is_enabled(flag, context))
             print(
                 f"{flag:8s} {context_name:8s} {current_ns:>10,.0f} {reporter_ns:>10,.0f}"
-                f" {pyo3_poc_ns:>10,.0f} {current_ns / pyo3_poc_ns:>19.1f}x"
+                f" {pyo3_poc_ns:>10,.0f} {pythonize_ns:>15,.0f}"
+                f" {current_ns / pyo3_poc_ns:>19.1f}x"
+                f" {current_ns / pythonize_ns:>25.1f}x"
             )
 
     print(f"\nis_enabled, {THREADS} threads, rollout flag + standard context")
@@ -210,10 +218,11 @@ def main():
         ("current", lambda: current.is_enabled("rollout", STANDARD_CONTEXT)),
         ("reporter", lambda: reporter_is_enabled(reporter, "rollout", STANDARD_CONTEXT)),
         ("pyo3_poc", lambda: pyo3_poc.is_enabled("rollout", STANDARD_CONTEXT)),
+        ("pyo3_pythonize", lambda: pyo3_pythonize.is_enabled("rollout", STANDARD_CONTEXT)),
     ):
         result = threaded(fn)
         print(
-            f"  {name:9s} p50 {result['p50']:>10,} ns   p99 {result['p99']:>12,} ns"
+            f"  {name:15s} p50 {result['p50']:>10,} ns   p99 {result['p99']:>12,} ns"
             f"   {result['ops']:>10,.0f} ops/s"
         )
 
