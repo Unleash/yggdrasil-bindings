@@ -5,3 +5,8 @@ members = [
   "yggdrasilffi",
 ]
 
+# the Python extension module is built with maturin, not as part of the workspace
+exclude = [
+  "yggdrasil-pyo3",
+]
+
