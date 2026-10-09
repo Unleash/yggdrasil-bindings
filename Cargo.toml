@@ -5,3 +5,6 @@ members = [
   "yggdrasilffi",
 ]
 
+exclude = [
+  "yggdrasil-pyo3",
+]
