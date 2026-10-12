@@ -9,6 +9,9 @@ crate-type = ["cdylib"]
 
 [dependencies]
 napi-derive = "3.6.5"
+unleash-yggdrasil = { version = "0.21.5" }
+serde_json = "1.0.154"
+unleash-types = { version = "0.16.1", default-features = false }
 
 [dependencies.napi]
 version = "3.12.4"

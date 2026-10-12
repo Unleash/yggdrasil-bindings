@@ -778,4 +778,5 @@ function __napiStampBindingTarget(exportsObject, target) {
 // linked import resolves to `undefined`.
 module.exports.__napiBindingTarget = __napiStampBindingTarget(nativeBinding, __napiLoadedBindingTarget)
 module.exports = nativeBinding
-module.exports.plus100 = nativeBinding.plus100
+module.exports.EnabledResult = nativeBinding.EnabledResult
+module.exports.NodeEngine = nativeBinding.NodeEngine

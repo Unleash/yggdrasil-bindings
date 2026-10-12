@@ -9,4 +9,14 @@
  */
 export declare const __napiBindingTarget: 'native' | 'wasm32-wasi' | 'wasm32-wasip1'
 
-export declare function plus100(input: number): number
+export declare class EnabledResult {
+  enabled?: boolean
+  impressionData: boolean
+}
+
+export declare class NodeEngine {
+  constructor()
+  destroy(): void
+  takeState(rawState: string): string | null
+  isEnabled(featureName: string): EnabledResult
+}
