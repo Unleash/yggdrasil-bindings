@@ -334,9 +334,11 @@ def test_is_enabled_fallback_function_must_be_passed_as_keyword():
     except TypeError:
         pass
 
+
 ## not copied: python-engine's never-raise tests force errors by patching the
 ## ctypes engine's internals, which don't exist here, and it doesn't test a
 ## missing context
+
 
 def test_is_enabled_does_not_raise_when_the_context_cannot_be_read(
     caplog: pytest.LogCaptureFixture,
