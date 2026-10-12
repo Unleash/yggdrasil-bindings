@@ -1,0 +1,42 @@
+[project]
+name = "yggdrasil-pyo3"
+description = "PyO3 engine for evaluating Unleash feature flags (in development, not published)"
+requires-python = ">=3.9"
+dynamic = ["version"]
+
+[build-system]
+requires = ["maturin>=1.15,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+python-source = "python"
+module-name = "yggdrasil_pyo3.yggdrasil_native"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.3,<9",
+    "ruff>=0.16.1,<0.17",
+    "maturin>=1.15,<2.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py39"
+src = ["python", "tests"]
+
+lint.select = [
+    "E",   # pycodestyle, error
+    "W",   # pycodestyle, warning
+    "F",   # pyflakes
+    "PL",  # pylint
+    "YTT", # flake8-2020
+    "I",   # isort
+]
+lint.ignore = ["E501", "PLR2004"]
+lint.fixable = ["I"]
+
+[tool.ruff.lint.isort]
+# a maturin's project native module is a compiled .so file that only exists after a build and has no .py
+known-first-party = ["yggdrasil_pyo3"]

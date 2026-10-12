@@ -27,6 +27,9 @@
 /python-engine/binaries
 /python-engine/staging
 /python-engine/.python-version
+/yggdrasil-pyo3/.venv
+/yggdrasil-pyo3/python/yggdrasil_pyo3/*.so
+/yggdrasil-pyo3/python/yggdrasil_pyo3/*.pyd
 
 
 # Devenv
