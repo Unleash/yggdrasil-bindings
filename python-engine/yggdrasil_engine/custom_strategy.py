@@ -1,6 +1,5 @@
 import inspect
 import json
-from typing import Dict
 
 _STANDARD_STRATEGIES = [
     "default",
@@ -54,7 +53,7 @@ class CustomStrategyHandler:
 
         self.strategy_definitions = custom_strategies
 
-    def register_custom_strategies(self, custom_strategies: Dict[str, any]):
+    def register_custom_strategies(self, custom_strategies: dict[str, any]):
         for strategy_name, strategy in custom_strategies.items():
             if hasattr(strategy, "apply"):
                 apply_method = strategy.apply
@@ -73,7 +72,7 @@ class CustomStrategyHandler:
 
     def evaluate_custom_strategies(
         self, toggle_name: str, context: dict
-    ) -> Dict[str, bool]:
+    ) -> dict[str, bool]:
         results = {}
         for index, strategy in enumerate(
             self.strategy_definitions.get(toggle_name, [])
