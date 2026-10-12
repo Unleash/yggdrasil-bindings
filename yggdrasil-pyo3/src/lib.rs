@@ -5,9 +5,11 @@
 
 pub mod engine;
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 use pyo3::exceptions::{PyTypeError, PyValueError};
+use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString, PyTuple};
 use unleash_yggdrasil::Context;
@@ -78,8 +80,9 @@ impl NativeEngine {
 /// key/value pairs, used by both `from_map` and this reader, so the rules live
 /// in one place.
 fn context_from_dict(dict: &Bound<'_, PyDict>) -> PyResult<Context> {
+    let py = dict.py();
     let nested;
-    let dict = match dict.get_item("context")? {
+    let dict = match dict.get_item(intern!(py, "context"))? {
         Some(inner) => {
             nested = inner
                 .cast_into::<PyDict>()
@@ -90,8 +93,9 @@ fn context_from_dict(dict: &Bound<'_, PyDict>) -> PyResult<Context> {
     };
 
     let mut properties = HashMap::new();
-    if let Some(raw_properties) = dict.get_item("properties")? {
+    if let Some(raw_properties) = dict.get_item(intern!(py, "properties"))? {
         if let Ok(raw_properties) = raw_properties.cast::<PyDict>() {
+            properties.reserve(raw_properties.len());
             for (key, value) in raw_properties.iter() {
                 let key = key_to_string(&key)?;
                 if let Some(value) = value_to_string(&value)? {
@@ -110,17 +114,21 @@ fn context_from_dict(dict: &Bound<'_, PyDict>) -> PyResult<Context> {
     let mut app_name = None;
     let mut current_time = None;
     let mut remote_address = None;
-    let mut fields: [(&str, &mut Option<String>); 6] = [
-        ("userId", &mut user_id),
-        ("sessionId", &mut session_id),
-        ("environment", &mut environment),
-        ("appName", &mut app_name),
-        ("currentTime", &mut current_time),
-        ("remoteAddress", &mut remote_address),
+    let mut fields: [(&str, &Bound<'_, PyString>, &mut Option<String>); 6] = [
+        ("userId", intern!(py, "userId"), &mut user_id),
+        ("sessionId", intern!(py, "sessionId"), &mut session_id),
+        ("environment", intern!(py, "environment"), &mut environment),
+        ("appName", intern!(py, "appName"), &mut app_name),
+        ("currentTime", intern!(py, "currentTime"), &mut current_time),
+        (
+            "remoteAddress",
+            intern!(py, "remoteAddress"),
+            &mut remote_address,
+        ),
     ];
 
-    for (key, slot) in fields.iter_mut() {
-        **slot = match dict.get_item(*key)? {
+    for (key, py_key, slot) in fields.iter_mut() {
+        **slot = match dict.get_item(*py_key)? {
             Some(value) => value_to_string(&value)?,
             None => properties.remove(*key),
         };
@@ -128,12 +136,15 @@ fn context_from_dict(dict: &Bound<'_, PyDict>) -> PyResult<Context> {
 
     // Unknown top-level strings move into properties; other values are dropped
     for (key, value) in dict.iter() {
-        let key = key_to_string(&key)?;
-        if key == "properties" || fields.iter().any(|(name, _)| *name == key) {
+        let key = match key.cast::<PyString>() {
+            Ok(key) => key.to_cow()?,
+            Err(_) => Cow::Owned(key_to_string(&key)?),
+        };
+        if key == "properties" || fields.iter().any(|(name, _, _)| *name == key) {
             continue;
         }
         if let Ok(value) = value.cast::<PyString>() {
-            properties.insert(key, value.to_cow()?.into_owned());
+            properties.insert(key.into_owned(), value.to_cow()?.into_owned());
         } else {
             value_to_string(&value)?;
         }
