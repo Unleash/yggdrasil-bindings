@@ -1,0 +1,44 @@
+{
+  "name": "yggdrasil-engine",
+  "version": "1.0.0",
+  "description": "Experimental wasm-bindgen bindings for the Yggdrasil engine",
+  "main": "wrapper.js",
+  "types": "wrapper.d.ts",
+  "license": "MIT",
+  "keywords": [
+    "WebAssembly",
+    "wasm-bindgen",
+    "Rust",
+    "Yggdrasil"
+  ],
+  "files": [
+    "wasm",
+    "wrapper.d.ts",
+    "wrapper.js"
+  ],
+  "engines": {
+    "node": ">= 12.22.0 < 13 || >= 14.17.0 < 15 || >= 15.12.0 < 16 || >= 16.0.0"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "scripts": {
+    "bench": "tsx benchmark/bench.ts",
+    "build": "node build.js",
+    "build:debug": "node build.js --debug",
+    "check:rs": "node build.js --check",
+    "format:rs": "cargo fmt",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.11",
+    "tinybench": "^6.2.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  },
+  "packageManager": "yarn@4.18.1"
+}
