@@ -1,8 +1,9 @@
 # Yggdrasil Node engine (wasm-bindgen)
 
 Experimental WebAssembly bindings with synchronous Node.js loading.
-Context crosses the WASM boundary as JSON and is deserialized into owned strings
-and maps before constructing an enriched engine context.
+Context crosses the WASM boundary as JSON. The context parser borrows strings
+where possible and uses Cow-backed property and strategy-result maps to reduce
+allocations before constructing an enriched engine context.
 
 Requires Rust, Node.js, Yarn and a matching wasm-bindgen CLI:
 
