@@ -1,8 +1,8 @@
 # Yggdrasil Node engine (wasm-bindgen)
 
 Experimental WebAssembly bindings with synchronous Node.js loading.
-This scaffolding exposes a single `add` function over the WASM boundary, with a
-Vitest test and a Tinybench benchmark.
+Context crosses the WASM boundary as JSON and is deserialized into owned strings
+and maps before constructing an enriched engine context.
 
 Requires Rust, Node.js, Yarn and a matching wasm-bindgen CLI:
 
@@ -24,8 +24,13 @@ Set `WASM_BINDGEN` to use a CLI installed outside PATH.
 The build also detects a CLI installed with `cargo install --root .tools`.
 
 ```js
-const { add } = require('yggdrasil-engine')
-const result = add(20, 22)
+const { Wrapper } = require('yggdrasil-engine')
+const engine = new Wrapper()
+engine.takeState(JSON.stringify({ version: 1, features: [] }))
+const result = engine.isEnabled('demo-feature', { userId: 'user-1' })
+engine.destroy()
 ```
 
-The CommonJS entry point and TypeScript declarations can be consumed by the Node SDK.
+`takeState` returns warnings or `null`. `isEnabled` returns an object with optional
+`enabled` and boolean `impressionData`. The wrapper releases WASM-owned state on
+`destroy()`, which is idempotent. Calls after destruction throw an error.
