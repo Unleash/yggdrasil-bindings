@@ -1,9 +1,8 @@
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
-# to be removed into Rust
 from yggdrasil_pyo3.custom_strategy import CustomStrategyHandler
 from yggdrasil_pyo3.yggdrasil_native import NativeEngine  # type: ignore
 
@@ -64,9 +63,70 @@ class FeatureToggle:
         )
 
 
+@dataclass
+class Variant:
+    name: str
+    payload: Optional[dict[str, str]] = field(default_factory=dict)
+    enabled: bool = False
+    feature_enabled: bool = False
+
+    @staticmethod
+    def from_dict(data: dict) -> "Variant":
+        return Variant(
+            name=data.get("name", ""),
+            payload=data.get("payload"),
+            enabled=data.get("enabled", False),
+            feature_enabled=data.get("featureEnabled", False),
+        )
+
+
+def disabled_variant() -> Variant:
+    """The variant the engine falls back to when no variant could be resolved.
+
+    `payload` is `None` rather than an empty dict so that it drops out of
+    serialization, matching what the engine itself hands back."""
+    return Variant(name="disabled", payload=None, enabled=False, feature_enabled=False)
+
+
+@dataclass(frozen=True)
+class FeatureVariant:
+    """`FeatureVariant` is the result of querying which variant a feature resolves to."""
+
+    name: str
+    """The name of the toggle that was queried."""
+
+    variant: Variant
+    """The variant the toggle resolved to for the given context.
+
+    `get_variant` hands back the disabled variant when the engine did not know
+    the toggle, or when the evaluation failed. Note that a known toggle can
+    resolve to a variant that looks exactly like it, so read `is_found` to tell
+    the two apart.
+    """
+
+    is_found: bool
+    """Whether the engine knew about the toggle at all.
+
+    `False` means the toggle was missing from the engine's state or evaluation
+    errored. That is distinct from a known toggle that resolved to the disabled
+    variant, which is `is_found=True`.
+    """
+
+    requires_impression_event_emission: bool
+    """Whether the engine expects its caller to emit an impression event.
+
+    These bindings are not concerned with the publishing itself. However,
+    the engine is the source of whether a toggle has the publication of
+    impression events enabled.
+
+    `False` means that the SDK should not emit impression events. It also means
+    the engine could not be asked, either because the lookup itself failed or
+    because an earlier step of the evaluation did."""
+
+
 class PyO3UnleashEngine:
     """The engine on top of the compiled PyO3 module. So far only `take_state`,
-    `is_enabled`, `count_toggle` and `get_metrics`.
+    `is_enabled`, `get_variant`, `count_toggle` and `get_metrics`.
     """
 
     def __init__(self):
@@ -121,6 +181,60 @@ class PyO3UnleashEngine:
             result = FeatureToggle(name=toggle_name)
             _logger.warning(
                 "Failed to evaluate toggle %s, returning %s",
+                toggle_name,
+                result,
+                exc_info=True,
+            )
+            return result
+
+    def get_variant(self, toggle_name: str, context: dict[str, Any]) -> FeatureVariant:
+        """Ask which variant a feature resolves to, and record the query.
+
+        This records both the toggle and the resolved variant against the
+        engine's metrics, so they show up in the next `get_metrics()` payload.
+
+        Never raises, and answers all or nothing: whatever fails, the caller
+        gets the disabled variant rather than a half built answer.
+        """
+        try:
+            custom_strategy_results = (
+                self.custom_strategy_handler.evaluate_custom_strategies(
+                    toggle_name, context
+                )
+            )
+            ## One native call evaluates, looks up the impression flag and
+            ## records the toggle and the variant (unknown toggles as disabled)
+            variant, impression = self._native.get_variant(
+                toggle_name, context or {}, custom_strategy_results
+            )
+            if variant is None:
+                return FeatureVariant(
+                    name=toggle_name,
+                    variant=disabled_variant(),
+                    is_found=False,
+                    requires_impression_event_emission=impression,
+                )
+            name, payload, enabled, feature_enabled = variant
+            return FeatureVariant(
+                name=toggle_name,
+                variant=Variant(
+                    name=name,
+                    payload=payload,
+                    enabled=enabled,
+                    feature_enabled=feature_enabled,
+                ),
+                is_found=True,
+                requires_impression_event_emission=impression,
+            )
+        except Exception:
+            result = FeatureVariant(
+                name=toggle_name,
+                variant=disabled_variant(),
+                is_found=False,
+                requires_impression_event_emission=False,
+            )
+            _logger.warning(
+                "Failed to evaluate variant for toggle %s, returning %s",
                 toggle_name,
                 result,
                 exc_info=True,

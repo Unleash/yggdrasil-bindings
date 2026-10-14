@@ -1,11 +1,18 @@
 import json
 import logging
 import os
+from dataclasses import FrozenInstanceError, asdict
 from unittest.mock import Mock
 
 import pytest
 
-from yggdrasil_pyo3.engine import FeatureToggle, PyO3UnleashEngine
+from yggdrasil_pyo3.engine import (
+    FeatureToggle,
+    FeatureVariant,
+    PyO3UnleashEngine,
+    Variant,
+    disabled_variant,
+)
 
 CUSTOM_STRATEGY_STATE = """
 {
@@ -61,7 +68,11 @@ def _impression_state(name: str, enabled: bool, impression_data: bool) -> str:
 
 
 ## copied from python-engine/tests/test_engine.py (`UnleashEngine` → `PyO3UnleashEngine`;
-## the variant and metrics parts left out, as this package has neither yet)
+## the `print` in `variant_to_dict` left out)
+
+
+def variant_to_dict(variant) -> dict:
+    return {k: v for k, v in asdict(variant).items() if v is not None}
 
 
 def test_client_spec():
@@ -87,6 +98,22 @@ def test_client_spec():
 
             assert result == expected_result, (
                 f"Failed test '{test['description']}': expected {expected_result}, got {result}"
+            )
+
+        for test in suite_data.get("variantTests", []):
+            context = test["context"]
+            toggle_name = test["toggleName"]
+            expected_result = test["expectedResult"]
+
+            result = unleash_engine.get_variant(toggle_name, context)
+
+            ## We get away with this right now because the casing in the spec tests for feature_enabled
+            ## is snake_case. At some point this is going to change to camel case and this is going to break
+            expected_json = json.dumps(expected_result)
+            actual_json = json.dumps(variant_to_dict(result.variant))
+
+            assert expected_json == actual_json, (
+                f"Failed test '{test['description']}': expected {expected_json}, got {actual_json}"
             )
 
 
@@ -479,5 +506,415 @@ def test_is_enabled_does_not_count_the_toggle_when_engine_errors():
     result = engine.is_enabled("testFeature", {})
 
     assert result == FeatureToggle(name="testFeature")
+    ## Nothing after the raise is attempted, so there is nothing to count
+    assert engine.get_metrics() is None
+
+
+def _variant_state(name: str, enabled: bool, variant_name: str, payload=None) -> str:
+    return json.dumps(
+        {
+            "version": 1,
+            "features": [
+                {
+                    "name": name,
+                    "enabled": enabled,
+                    "strategies": [{"name": "default"}],
+                    ## A single variant at full weight makes resolution deterministic
+                    "variants": [
+                        {"name": variant_name, "weight": 100, "payload": payload}
+                    ],
+                }
+            ],
+        }
+    )
+
+
+def _variant_impression_state(
+    name: str, enabled: bool, variant_name: str, impression_data: bool
+) -> str:
+    return json.dumps(
+        {
+            "version": 1,
+            "features": [
+                {
+                    "name": name,
+                    "enabled": enabled,
+                    "strategies": [{"name": "default"}],
+                    "variants": [{"name": variant_name, "weight": 100}],
+                    "impressionData": impression_data,
+                }
+            ],
+        }
+    )
+
+
+def test_get_variant_does_not_crash():
+    unleash_engine = PyO3UnleashEngine()
+
+    with open("../test-data/simple.json") as file:
+        state = json.load(file)
+        context = {"userId": "123"}
+        toggle_name = "testToggle"
+
+        unleash_engine.take_state(json.dumps(state))
+        result = unleash_engine.get_variant(toggle_name, context)
+
+        assert result == FeatureVariant(
+            name="testToggle",
+            variant=disabled_variant(),
+            is_found=False,
+            requires_impression_event_emission=False,
+        )
+
+
+def test_disabled_variant_is_the_engines_disabled_variant():
+    assert disabled_variant() == Variant(
+        name="disabled", payload=None, enabled=False, feature_enabled=False
+    )
+
+
+def test_feature_variant_cannot_be_mutated():
+    result = FeatureVariant(
+        name="testFeature",
+        variant=disabled_variant(),
+        is_found=False,
+        requires_impression_event_emission=False,
+    )
+
+    with pytest.raises(FrozenInstanceError):
+        result.is_found = True
+
+
+def test_feature_variant_equality_includes_the_resolved_variant():
+    sour_dough = FeatureVariant(
+        name="Feature.A",
+        variant=Variant("sourDough", None, True, True),
+        is_found=True,
+        requires_impression_event_emission=False,
+    )
+    rye = FeatureVariant(
+        name="Feature.A",
+        variant=Variant("rye", None, True, True),
+        is_found=True,
+        requires_impression_event_emission=False,
+    )
+
+    assert sour_dough != rye
+
+
+def test_feature_variant_equality_includes_impression_event_flag():
+    calls_for_emission = FeatureVariant(
+        name="Feature.A",
+        variant=Variant("sourDough", None, True, True),
+        is_found=True,
+        requires_impression_event_emission=True,
+    )
+    does_not_call_for_emission = FeatureVariant(
+        name="Feature.A",
+        variant=Variant("sourDough", None, True, True),
+        is_found=True,
+        requires_impression_event_emission=False,
+    )
+
+    assert calls_for_emission != does_not_call_for_emission
+
+
+def test_get_variant_does_not_share_one_disabled_variant_instance():
+    engine = PyO3UnleashEngine()
+
+    first = engine.get_variant("firstFeature", {})
+    second = engine.get_variant("secondFeature", {})
+
+    first.variant.name = "mutated"
+
+    ## Variant is mutable, so handing every substitution the same object would
+    ## let one caller poison every later result; disabled_variant() builds a
+    ## fresh one per call for exactly that reason
+    assert second.variant.name == "disabled"
+    assert disabled_variant().name == "disabled"
+
+
+def test_get_variant_returns_the_resolved_variant_for_an_enabled_toggle():
+    engine = PyO3UnleashEngine()
+    engine.take_state(
+        _variant_state(
+            "testFeature", True, "sourDough", {"type": "string", "value": "crusty"}
+        )
+    )
+
+    result = engine.get_variant("testFeature", {})
+
+    assert result == FeatureVariant(
+        name="testFeature",
+        variant=Variant(
+            name="sourDough",
+            payload={"type": "string", "value": "crusty"},
+            enabled=True,
+            feature_enabled=True,
+        ),
+        is_found=True,
+        requires_impression_event_emission=False,
+    )
+
+
+def test_get_variant_names_the_queried_toggle():
+    engine = PyO3UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+
+    assert engine.get_variant("testFeature", {}).name == "testFeature"
+
+
+def test_get_variant_reports_found_for_an_enabled_toggle_without_variants():
+    engine = PyO3UnleashEngine()
+    engine.take_state(_toggle_state("testFeature", True))
+
+    result = engine.get_variant("testFeature", {})
+
+    assert result.is_found is True
+    assert result.variant == Variant(
+        name="disabled", payload=None, enabled=False, feature_enabled=True
+    )
+
+
+def test_get_variant_reports_found_for_a_known_but_disabled_toggle():
+    engine = PyO3UnleashEngine()
+    engine.take_state(_variant_state("disabledFeature", False, "sourDough"))
+
+    result = engine.get_variant("disabledFeature", {})
+
+    ## A disabled toggle resolves to a variant that looks exactly like the
+    ## substituted one, so is_found must come from the engine's status code
+    assert result.variant == disabled_variant()
+    assert result.is_found is True
+
+
+def test_get_variant_resolves_the_variant_for_the_given_context():
+    engine = PyO3UnleashEngine()
+    state = {
+        "version": 1,
+        "features": [
+            {
+                "name": "testFeature",
+                "enabled": True,
+                "strategies": [{"name": "default"}],
+                "variants": [
+                    {"name": "sourDough", "weight": 100},
+                    {
+                        "name": "rye",
+                        "weight": 0,
+                        "overrides": [{"contextName": "userId", "values": ["123"]}],
+                    },
+                ],
+            }
+        ],
+    }
+    engine.take_state(json.dumps(state))
+
+    result = engine.get_variant("testFeature", {"userId": "123"})
+
+    ## Only the override can select the zero-weight variant, so this can only
+    ## hold if the context reached the engine
+    assert result.variant.name == "rye"
+
+
+def test_get_variant_does_not_accept_a_fallback_function():
+    engine = PyO3UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+
+    ## Unlike is_enabled, there is no user supplied fallback; the disabled
+    ## variant is the only substitution
+    with pytest.raises(TypeError):
+        engine.get_variant("testFeature", {}, fallback_function=lambda name, ctx: None)
+
+
+def test_get_variant_returns_the_disabled_variant_for_an_unknown_toggle():
+    engine = PyO3UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+
+    result = engine.get_variant("nonExistentFeature", {})
+
+    assert result == FeatureVariant(
+        name="nonExistentFeature",
+        variant=disabled_variant(),
+        is_found=False,
+        requires_impression_event_emission=False,
+    )
+
+
+def test_get_variant_returns_the_disabled_variant_when_the_engine_has_no_state():
+    engine = PyO3UnleashEngine()
+
+    result = engine.get_variant("nonExistentFeature", {})
+
+    assert result.variant == disabled_variant()
+    assert result.is_found is False
+
+
+def test_get_variant_counts_the_resolved_variant():
+    engine = PyO3UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+
+    engine.get_variant("testFeature", {})
+
+    metrics = engine.get_metrics()
+
+    assert metrics["toggles"]["testFeature"]["variants"]["sourDough"] == 1
+
+
+def test_get_variant_counts_an_enabled_toggle_as_yes():
+    engine = PyO3UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+
+    engine.get_variant("testFeature", {})
+
+    metrics = engine.get_metrics()
+
+    assert metrics["toggles"]["testFeature"]["yes"] == 1
+    assert metrics["toggles"]["testFeature"].get("no", 0) == 0
+
+
+def test_get_variant_counts_a_disabled_toggle_as_no():
+    engine = PyO3UnleashEngine()
+    engine.take_state(_variant_state("disabledFeature", False, "sourDough"))
+
+    engine.get_variant("disabledFeature", {})
+
+    metrics = engine.get_metrics()
+
+    assert metrics["toggles"]["disabledFeature"]["no"] == 1
+    assert metrics["toggles"]["disabledFeature"].get("yes", 0) == 0
+
+
+def test_get_variant_counts_an_enabled_toggle_without_variants_as_yes():
+    engine = PyO3UnleashEngine()
+    engine.take_state(_toggle_state("testFeature", True))
+
+    engine.get_variant("testFeature", {})
+
+    metrics = engine.get_metrics()
+
+    ## The variant is disabled but the feature is not, so the toggle count
+    ## follows feature_enabled rather than the variant's own enabled flag
+    assert metrics["toggles"]["testFeature"]["variants"]["disabled"] == 1
+    assert metrics["toggles"]["testFeature"]["yes"] == 1
+
+
+def test_get_variant_counts_the_substituted_disabled_variant_for_an_unknown_toggle():
+    engine = PyO3UnleashEngine()
+
+    engine.get_variant("nonExistentFeature", {})
+
+    metrics = engine.get_metrics()
+
+    assert metrics["toggles"]["nonExistentFeature"]["variants"]["disabled"] == 1
+
+
+def test_get_variant_counts_an_unknown_toggle_as_no():
+    engine = PyO3UnleashEngine()
+
+    engine.get_variant("nonExistentFeature", {})
+
+    metrics = engine.get_metrics()
+
+    assert metrics["toggles"]["nonExistentFeature"]["no"] == 1
+    assert metrics["toggles"]["nonExistentFeature"].get("yes", 0) == 0
+
+
+def test_get_variant_accumulates_counts_across_multiple_calls():
+    engine = PyO3UnleashEngine()
+    state = {
+        "version": 1,
+        "features": [
+            {
+                "name": "enabledFeature",
+                "enabled": True,
+                "strategies": [{"name": "default"}],
+                "variants": [{"name": "sourDough", "weight": 100}],
+            },
+            {
+                "name": "disabledFeature",
+                "enabled": False,
+                "strategies": [{"name": "default"}],
+                "variants": [{"name": "rye", "weight": 100}],
+            },
+        ],
+    }
+    engine.take_state(json.dumps(state))
+
+    engine.get_variant("enabledFeature", {})
+    engine.get_variant("enabledFeature", {})
+    engine.get_variant("disabledFeature", {})
+
+    metrics = engine.get_metrics()
+
+    assert metrics["toggles"]["enabledFeature"]["variants"]["sourDough"] == 2
+    assert metrics["toggles"]["enabledFeature"]["yes"] == 2
+    assert metrics["toggles"]["disabledFeature"]["variants"]["disabled"] == 1
+    assert metrics["toggles"]["disabledFeature"]["no"] == 1
+
+
+def test_get_variant_reports_impression_event_when_toggle_has_impression_data():
+    engine = PyO3UnleashEngine()
+    engine.take_state(_variant_impression_state("testFeature", True, "sourDough", True))
+
+    result = engine.get_variant("testFeature", {})
+
+    assert result.requires_impression_event_emission is True
+
+
+def test_get_variant_does_not_report_impression_event_without_impression_data():
+    engine = PyO3UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+
+    result = engine.get_variant("testFeature", {})
+
+    assert result.requires_impression_event_emission is False
+
+
+def test_get_variant_reports_impression_event_for_a_disabled_toggle():
+    engine = PyO3UnleashEngine()
+    engine.take_state(
+        _variant_impression_state("disabledFeature", False, "sourDough", True)
+    )
+
+    result = engine.get_variant("disabledFeature", {})
+
+    ## Impression events are emitted for disabled evaluations too, so the
+    ## lookup must not be gated on the resolved variant
+    assert result.variant == disabled_variant()
+    assert result.requires_impression_event_emission is True
+
+
+def test_get_variant_does_not_report_impression_event_for_unknown_toggle():
+    engine = PyO3UnleashEngine()
+
+    result = engine.get_variant("nonExistentFeature", {})
+
+    assert result.is_found is False
+    assert result.requires_impression_event_emission is False
+
+
+def test_get_variant_returns_the_disabled_variant_when_engine_errors():
+    engine = PyO3UnleashEngine()
+    engine._native = Mock(wraps=engine._native)
+    engine._native.get_variant.side_effect = ValueError("boomboom")
+
+    result = engine.get_variant("testFeature", {})
+
+    assert result == FeatureVariant(
+        name="testFeature",
+        variant=disabled_variant(),
+        is_found=False,
+        requires_impression_event_emission=False,
+    )
+
+
+def test_get_variant_does_not_count_when_engine_errors():
+    engine = PyO3UnleashEngine()
+    engine._native = Mock(wraps=engine._native)
+    engine._native.get_variant.side_effect = ValueError("boom")
+
+    engine.get_variant("testFeature", {})
+
     ## Nothing after the raise is attempted, so there is nothing to count
     assert engine.get_metrics() is None

@@ -22,6 +22,10 @@ impl From<EngineError> for PyErr {
     }
 }
 
+/// A variant as `NativeEngine.get_variant` hands it to Python:
+/// `(name, payload, enabled, feature_enabled)`
+type VariantTuple<'py> = (String, Option<Bound<'py, PyDict>>, bool, bool);
+
 #[pyclass(frozen)]
 struct NativeEngine {
     engine: Engine,
@@ -65,6 +69,46 @@ impl NativeEngine {
                 .is_enabled(toggle_name, &context, custom_strategy_results.as_ref())?)
         })
     }
+    /// Resolves a toggle's variant, looks up whether it requires an impression
+    /// event, and records the toggle and the variant in the metrics. Returns
+    /// `(variant, requires_impression_event)`, with `variant` `None` for an
+    /// unknown toggle, otherwise `(name, payload, enabled, feature_enabled)`
+    /// and `payload` `None` or `{"type": ..., "value": ...}`
+    #[pyo3(signature = (toggle_name, context, custom_strategy_results=None))]
+    fn get_variant<'py>(
+        &self,
+        toggle_name: &str,
+        context: &Bound<'py, PyDict>,
+        custom_strategy_results: Option<HashMap<String, bool>>,
+    ) -> PyResult<(Option<VariantTuple<'py>>, bool)> {
+        let py = context.py();
+        guard(|| {
+            let context = context_from_dict(context)?;
+            let (variant, impression) =
+                self.engine
+                    .get_variant(toggle_name, &context, custom_strategy_results.as_ref())?;
+            let Some(variant) = variant else {
+                return Ok((None, impression));
+            };
+            let payload = match variant.payload {
+                Some(payload) => {
+                    let dict = PyDict::new(py);
+                    dict.set_item(intern!(py, "type"), payload.payload_type)?;
+                    dict.set_item(intern!(py, "value"), payload.value)?;
+                    Some(dict)
+                }
+                None => None,
+            };
+            let variant = (
+                variant.name,
+                payload,
+                variant.enabled,
+                variant.feature_enabled,
+            );
+            Ok((Some(variant), impression))
+        })
+    }
+
     fn count_toggle(&self, toggle_name: &str, enabled: bool) -> PyResult<()> {
         Ok(self.engine.count_toggle(toggle_name, enabled)?)
     }
