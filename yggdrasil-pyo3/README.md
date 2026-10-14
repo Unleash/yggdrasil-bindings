@@ -40,7 +40,9 @@ python -m pip install --upgrade pip
 python -m pip install --group dev
 ```
 
-Then build the package in one of two ways.
+Then build the package in one of two ways. Both with the `test-helpers` cargo feature: it adds
+test-only functions to the module that the context reader tests need. The shipped wheel is built
+without it.
 
 **Install the built package.** 
 
@@ -49,7 +51,7 @@ the Rust module and builds the package, and pip installs it into the virtual env
 against the package.
 
 ```sh
-python -m pip install .
+MATURIN_PEP517_ARGS="--features test-helpers" python -m pip install .
 ```
 
 **For development: `maturin develop`.** 
@@ -61,7 +63,7 @@ run it again after changing Rust code
 builds in debug mode by default; add `--release` for an optimised build:
 
 ```sh
-maturin develop
+maturin develop --features test-helpers
 ```
 
 run the checks:
@@ -70,4 +72,21 @@ run the checks:
 pytest
 ruff format --check .
 ruff check .
+```
+
+### Context reader tests
+
+`tests/test_context_reader.py` reads each context both with our reader and with unleash-types'
+parsing of `json.dumps(context)`, and expects the same result. Needs the `test-helpers` feature
+
+To run only some cases, `-k` matches case names:
+
+```sh
+pytest tests/test_context_reader.py -v -k "leftover string overrides properties"
+```
+
+When a case fails, `-vv` prints the full diff of the two contexts, and `--showlocals` (`-l`) also
+
+```sh
+pytest tests/test_context_reader.py -vv -l -k "leftover string overrides properties"
 ```

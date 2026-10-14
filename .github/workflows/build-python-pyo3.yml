@@ -56,13 +56,16 @@ jobs:
           path: client-specification
 
       ## maturin builds the package with the compiled module, and pip installs it,
-      ## so the tests run against the package as built
+      ## so the tests run against the package as built; with the test-helpers
+      ## feature, which the context reader tests need
       - name: Build the engine and install dev dependencies
         id: deps
+        env:
+          MATURIN_PEP517_ARGS: --features test-helpers
         run: |
           python -m pip install --upgrade pip
           python -m pip install --group dev .
-          python -c "import yggdrasil_pyo3.yggdrasil_native"
+          python -c "from yggdrasil_pyo3.yggdrasil_native import context_from_dict, context_from_json"
 
       - name: Check formatting
         if: ${{ !cancelled() && steps.deps.outcome == 'success' }}

@@ -226,8 +226,37 @@ fn check_encodable(value: &Bound<'_, PyAny>) -> PyResult<()> {
     }
 }
 
+/// Test helper, only with the `test-helpers` feature: the `Context` our reader
+/// makes from a dict, as JSON. With `context_from_json`, lets the tests check
+/// that `context_from_dict` keeps the same rules as unleash-types (it copies
+/// them). `is_enabled` only returns the answer, not the `Context`
+/// not used by the engine, not in the shipped wheel
+#[cfg(feature = "test-helpers")]
+#[pyfunction]
+#[pyo3(name = "context_from_dict")]
+fn context_from_dict_as_json(context: &Bound<'_, PyDict>) -> PyResult<String> {
+    let context = context_from_dict(context)?;
+    serde_json::to_string(&context).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+/// Test helper, only with the `test-helpers` feature: the `Context`
+/// unleash-types makes from JSON (its own rules, `Context::from_map`), as JSON.
+#[cfg(feature = "test-helpers")]
+#[pyfunction]
+#[pyo3(name = "context_from_json")]
+fn context_from_json_as_json(json: &str) -> PyResult<String> {
+    let context: Context =
+        serde_json::from_str(json).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    serde_json::to_string(&context).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
 #[pymodule]
 fn yggdrasil_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<NativeEngine>()?;
+    #[cfg(feature = "test-helpers")]
+    {
+        m.add_function(wrap_pyfunction!(context_from_dict_as_json, m)?)?;
+        m.add_function(wrap_pyfunction!(context_from_json_as_json, m)?)?;
+    }
     Ok(())
 }
