@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
 from yggdrasil_pyo3.custom_strategy import CustomStrategyHandler
-from yggdrasil_pyo3.yggdrasil_native import NativeEngine  # type: ignore
+from yggdrasil_pyo3.yggdrasil_native import NativeEngine, core_version  # type: ignore
 
 _logger = logging.getLogger(__name__)
 
@@ -133,9 +133,15 @@ class FeatureDefinition:
 
 class PyO3UnleashEngine:
     """The engine on top of the compiled PyO3 module. So far only `take_state`,
-    `is_enabled`, `get_variant`, `count_toggle`, `get_metrics`, `get_state` and
-    `list_known_toggles`.
+    `is_enabled`, `get_variant`, `count_toggle`, `get_metrics`, `get_state`,
+    `list_known_toggles` and `get_core_version`.
     """
+
+    @staticmethod
+    def get_core_version() -> str:
+        """The version of the Yggdrasil core this engine runs, read from the
+        compiled module, so it always matches the binary in use."""
+        return core_version()
 
     def __init__(self):
         self._native = NativeEngine()

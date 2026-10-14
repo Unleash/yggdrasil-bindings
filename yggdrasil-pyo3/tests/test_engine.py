@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 from dataclasses import FrozenInstanceError, asdict
 from unittest.mock import Mock
 
@@ -956,6 +957,7 @@ def test_get_state_and_roundtrip():
     other_engine.take_state(retrieved_state)
     assert other_engine.is_enabled("testFeature", {}).is_enabled is True
 
+
 def test_list_known_toggles():
     engine = PyO3UnleashEngine()
 
@@ -972,3 +974,7 @@ def test_list_empty_toggles_yields_empty_list():
     engine = PyO3UnleashEngine()
 
     assert engine.list_known_toggles() == []
+
+
+def test_get_core_version_reads_a_version_from_the_library_without_an_engine():
+    assert re.fullmatch(r"\d+\.\d+\.\d+", PyO3UnleashEngine.get_core_version())

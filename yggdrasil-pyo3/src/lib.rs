@@ -12,7 +12,7 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString, PyTuple};
-use unleash_yggdrasil::Context;
+use unleash_yggdrasil::{Context, CORE_VERSION};
 
 use crate::engine::{guard, Engine, EngineError};
 
@@ -317,9 +317,15 @@ fn context_from_json_as_json(json: &str) -> PyResult<String> {
     serde_json::to_string(&context).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+#[pyfunction]
+fn core_version() -> &'static str {
+    CORE_VERSION
+}
+
 #[pymodule]
 fn yggdrasil_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<NativeEngine>()?;
+    m.add_function(wrap_pyfunction!(core_version, m)?)?;
     #[cfg(feature = "test-helpers")]
     {
         m.add_function(wrap_pyfunction!(context_from_dict_as_json, m)?)?;
