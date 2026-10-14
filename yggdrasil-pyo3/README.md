@@ -14,7 +14,7 @@ So far it only `take_state` and `is_enabled` are implemented.
 
 ## Test locally
 
-Rust and Python 3.9 or newer is needed. Run everything from this folder (`yggdrasil-pyo3/`).
+Rust and Python 3.10 or newer is needed. Run everything from this folder (`yggdrasil-pyo3/`).
 
 The Python tests include the client specification, which they read from the repository root:
 
