@@ -510,8 +510,6 @@ def test_is_enabled_does_not_count_the_toggle_when_engine_errors():
     assert engine.get_metrics() is None
 
 
-
-
 def _variant_state(name: str, enabled: bool, variant_name: str, payload=None) -> str:
     return json.dumps(
         {
