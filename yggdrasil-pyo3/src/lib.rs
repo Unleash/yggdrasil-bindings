@@ -68,6 +68,15 @@ impl NativeEngine {
     fn count_toggle(&self, toggle_name: &str, enabled: bool) -> PyResult<()> {
         Ok(self.engine.count_toggle(toggle_name, enabled)?)
     }
+
+    fn get_metrics(&self) -> PyResult<Option<String>> {
+        let Some(bucket) = self.engine.get_metrics()? else {
+            return Ok(None);
+        };
+        serde_json::to_string(&bucket)
+            .map(Some)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
 }
 
 /// Reads a context dict into the core's `Context`, with the same rules as the

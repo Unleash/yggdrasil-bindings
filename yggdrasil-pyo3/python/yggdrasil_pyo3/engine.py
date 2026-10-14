@@ -1,3 +1,4 @@
+import json
 import logging
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
@@ -64,8 +65,8 @@ class FeatureToggle:
 
 
 class PyO3UnleashEngine:
-    """The engine on top of the compiled PyO3 module. So far only `take_state`
-    and `is_enabled`.
+    """The engine on top of the compiled PyO3 module. So far only `take_state`,
+    `is_enabled`, `count_toggle` and `get_metrics`.
     """
 
     def __init__(self):
@@ -125,3 +126,10 @@ class PyO3UnleashEngine:
                 exc_info=True,
             )
             return result
+
+    def count_toggle(self, toggle_name: str, enabled: bool) -> None:
+        self._native.count_toggle(toggle_name, enabled)
+
+    def get_metrics(self) -> Optional[dict[str, Any]]:
+        metrics = self._native.get_metrics()
+        return None if metrics is None else json.loads(metrics)

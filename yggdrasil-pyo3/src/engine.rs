@@ -9,6 +9,8 @@ use std::fmt::{self, Display, Formatter};
 use std::panic::{self, AssertUnwindSafe};
 use std::sync::{Mutex, MutexGuard};
 
+use chrono::Utc;
+use unleash_types::client_metrics::MetricBucket;
 use unleash_yggdrasil::state::EnrichedContext;
 use unleash_yggdrasil::{Context, EngineState, EvalWarning, UpdateMessage};
 
@@ -89,6 +91,10 @@ impl Engine {
             Ok(())
         })
     }
+
+    pub fn get_metrics(&self) -> Result<Option<MetricBucket>, EngineError> {
+        guard(|| Ok(self.lock().get_metrics(Utc::now())))
+    }
 }
 
 fn evaluate(
@@ -112,7 +118,6 @@ pub fn guard<T, E: From<EngineError>>(action: impl FnOnce() -> Result<T, E>) -> 
 mod tests {
     use std::panic::{self, AssertUnwindSafe};
 
-    use chrono::Utc;
     use unleash_types::client_features::{ClientFeature, ClientFeatures, Strategy};
     use unleash_yggdrasil::Context;
 
@@ -240,8 +245,8 @@ mod tests {
         engine.count_toggle("unknown-toggle", true).unwrap();
 
         let toggles = engine
-            .lock()
-            .get_metrics(Utc::now())
+            .get_metrics()
+            .unwrap()
             .expect("Expected metrics")
             .toggles;
 
@@ -253,6 +258,26 @@ mod tests {
             (toggles["unknown-toggle"].yes, toggles["unknown-toggle"].no),
             (1, 0)
         );
+    }
+
+    #[test]
+    fn get_metrics_is_none_when_nothing_was_counted_and_resets_the_counts() {
+        let engine = Engine::default();
+
+        assert!(engine.get_metrics().unwrap().is_none());
+
+        engine.count_toggle("some-toggle", false).unwrap();
+        let toggles = engine
+            .get_metrics()
+            .unwrap()
+            .expect("Expected metrics")
+            .toggles;
+
+        assert_eq!(
+            (toggles["some-toggle"].yes, toggles["some-toggle"].no),
+            (0, 1)
+        );
+        assert!(engine.get_metrics().unwrap().is_none());
     }
 
     #[test]

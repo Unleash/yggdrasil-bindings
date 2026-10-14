@@ -318,8 +318,8 @@ def test_is_enabled_defaults_to_disabled_when_fallback_raises():
 
     assert result.is_enabled is False
     assert result.is_found is False
-    ## The original also checks that nothing was counted, through get_metrics,
-    ## which this package doesn't have yet
+    ## A raising fallback leaves no usable value, so there is nothing to count
+    assert engine.get_metrics() is None
 
 
 def test_is_enabled_fallback_function_must_be_passed_as_keyword():
@@ -363,3 +363,121 @@ def test_is_enabled_treats_a_missing_context_as_empty_and_gives_it_to_the_fallba
 
     assert known.is_enabled is True
     fallback.assert_called_once_with("nonExistentFeature", None)
+
+
+def test_increments_counts_for_yes_and_no():
+    engine = PyO3UnleashEngine()
+    engine.take_state(_toggle_state("testToggle", True))
+
+    engine.count_toggle("testToggle", True)
+    engine.count_toggle("testToggle", True)
+    engine.count_toggle("testToggle", False)
+
+    metrics = engine.get_metrics()
+
+    assert metrics["toggles"]["testToggle"]["yes"] == 2
+    assert metrics["toggles"]["testToggle"]["no"] == 1
+
+
+def test_metrics_are_flushed_when_get_metrics_is_called():
+    engine = PyO3UnleashEngine()
+    engine.take_state(_toggle_state("testToggle", True))
+
+    engine.count_toggle("testToggle", True)
+
+    metrics = engine.get_metrics()
+    assert metrics["toggles"]["testToggle"]["yes"] == 1
+
+    metrics = engine.get_metrics()
+    assert metrics is None
+
+
+def test_metrics_are_still_incremented_when_toggle_does_not_exist():
+    engine = PyO3UnleashEngine()
+
+    engine.count_toggle("aToggleSoSecretItDoesNotExist", True)
+
+    metrics = engine.get_metrics()
+
+    assert metrics["toggles"]["aToggleSoSecretItDoesNotExist"]["yes"] == 1
+
+
+def test_is_enabled_counts_fallback_resolved_value_not_raw_response():
+    engine = PyO3UnleashEngine()
+
+    engine.is_enabled(
+        "nonExistentFeature", {}, fallback_function=lambda name, ctx: True
+    )
+
+    metrics = engine.get_metrics()
+
+    assert metrics["toggles"]["nonExistentFeature"]["yes"] == 1
+    assert metrics["toggles"]["nonExistentFeature"].get("no", 0) == 0
+
+
+def test_is_enabled_reports_not_found_when_toggle_missing_without_fallback():
+    engine = PyO3UnleashEngine()
+
+    result = engine.is_enabled("nonExistentFeature", {})
+
+    metrics = engine.get_metrics()
+
+    assert result == FeatureToggle(
+        name="nonExistentFeature", is_enabled=False, is_found=False
+    )
+    assert metrics["toggles"]["nonExistentFeature"]["no"] == 1
+
+
+def test_is_enabled_counts_disabled_toggle_as_no():
+    engine = PyO3UnleashEngine()
+    engine.take_state(_toggle_state("disabledFeature", False))
+
+    engine.is_enabled("disabledFeature", {})
+
+    metrics = engine.get_metrics()
+
+    assert metrics["toggles"]["disabledFeature"]["no"] == 1
+    assert metrics["toggles"]["disabledFeature"].get("yes", 0) == 0
+
+
+def test_is_enabled_accumulates_counts_across_multiple_calls():
+    engine = PyO3UnleashEngine()
+    state = {
+        "version": 1,
+        "features": [
+            {
+                "name": "enabledFeature",
+                "enabled": True,
+                "strategies": [{"name": "default"}],
+            },
+            {
+                "name": "disabledFeature",
+                "enabled": False,
+                "strategies": [{"name": "default"}],
+            },
+        ],
+    }
+    engine.take_state(json.dumps(state))
+
+    engine.is_enabled("enabledFeature", {})
+    engine.is_enabled("enabledFeature", {})
+    engine.is_enabled("disabledFeature", {})
+
+    metrics = engine.get_metrics()
+
+    assert metrics["toggles"]["enabledFeature"]["yes"] == 2
+    assert metrics["toggles"]["enabledFeature"].get("no", 0) == 0
+    assert metrics["toggles"]["disabledFeature"]["no"] == 1
+    assert metrics["toggles"]["disabledFeature"].get("yes", 0) == 0
+
+
+def test_is_enabled_does_not_count_the_toggle_when_engine_errors():
+    engine = PyO3UnleashEngine()
+    engine._native = Mock(wraps=engine._native)
+    engine._native.is_enabled.side_effect = ValueError("boom")
+
+    result = engine.is_enabled("testFeature", {})
+
+    assert result == FeatureToggle(name="testFeature")
+    ## Nothing after the raise is attempted, so there is nothing to count
+    assert engine.get_metrics() is None
