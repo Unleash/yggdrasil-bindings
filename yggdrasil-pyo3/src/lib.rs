@@ -143,7 +143,6 @@ impl NativeEngine {
         Ok(self.engine.define_counter(name, help)?)
     }
 
-    #[pyo3(signature = (name, value, labels=None))]
     fn inc_counter(
         &self,
         name: &str,
@@ -152,7 +151,20 @@ impl NativeEngine {
     ) -> PyResult<()> {
         Ok(self.engine.inc_counter(name, value, labels.as_ref())?)
     }
-    
+
+    fn define_gauge(&self, name: &str, help: &str) -> PyResult<()> {
+        Ok(self.engine.define_gauge(name, help)?)
+    }
+
+    fn set_gauge(
+        &self,
+        name: &str,
+        value: f64,
+        labels: Option<HashMap<String, String>>,
+    ) -> PyResult<()> {
+        Ok(self.engine.set_gauge(name, value, labels.as_ref())?)
+    }
+
     fn collect_impact_metrics(&self) -> PyResult<String> {
         serde_json::to_string(&self.engine.collect_impact_metrics()?)
             .map_err(|e| PyValueError::new_err(e.to_string()))

@@ -181,6 +181,30 @@ impl Engine {
         })
     }
 
+    pub fn define_gauge(&self, name: &str, help: &str) -> Result<(), EngineError> {
+        guard(|| {
+            self.lock().define_gauge(MetricOptions::new(name, help));
+            Ok(())
+        })
+    }
+    pub fn set_gauge(
+        &self,
+        name: &str,
+        value: f64,
+        labels: Option<&MetricLabels>,
+    ) -> Result<(), EngineError> {
+        guard(|| {
+            let engine = self.lock();
+            match labels {
+                Some(labels) if !labels.is_empty() => {
+                    engine.set_gauge_with_labels(name, value, labels)
+                }
+                _ => engine.set_gauge(name, value),
+            }
+            Ok(())
+        })
+    }
+
     pub fn collect_impact_metrics(&self) -> Result<Vec<CollectedMetric>, EngineError> {
         guard(|| Ok(self.lock().collect_impact_metrics()))
     }
@@ -224,7 +248,6 @@ mod tests {
     use std::panic::{self, AssertUnwindSafe};
 
     use unleash_types::client_features::{ClientFeature, ClientFeatures, Strategy};
-    use unleash_yggdrasil::impact_metrics::MetricLabels;
     use unleash_yggdrasil::Context;
 
     use super::Engine;

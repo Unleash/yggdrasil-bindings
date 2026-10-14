@@ -1166,3 +1166,39 @@ def test_collect_impact_metrics_returns_empty_list_when_no_metrics():
     engine = PyO3UnleashEngine()
     metrics = engine.collect_impact_metrics()
     assert metrics == []
+
+
+def test_set_gauge_sets_value():
+    engine = PyO3UnleashEngine()
+    engine.define_gauge("test_gauge", "Test gauge")
+    engine.set_gauge("test_gauge", 5)
+    engine.set_gauge("test_gauge", 10)
+
+    metrics = engine.collect_impact_metrics()
+    gauge = next((m for m in metrics if m["name"] == "test_gauge"), None)
+
+    assert gauge is not None
+    assert gauge["help"] == "Test gauge"
+    assert len(gauge["samples"]) == 1
+    assert gauge["samples"][0]["value"] == 10
+
+
+def test_set_gauge_with_labels():
+    engine = PyO3UnleashEngine()
+    engine.define_gauge("test_gauge", "Test gauge")
+    engine.set_gauge("test_gauge", 5, {"env": "test"})
+    engine.set_gauge("test_gauge", 3, {"env": "prod"})
+
+    metrics = engine.collect_impact_metrics()
+    gauge = next((m for m in metrics if m["name"] == "test_gauge"), None)
+
+    assert gauge is not None
+    assert len(gauge["samples"]) == 2
+    test_sample = next(
+        (s for s in gauge["samples"] if s["labels"].get("env") == "test"), None
+    )
+    prod_sample = next(
+        (s for s in gauge["samples"] if s["labels"].get("env") == "prod"), None
+    )
+    assert test_sample["value"] == 5
+    assert prod_sample["value"] == 3

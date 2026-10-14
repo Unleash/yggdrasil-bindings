@@ -140,8 +140,8 @@ class FeatureDefinition:
 class PyO3UnleashEngine:
     """The engine on top of the compiled PyO3 module. So far only `take_state`,
     `is_enabled`, `get_variant`, `check_variant`, `count_toggle`, `get_metrics`, `get_state`,
-    `list_known_toggles`, `get_core_version`, `define_counter`, `inc_counter` and
-    `collect_impact_metrics`.
+    `list_known_toggles`, `get_core_version`, `define_counter`, `inc_counter`,
+    `define_gauge`, `set_gauge` and `collect_impact_metrics`.
     """
 
     @staticmethod
@@ -309,6 +309,14 @@ class PyO3UnleashEngine:
         self, name: str, value: int = 1, labels: Optional[dict[str, str]] = None
     ) -> None:
         self._native.inc_counter(name, value, labels)
+
+    def define_gauge(self, name: str, help_text: str) -> None:
+        self._native.define_gauge(name, help_text)
+
+    def set_gauge(
+        self, name: str, value: float, labels: Optional[dict[str, str]] = None
+    ) -> None:
+        self._native.set_gauge(name, value, labels)
 
     def collect_impact_metrics(self) -> list[dict[str, Any]]:
         return json.loads(self._native.collect_impact_metrics())
