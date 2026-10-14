@@ -918,3 +918,39 @@ def test_get_variant_does_not_count_when_engine_errors():
 
     ## Nothing after the raise is attempted, so there is nothing to count
     assert engine.get_metrics() is None
+
+
+def test_get_state_and_roundtrip():
+    """Test get_state returns valid JSON and supports roundtrip"""
+    engine = PyO3UnleashEngine()
+
+    empty_state = engine.get_state()
+    assert '"features":[]' in empty_state
+    assert "status_code" not in empty_state
+    assert "error_message" not in empty_state
+
+    test_state = {
+        "version": 1,
+        "features": [
+            {
+                "name": "testFeature",
+                "enabled": True,
+                "strategies": [{"name": "default"}],
+            }
+        ],
+    }
+
+    engine.take_state(json.dumps(test_state))
+    retrieved_state = engine.get_state()
+
+    assert "testFeature" in retrieved_state
+    assert '"version":1' in retrieved_state
+    assert '"name":"testFeature"' in retrieved_state
+    assert '"name":"default"' in retrieved_state
+    assert "status_code" not in retrieved_state
+    assert "error_message" not in retrieved_state
+
+    ## the state taken back evaluates the same
+    other_engine = PyO3UnleashEngine()
+    other_engine.take_state(retrieved_state)
+    assert other_engine.is_enabled("testFeature", {}).is_enabled is True

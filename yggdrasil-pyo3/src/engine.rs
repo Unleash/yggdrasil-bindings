@@ -10,6 +10,7 @@ use std::panic::{self, AssertUnwindSafe};
 use std::sync::{Mutex, MutexGuard};
 
 use chrono::Utc;
+use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::MetricBucket;
 use unleash_yggdrasil::state::EnrichedContext;
 use unleash_yggdrasil::{
@@ -129,6 +130,10 @@ impl Engine {
 
     pub fn get_metrics(&self) -> Result<Option<MetricBucket>, EngineError> {
         guard(|| Ok(self.lock().get_metrics(Utc::now())))
+    }
+    
+    pub fn get_state(&self) -> Result<ClientFeatures, EngineError> {
+        guard(|| Ok(self.lock().get_state()))
     }
 }
 
@@ -384,6 +389,23 @@ mod tests {
         assert_eq!(counts("with-variant", "blue"), (1, 0, 1));
         assert_eq!(counts("disabled-toggle", "disabled"), (0, 1, 1));
         assert_eq!(counts("unknown", "disabled"), (0, 1, 1));
+    }
+
+    #[test]
+    fn get_state_is_empty_before_take_state_and_the_taken_state_after() {
+        let engine = Engine::default();
+
+        assert!(engine.get_state().unwrap().features.is_empty());
+
+        let state = serde_json::json!({
+            "version": 1,
+            "features": [{"name": "some-toggle", "enabled": true, "strategies": [{"name": "default"}]}]
+        });
+        engine.take_state(&state.to_string()).unwrap();
+
+        let features = engine.get_state().unwrap().features;
+        assert_eq!(features.len(), 1);
+        assert_eq!(features[0].name, "some-toggle");
     }
 
     #[test]

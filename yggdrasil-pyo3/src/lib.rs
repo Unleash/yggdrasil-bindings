@@ -121,6 +121,11 @@ impl NativeEngine {
             .map(Some)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
+
+    fn get_state(&self) -> PyResult<String> {
+        serde_json::to_string(&self.engine.get_state()?)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
 }
 
 /// Reads a context dict into the core's `Context`, with the same rules as the

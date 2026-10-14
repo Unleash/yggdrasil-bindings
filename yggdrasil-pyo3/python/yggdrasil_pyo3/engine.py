@@ -126,7 +126,7 @@ class FeatureVariant:
 
 class PyO3UnleashEngine:
     """The engine on top of the compiled PyO3 module. So far only `take_state`,
-    `is_enabled`, `get_variant`, `count_toggle` and `get_metrics`.
+    `is_enabled`, `get_variant`, `count_toggle`, `get_metrics` and `get_state`.
     """
 
     def __init__(self):
@@ -247,3 +247,6 @@ class PyO3UnleashEngine:
     def get_metrics(self) -> Optional[dict[str, Any]]:
         metrics = self._native.get_metrics()
         return None if metrics is None else json.loads(metrics)
+
+    def get_state(self) -> str:
+        return self._native.get_state()
