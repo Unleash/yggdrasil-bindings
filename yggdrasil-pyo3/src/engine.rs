@@ -12,7 +12,9 @@ use std::sync::{Mutex, MutexGuard};
 use chrono::Utc;
 use unleash_types::client_metrics::MetricBucket;
 use unleash_yggdrasil::state::EnrichedContext;
-use unleash_yggdrasil::{Context, EngineState, EvalWarning, UpdateMessage};
+use unleash_yggdrasil::{
+    Context, EngineState, EvalWarning, ExtendedVariantDef, UpdateMessage, VariantDef,
+};
 
 #[derive(Debug)]
 pub enum EngineError {
@@ -82,6 +84,39 @@ impl Engine {
                 engine.count_toggle(toggle_name, enabled);
             }
             Ok((enabled, impression))
+        })
+    }
+
+    /// Resolves a toggle's variant, looks up whether it requires an impression
+    /// event, and records the toggle and the variant in the metrics. Returns
+    /// `(variant, requires_impression_event)`, with `variant` `None` for an
+    /// unknown toggle, which is recorded as the disabled variant
+    pub fn get_variant(
+        &self,
+        toggle_name: &str,
+        context: &Context,
+        custom_strategy_results: Option<&HashMap<String, bool>>,
+    ) -> Result<(Option<ExtendedVariantDef>, bool), EngineError> {
+        guard(|| {
+            let engine = self.lock();
+            let context = EnrichedContext::from(context, toggle_name, custom_strategy_results);
+            let variant = engine.check_variant(&context).map(|variant| {
+                let enabled = engine.check_enabled(&context).unwrap_or_default();
+                variant.to_enriched_response(enabled)
+            });
+            let impression = engine.should_emit_impression_event(toggle_name);
+            // An unknown toggle is counted as disabled
+            let disabled;
+            let (feature_enabled, variant_name) = match &variant {
+                Some(variant) => (variant.feature_enabled, variant.name.as_str()),
+                None => {
+                    disabled = VariantDef::default();
+                    (false, disabled.name.as_str())
+                }
+            };
+            engine.count_toggle(toggle_name, feature_enabled);
+            engine.count_variant(toggle_name, variant_name);
+            Ok((variant, impression))
         })
     }
 
@@ -278,6 +313,77 @@ mod tests {
             (0, 1)
         );
         assert!(engine.get_metrics().unwrap().is_none());
+    }
+
+    #[test]
+    fn get_variant_resolves_and_counts_known_and_unknown_toggles() {
+        let engine = Engine::default();
+        let state = serde_json::json!({
+            "version": 2,
+            "features": [
+                {
+                    "name": "with-variant",
+                    "enabled": true,
+                    "impressionData": true,
+                    "strategies": [{"name": "default"}],
+                    "variants": [{
+                        "name": "blue",
+                        "weight": 1000,
+                        "payload": {"type": "string", "value": "b"}
+                    }]
+                },
+                {
+                    "name": "disabled-toggle",
+                    "enabled": false,
+                    "strategies": [{"name": "default"}]
+                }
+            ]
+        });
+        engine.take_state(&state.to_string()).unwrap();
+        let context = Context::default();
+
+        let (variant, impression) = engine.get_variant("with-variant", &context, None).unwrap();
+        let variant = variant.expect("Expected a variant");
+        assert_eq!(
+            (
+                variant.name.as_str(),
+                variant.enabled,
+                variant.feature_enabled
+            ),
+            ("blue", true, true)
+        );
+        assert_eq!(variant.payload.expect("Expected a payload").value, "b");
+        assert!(impression);
+
+        let (variant, impression) = engine
+            .get_variant("disabled-toggle", &context, None)
+            .unwrap();
+        let variant = variant.expect("Expected a variant");
+        assert_eq!(
+            (
+                variant.name.as_str(),
+                variant.enabled,
+                variant.feature_enabled
+            ),
+            ("disabled", false, false)
+        );
+        assert!(!impression);
+
+        let (variant, _) = engine.get_variant("unknown", &context, None).unwrap();
+        assert!(variant.is_none());
+
+        let toggles = engine
+            .get_metrics()
+            .unwrap()
+            .expect("Expected metrics")
+            .toggles;
+        let counts = |name: &str, variant: &str| {
+            let stats = &toggles[name];
+            (stats.yes, stats.no, stats.variants[variant])
+        };
+        assert_eq!(counts("with-variant", "blue"), (1, 0, 1));
+        assert_eq!(counts("disabled-toggle", "disabled"), (0, 1, 1));
+        assert_eq!(counts("unknown", "disabled"), (0, 1, 1));
     }
 
     #[test]
