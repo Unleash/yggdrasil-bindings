@@ -8,6 +8,12 @@ from yggdrasil_pyo3.yggdrasil_native import NativeEngine, core_version  # type: 
 
 _logger = logging.getLogger(__name__)
 
+_NativeVariant = tuple[str, Optional[dict[str, str]], bool, bool]
+_NativeVariantQuery = Callable[
+    [str, dict[str, Any], Optional[dict[str, bool]]],
+    tuple[Optional[_NativeVariant], bool],
+]
+
 
 @dataclass(init=False)
 class FeatureToggle:
@@ -133,7 +139,7 @@ class FeatureDefinition:
 
 class PyO3UnleashEngine:
     """The engine on top of the compiled PyO3 module. So far only `take_state`,
-    `is_enabled`, `get_variant`, `count_toggle`, `get_metrics`, `get_state`,
+    `is_enabled`, `get_variant`, `check_variant`, `count_toggle`, `get_metrics`, `get_state`,
     `list_known_toggles` and `get_core_version`.
     """
 
@@ -206,19 +212,43 @@ class PyO3UnleashEngine:
 
         This records both the toggle and the resolved variant against the
         engine's metrics, so they show up in the next `get_metrics()` payload.
+        Use `check_variant` to ask the same question without recording it; both
+        report impression events the same way.
 
         Never raises, and answers all or nothing: whatever fails, the caller
         gets the disabled variant rather than a half built answer.
         """
+        ## One native call evaluates, looks up the impression flag and
+        ## records the toggle and the variant (unknown toggles as disabled)
+        return self._query_variant(self._native.get_variant, toggle_name, context)
+
+    def check_variant(
+        self, toggle_name: str, context: dict[str, Any]
+    ) -> FeatureVariant:
+        """Ask which variant a feature resolves to, without recording the query.
+
+        The answer matches `get_variant`, but neither the toggle nor the
+        variant is counted towards the engine's metrics. Impression events are
+        not part of that difference: `requires_impression_event_emission`
+        carries the same answer it would under `get_variant`.
+
+        Never raises: whatever fails, the caller gets the disabled variant.
+        """
+        return self._query_variant(self._native.check_variant, toggle_name, context)
+
+    def _query_variant(
+        self,
+        native_query: _NativeVariantQuery,
+        toggle_name: str,
+        context: dict[str, Any],
+    ) -> FeatureVariant:
         try:
             custom_strategy_results = (
                 self.custom_strategy_handler.evaluate_custom_strategies(
                     toggle_name, context
                 )
             )
-            ## One native call evaluates, looks up the impression flag and
-            ## records the toggle and the variant (unknown toggles as disabled)
-            variant, impression = self._native.get_variant(
+            variant, impression = native_query(
                 toggle_name, context or {}, custom_strategy_results
             )
             if variant is None:

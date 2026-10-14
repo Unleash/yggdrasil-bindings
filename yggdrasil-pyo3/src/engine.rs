@@ -89,10 +89,28 @@ impl Engine {
         })
     }
 
-    /// Resolves a toggle's variant, looks up whether it requires an impression
-    /// event, and records the toggle and the variant in the metrics. Returns
+    /// Resolves a toggle's variant and looks up whether it requires an
+    /// impression event, without recording anything. Returns
     /// `(variant, requires_impression_event)`, with `variant` `None` for an
-    /// unknown toggle, which is recorded as the disabled variant
+    /// unknown toggle
+    pub fn check_variant(
+        &self,
+        toggle_name: &str,
+        context: &Context,
+        custom_strategy_results: Option<&HashMap<String, bool>>,
+    ) -> Result<(Option<ExtendedVariantDef>, bool), EngineError> {
+        guard(|| {
+            Ok(resolve_variant(
+                &self.lock(),
+                toggle_name,
+                context,
+                custom_strategy_results,
+            ))
+        })
+    }
+
+    /// Like `check_variant`, and also records the toggle and the variant in
+    /// the metrics; an unknown toggle is recorded as the disabled variant
     pub fn get_variant(
         &self,
         toggle_name: &str,
@@ -101,12 +119,8 @@ impl Engine {
     ) -> Result<(Option<ExtendedVariantDef>, bool), EngineError> {
         guard(|| {
             let engine = self.lock();
-            let context = EnrichedContext::from(context, toggle_name, custom_strategy_results);
-            let variant = engine.check_variant(&context).map(|variant| {
-                let enabled = engine.check_enabled(&context).unwrap_or_default();
-                variant.to_enriched_response(enabled)
-            });
-            let impression = engine.should_emit_impression_event(toggle_name);
+            let (variant, impression) =
+                resolve_variant(&engine, toggle_name, context, custom_strategy_results);
             // An unknown toggle is counted as disabled
             let disabled;
             let (feature_enabled, variant_name) = match &variant {
@@ -140,6 +154,22 @@ impl Engine {
     pub fn list_known_toggles(&self) -> Result<Vec<ToggleDefinition>, EngineError> {
         guard(|| Ok(self.lock().list_known_toggles()))
     }
+}
+
+/// The variant and whether the toggle is enabled (two evaluations, like the
+/// shim's `check_variant`), and the impression flag
+fn resolve_variant(
+    engine: &EngineState,
+    toggle_name: &str,
+    context: &Context,
+    custom_strategy_results: Option<&HashMap<String, bool>>,
+) -> (Option<ExtendedVariantDef>, bool) {
+    let context = EnrichedContext::from(context, toggle_name, custom_strategy_results);
+    let variant = engine.check_variant(&context).map(|variant| {
+        let enabled = engine.check_enabled(&context).unwrap_or_default();
+        variant.to_enriched_response(enabled)
+    });
+    (variant, engine.should_emit_impression_event(toggle_name))
 }
 
 fn evaluate(
@@ -441,6 +471,35 @@ mod tests {
             ),
             ("some-toggle", "some-project", Some("release"))
         );
+    }
+
+    #[test]
+    fn check_variant_resolves_like_get_variant_without_counting() {
+        let engine = Engine::default();
+        let state = serde_json::json!({
+            "version": 1,
+            "features": [{
+                "name": "with-variant",
+                "enabled": true,
+                "strategies": [{"name": "default"}],
+                "variants": [{"name": "blue", "weight": 1000}]
+            }]
+        });
+        engine.take_state(&state.to_string()).unwrap();
+        let context = Context::default();
+
+        let checked = engine
+            .check_variant("with-variant", &context, None)
+            .unwrap();
+        assert!(engine.get_metrics().unwrap().is_none());
+
+        let got = engine.get_variant("with-variant", &context, None).unwrap();
+        assert_eq!(checked, got);
+
+        let (unknown, _) = engine.check_variant("unknown", &context, None).unwrap();
+        assert!(unknown.is_none());
+        let toggles = engine.get_metrics().unwrap().unwrap().toggles;
+        assert!(!toggles.contains_key("unknown"));
     }
 
     #[test]
