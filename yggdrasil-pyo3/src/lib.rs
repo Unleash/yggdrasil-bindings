@@ -165,6 +165,23 @@ impl NativeEngine {
         Ok(self.engine.set_gauge(name, value, labels.as_ref())?)
     }
 
+    fn define_histogram(&self, name: &str, help: &str, buckets: Option<Vec<f64>>) -> PyResult<()> {
+        Ok(self
+            .engine
+            .define_histogram(name, help, buckets.unwrap_or_default())?)
+    }
+
+    fn observe_histogram(
+        &self,
+        name: &str,
+        value: f64,
+        labels: Option<HashMap<String, String>>,
+    ) -> PyResult<()> {
+        Ok(self
+            .engine
+            .observe_histogram(name, value, labels.as_ref())?)
+    }
+
     fn collect_impact_metrics(&self) -> PyResult<String> {
         serde_json::to_string(&self.engine.collect_impact_metrics()?)
             .map_err(|e| PyValueError::new_err(e.to_string()))

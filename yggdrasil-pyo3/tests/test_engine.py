@@ -1202,3 +1202,57 @@ def test_set_gauge_with_labels():
     )
     assert test_sample["value"] == 5
     assert prod_sample["value"] == 3
+
+
+def test_observe_histogram_observes_values():
+    engine = PyO3UnleashEngine()
+    engine.define_histogram(
+        "request_duration", "Request duration", [0.1, 0.5, 1.0, 5.0]
+    )
+    engine.observe_histogram("request_duration", 0.05)
+    engine.observe_histogram("request_duration", 0.75)
+    engine.observe_histogram("request_duration", 3.0)
+
+    metrics = engine.collect_impact_metrics()
+    histogram = next((m for m in metrics if m["name"] == "request_duration"), None)
+
+    assert histogram is not None
+    assert histogram["help"] == "Request duration"
+    assert histogram["type"] == "histogram"
+    assert len(histogram["samples"]) == 1
+
+
+def test_observe_histogram_with_labels():
+    engine = PyO3UnleashEngine()
+    engine.define_histogram(
+        "request_duration", "Request duration", [0.1, 0.5, 1.0, 5.0]
+    )
+    engine.observe_histogram("request_duration", 0.05, {"env": "test"})
+    engine.observe_histogram("request_duration", 0.75, {"env": "prod"})
+
+    metrics = engine.collect_impact_metrics()
+    histogram = next((m for m in metrics if m["name"] == "request_duration"), None)
+
+    assert histogram is not None
+    assert len(histogram["samples"]) == 2
+    test_sample = next(
+        (s for s in histogram["samples"] if s["labels"].get("env") == "test"), None
+    )
+    prod_sample = next(
+        (s for s in histogram["samples"] if s["labels"].get("env") == "prod"), None
+    )
+    assert test_sample is not None
+    assert prod_sample is not None
+
+
+def test_define_histogram_with_default_buckets():
+    engine = PyO3UnleashEngine()
+    engine.define_histogram("request_duration", "Request duration")
+    engine.observe_histogram("request_duration", 0.05)
+
+    metrics = engine.collect_impact_metrics()
+    histogram = next((m for m in metrics if m["name"] == "request_duration"), None)
+
+    assert histogram is not None
+    assert histogram["type"] == "histogram"
+    assert len(histogram["samples"]) == 1

@@ -12,7 +12,9 @@ use std::sync::{Mutex, MutexGuard};
 use chrono::Utc;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::MetricBucket;
-use unleash_yggdrasil::impact_metrics::{CollectedMetric, MetricLabels, MetricOptions};
+use unleash_yggdrasil::impact_metrics::{
+    BucketMetricOptions, CollectedMetric, MetricLabels, MetricOptions,
+};
 use unleash_yggdrasil::state::EnrichedContext;
 use unleash_yggdrasil::{
     Context, EngineState, EvalWarning, ExtendedVariantDef, ToggleDefinition, UpdateMessage,
@@ -200,6 +202,37 @@ impl Engine {
                     engine.set_gauge_with_labels(name, value, labels)
                 }
                 _ => engine.set_gauge(name, value),
+            }
+            Ok(())
+        })
+    }
+
+    pub fn define_histogram(
+        &self,
+        name: &str,
+        help: &str,
+        buckets: Vec<f64>,
+    ) -> Result<(), EngineError> {
+        guard(|| {
+            self.lock()
+                .define_histogram(BucketMetricOptions::new(name, help, buckets));
+            Ok(())
+        })
+    }
+
+    pub fn observe_histogram(
+        &self,
+        name: &str,
+        value: f64,
+        labels: Option<&MetricLabels>,
+    ) -> Result<(), EngineError> {
+        guard(|| {
+            let engine = self.lock();
+            match labels {
+                Some(labels) if !labels.is_empty() => {
+                    engine.observe_histogram_with_labels(name, value, labels)
+                }
+                _ => engine.observe_histogram(name, value),
             }
             Ok(())
         })
