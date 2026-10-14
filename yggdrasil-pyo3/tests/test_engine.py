@@ -1100,7 +1100,6 @@ def test_check_variant_does_not_report_impression_event_without_impression_data(
     assert result.requires_impression_event_emission is False
 
 
-
 def test_check_variant_returns_the_disabled_variant_when_engine_errors():
     engine = PyO3UnleashEngine()
     engine._native = Mock(wraps=engine._native)
@@ -1125,3 +1124,45 @@ def test_check_variant_does_not_raise_on_unexpected_engine_failure():
 
     assert result.variant == disabled_variant()
     assert result.is_found is False
+
+
+def test_inc_counter_increments_value():
+    engine = PyO3UnleashEngine()
+    engine.define_counter("test_counter", "Test counter")
+    engine.inc_counter("test_counter", 5)
+    engine.inc_counter("test_counter", 3)
+
+    metrics = engine.collect_impact_metrics()
+    counter = next((m for m in metrics if m["name"] == "test_counter"), None)
+
+    assert counter is not None
+    assert counter["help"] == "Test counter"
+    assert len(counter["samples"]) == 1
+    assert counter["samples"][0]["value"] == 8
+
+
+def test_inc_counter_with_labels():
+    engine = PyO3UnleashEngine()
+    engine.define_counter("test_counter", "Test counter")
+    engine.inc_counter("test_counter", 5, {"env": "test"})
+    engine.inc_counter("test_counter", 3, {"env": "prod"})
+
+    metrics = engine.collect_impact_metrics()
+    counter = next((m for m in metrics if m["name"] == "test_counter"), None)
+
+    assert counter is not None
+    assert len(counter["samples"]) == 2
+    test_sample = next(
+        (s for s in counter["samples"] if s["labels"].get("env") == "test"), None
+    )
+    prod_sample = next(
+        (s for s in counter["samples"] if s["labels"].get("env") == "prod"), None
+    )
+    assert test_sample["value"] == 5
+    assert prod_sample["value"] == 3
+
+
+def test_collect_impact_metrics_returns_empty_list_when_no_metrics():
+    engine = PyO3UnleashEngine()
+    metrics = engine.collect_impact_metrics()
+    assert metrics == []

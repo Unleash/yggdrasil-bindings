@@ -138,6 +138,25 @@ impl NativeEngine {
             .map(|toggle| (toggle.name, toggle.project, toggle.feature_type))
             .collect())
     }
+
+    fn define_counter(&self, name: &str, help: &str) -> PyResult<()> {
+        Ok(self.engine.define_counter(name, help)?)
+    }
+
+    #[pyo3(signature = (name, value, labels=None))]
+    fn inc_counter(
+        &self,
+        name: &str,
+        value: i64,
+        labels: Option<HashMap<String, String>>,
+    ) -> PyResult<()> {
+        Ok(self.engine.inc_counter(name, value, labels.as_ref())?)
+    }
+    
+    fn collect_impact_metrics(&self) -> PyResult<String> {
+        serde_json::to_string(&self.engine.collect_impact_metrics()?)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
 }
 
 fn variant_to_tuple<'py>(

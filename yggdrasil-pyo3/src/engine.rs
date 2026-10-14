@@ -12,6 +12,7 @@ use std::sync::{Mutex, MutexGuard};
 use chrono::Utc;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::MetricBucket;
+use unleash_yggdrasil::impact_metrics::{CollectedMetric, MetricLabels, MetricOptions};
 use unleash_yggdrasil::state::EnrichedContext;
 use unleash_yggdrasil::{
     Context, EngineState, EvalWarning, ExtendedVariantDef, ToggleDefinition, UpdateMessage,
@@ -154,6 +155,35 @@ impl Engine {
     pub fn list_known_toggles(&self) -> Result<Vec<ToggleDefinition>, EngineError> {
         guard(|| Ok(self.lock().list_known_toggles()))
     }
+
+    pub fn define_counter(&self, name: &str, help: &str) -> Result<(), EngineError> {
+        guard(|| {
+            self.lock().define_counter(MetricOptions::new(name, help));
+            Ok(())
+        })
+    }
+
+    pub fn inc_counter(
+        &self,
+        name: &str,
+        value: i64,
+        labels: Option<&MetricLabels>,
+    ) -> Result<(), EngineError> {
+        guard(|| {
+            let engine = self.lock();
+            match labels {
+                Some(labels) if !labels.is_empty() => {
+                    engine.inc_counter_with_labels(name, value, labels)
+                }
+                _ => engine.inc_counter_by(name, value),
+            }
+            Ok(())
+        })
+    }
+
+    pub fn collect_impact_metrics(&self) -> Result<Vec<CollectedMetric>, EngineError> {
+        guard(|| Ok(self.lock().collect_impact_metrics()))
+    }
 }
 
 /// The variant and whether the toggle is enabled (two evaluations, like the
@@ -194,6 +224,7 @@ mod tests {
     use std::panic::{self, AssertUnwindSafe};
 
     use unleash_types::client_features::{ClientFeature, ClientFeatures, Strategy};
+    use unleash_yggdrasil::impact_metrics::MetricLabels;
     use unleash_yggdrasil::Context;
 
     use super::Engine;
