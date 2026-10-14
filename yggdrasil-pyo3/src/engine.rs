@@ -1,5 +1,5 @@
 //! Engine logic copied from the yggdrasilffi shim
-//!  engine state behind a lock, panic guard, and the calls `is_enabled` needs
+//!  engine state behind a lock, panic guard, and the calls the Python SDK uses
 //!
 //! only Rust with no PyO3 types, so it can later move into a library shared
 //! with the shim to remove duplication
@@ -56,22 +56,6 @@ impl Engine {
             let message: UpdateMessage =
                 serde_json::from_str(json).map_err(|e| EngineError::InvalidJson(e.to_string()))?;
             Ok(self.lock().take_state(message))
-        })
-    }
-
-    pub fn check_enabled(
-        &self,
-        toggle_name: &str,
-        context: &Context,
-        custom_strategy_results: Option<&HashMap<String, bool>>,
-    ) -> Result<Option<bool>, EngineError> {
-        guard(|| {
-            Ok(evaluate(
-                &self.lock(),
-                toggle_name,
-                context,
-                custom_strategy_results,
-            ))
         })
     }
 
@@ -300,8 +284,8 @@ mod tests {
         let engine = Engine::default();
         let context: Context = serde_json::from_str("{}").unwrap();
 
-        let enabled = engine
-            .check_enabled("some-toggle", &context, None)
+        let (enabled, _) = engine
+            .is_enabled("some-toggle", &context, None)
             .expect("Expected no error");
 
         assert!(enabled.is_none());
@@ -337,8 +321,8 @@ mod tests {
         let warnings = engine
             .take_state(&serde_json::to_string(&client_features).unwrap())
             .expect("Expected no error");
-        let enabled = engine
-            .check_enabled(toggle_under_test, &context, None)
+        let (enabled, _) = engine
+            .is_enabled(toggle_under_test, &context, None)
             .expect("Expected no error");
 
         assert_eq!(enabled, Some(true));
@@ -411,7 +395,6 @@ mod tests {
         let context = Context::default();
 
         engine.is_enabled("some-toggle", &context, None).unwrap();
-        engine.check_enabled("some-toggle", &context, None).unwrap();
         engine.is_enabled("unknown-toggle", &context, None).unwrap();
         engine.count_toggle("unknown-toggle", true).unwrap();
 
@@ -607,7 +590,7 @@ mod tests {
         }));
         assert!(engine.state.is_poisoned());
 
-        let result = engine.check_enabled("some-toggle", &Context::default(), None);
+        let result = engine.is_enabled("some-toggle", &Context::default(), None);
 
         assert!(result.is_ok());
     }

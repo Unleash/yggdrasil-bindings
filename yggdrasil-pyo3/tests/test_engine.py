@@ -394,41 +394,17 @@ def test_is_enabled_treats_a_missing_context_as_empty_and_gives_it_to_the_fallba
     fallback.assert_called_once_with("nonExistentFeature", None)
 
 
-def test_increments_counts_for_yes_and_no():
-    engine = PyO3UnleashEngine()
-    engine.take_state(_toggle_state("testToggle", True))
-
-    engine.count_toggle("testToggle", True)
-    engine.count_toggle("testToggle", True)
-    engine.count_toggle("testToggle", False)
-
-    metrics = engine.get_metrics()
-
-    assert metrics["toggles"]["testToggle"]["yes"] == 2
-    assert metrics["toggles"]["testToggle"]["no"] == 1
-
-
 def test_metrics_are_flushed_when_get_metrics_is_called():
     engine = PyO3UnleashEngine()
     engine.take_state(_toggle_state("testToggle", True))
 
-    engine.count_toggle("testToggle", True)
+    engine.is_enabled("testToggle", {})
 
     metrics = engine.get_metrics()
     assert metrics["toggles"]["testToggle"]["yes"] == 1
 
     metrics = engine.get_metrics()
     assert metrics is None
-
-
-def test_metrics_are_still_incremented_when_toggle_does_not_exist():
-    engine = PyO3UnleashEngine()
-
-    engine.count_toggle("aToggleSoSecretItDoesNotExist", True)
-
-    metrics = engine.get_metrics()
-
-    assert metrics["toggles"]["aToggleSoSecretItDoesNotExist"]["yes"] == 1
 
 
 def test_is_enabled_counts_fallback_resolved_value_not_raw_response():

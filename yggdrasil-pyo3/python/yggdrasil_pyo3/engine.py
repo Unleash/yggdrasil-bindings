@@ -138,11 +138,8 @@ class FeatureDefinition:
 
 
 class PyO3UnleashEngine:
-    """The engine on top of the compiled PyO3 module. So far only `take_state`,
-    `is_enabled`, `get_variant`, `check_variant`, `count_toggle`, `get_metrics`, `get_state`,
-    `list_known_toggles`, `get_core_version`, `define_counter`, `inc_counter`,
-    `define_gauge`, `set_gauge`, `define_histogram`, `observe_histogram`,
-    `collect_impact_metrics` and `restore_impact_metrics`.
+    """The engine on top of the compiled PyO3 module, with the methods the SDK
+    uses.
     """
 
     @staticmethod
@@ -286,9 +283,6 @@ class PyO3UnleashEngine:
                 exc_info=True,
             )
             return result
-
-    def count_toggle(self, toggle_name: str, enabled: bool) -> None:
-        self._native.count_toggle(toggle_name, enabled)
 
     def get_metrics(self) -> Optional[dict[str, Any]]:
         metrics = self._native.get_metrics()
