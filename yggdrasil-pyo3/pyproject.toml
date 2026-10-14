@@ -1,7 +1,7 @@
 [project]
 name = "yggdrasil-pyo3"
 description = "PyO3 engine for evaluating Unleash feature flags (in development, not published)"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dynamic = ["version"]
 
 [build-system]
@@ -23,7 +23,7 @@ dev = [
 testpaths = ["tests"]
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 src = ["python", "tests"]
 
 lint.select = [
