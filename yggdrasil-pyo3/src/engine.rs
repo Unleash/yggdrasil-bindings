@@ -241,6 +241,15 @@ impl Engine {
     pub fn collect_impact_metrics(&self) -> Result<Vec<CollectedMetric>, EngineError> {
         guard(|| Ok(self.lock().collect_impact_metrics()))
     }
+
+    pub fn restore_impact_metrics(&self, json: &str) -> Result<(), EngineError> {
+        guard(|| {
+            let metrics: Vec<CollectedMetric> =
+                serde_json::from_str(json).map_err(|e| EngineError::InvalidJson(e.to_string()))?;
+            self.lock().restore_impact_metrics(metrics);
+            Ok(())
+        })
+    }
 }
 
 /// The variant and whether the toggle is enabled (two evaluations, like the

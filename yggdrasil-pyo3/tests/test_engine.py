@@ -1256,3 +1256,42 @@ def test_define_histogram_with_default_buckets():
     assert histogram is not None
     assert histogram["type"] == "histogram"
     assert len(histogram["samples"]) == 1
+
+
+## impact metrics: restore, copied from python-engine/tests/test_engine.py
+
+
+def test_restore_impact_metrics():
+    engine = PyO3UnleashEngine()
+    engine.define_counter("test_counter", "Test counter")
+    engine.inc_counter("test_counter", 10)
+    engine.define_gauge("test_gauge", "Test gauge")
+    engine.set_gauge("test_gauge", 42)
+    engine.define_histogram("test_histogram", "Test histogram", [0.1, 0.5, 1.0])
+    engine.observe_histogram("test_histogram", 0.25)
+
+    metrics = engine.collect_impact_metrics()
+    assert len(metrics) == 3
+    counter = next((m for m in metrics if m["name"] == "test_counter"), None)
+    gauge = next((m for m in metrics if m["name"] == "test_gauge"), None)
+    histogram = next((m for m in metrics if m["name"] == "test_histogram"), None)
+    assert counter["samples"][0]["value"] == 10
+    assert gauge["samples"][0]["value"] == 42
+    assert histogram is not None
+
+    engine.restore_impact_metrics(metrics)
+
+    restored_metrics = engine.collect_impact_metrics()
+    assert len(restored_metrics) == 3
+    restored_counter = next(
+        (m for m in restored_metrics if m["name"] == "test_counter"), None
+    )
+    restored_gauge = next(
+        (m for m in restored_metrics if m["name"] == "test_gauge"), None
+    )
+    restored_histogram = next(
+        (m for m in restored_metrics if m["name"] == "test_histogram"), None
+    )
+    assert restored_counter["samples"][0]["value"] == 10
+    assert restored_gauge["samples"][0]["value"] == 42
+    assert restored_histogram is not None

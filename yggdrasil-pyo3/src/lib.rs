@@ -186,6 +186,10 @@ impl NativeEngine {
         serde_json::to_string(&self.engine.collect_impact_metrics()?)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
+
+    fn restore_impact_metrics(&self, metrics_json: &str) -> PyResult<()> {
+        Ok(self.engine.restore_impact_metrics(metrics_json)?)
+    }
 }
 
 fn variant_to_tuple<'py>(

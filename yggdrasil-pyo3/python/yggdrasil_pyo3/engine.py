@@ -141,8 +141,8 @@ class PyO3UnleashEngine:
     """The engine on top of the compiled PyO3 module. So far only `take_state`,
     `is_enabled`, `get_variant`, `check_variant`, `count_toggle`, `get_metrics`, `get_state`,
     `list_known_toggles`, `get_core_version`, `define_counter`, `inc_counter`,
-    `define_gauge`, `set_gauge`, `define_histogram`, `observe_histogram` and
-    `collect_impact_metrics`.
+    `define_gauge`, `set_gauge`, `define_histogram`, `observe_histogram`,
+    `collect_impact_metrics` and `restore_impact_metrics`.
     """
 
     @staticmethod
@@ -331,3 +331,6 @@ class PyO3UnleashEngine:
 
     def collect_impact_metrics(self) -> list[dict[str, Any]]:
         return json.loads(self._native.collect_impact_metrics())
+
+    def restore_impact_metrics(self, metrics: list[dict[str, Any]]) -> None:
+        self._native.restore_impact_metrics(json.dumps(metrics))
