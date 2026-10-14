@@ -14,7 +14,8 @@ use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::MetricBucket;
 use unleash_yggdrasil::state::EnrichedContext;
 use unleash_yggdrasil::{
-    Context, EngineState, EvalWarning, ExtendedVariantDef, UpdateMessage, VariantDef,
+    Context, EngineState, EvalWarning, ExtendedVariantDef, ToggleDefinition, UpdateMessage,
+    VariantDef,
 };
 
 #[derive(Debug)]
@@ -131,9 +132,13 @@ impl Engine {
     pub fn get_metrics(&self) -> Result<Option<MetricBucket>, EngineError> {
         guard(|| Ok(self.lock().get_metrics(Utc::now())))
     }
-    
+
     pub fn get_state(&self) -> Result<ClientFeatures, EngineError> {
         guard(|| Ok(self.lock().get_state()))
+    }
+
+    pub fn list_known_toggles(&self) -> Result<Vec<ToggleDefinition>, EngineError> {
+        guard(|| Ok(self.lock().list_known_toggles()))
     }
 }
 
@@ -406,6 +411,36 @@ mod tests {
         let features = engine.get_state().unwrap().features;
         assert_eq!(features.len(), 1);
         assert_eq!(features[0].name, "some-toggle");
+    }
+
+    #[test]
+    fn list_known_toggles_is_empty_before_take_state_and_lists_the_toggles_after() {
+        let engine = Engine::default();
+
+        assert!(engine.list_known_toggles().unwrap().is_empty());
+
+        let state = serde_json::json!({
+            "version": 1,
+            "features": [{
+                "name": "some-toggle",
+                "type": "release",
+                "project": "some-project",
+                "enabled": true,
+                "strategies": [{"name": "default"}]
+            }]
+        });
+        engine.take_state(&state.to_string()).unwrap();
+
+        let toggles = engine.list_known_toggles().unwrap();
+        assert_eq!(toggles.len(), 1);
+        assert_eq!(
+            (
+                toggles[0].name.as_str(),
+                toggles[0].project.as_str(),
+                toggles[0].feature_type.as_deref()
+            ),
+            ("some-toggle", "some-project", Some("release"))
+        );
     }
 
     #[test]

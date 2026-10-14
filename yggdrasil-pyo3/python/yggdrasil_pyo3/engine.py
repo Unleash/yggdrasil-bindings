@@ -124,9 +124,17 @@ class FeatureVariant:
     because an earlier step of the evaluation did."""
 
 
+@dataclass
+class FeatureDefinition:
+    name: str
+    project: str
+    type: Optional[str]
+
+
 class PyO3UnleashEngine:
     """The engine on top of the compiled PyO3 module. So far only `take_state`,
-    `is_enabled`, `get_variant`, `count_toggle`, `get_metrics` and `get_state`.
+    `is_enabled`, `get_variant`, `count_toggle`, `get_metrics`, `get_state` and
+    `list_known_toggles`.
     """
 
     def __init__(self):
@@ -250,3 +258,9 @@ class PyO3UnleashEngine:
 
     def get_state(self) -> str:
         return self._native.get_state()
+
+    def list_known_toggles(self) -> list[FeatureDefinition]:
+        return [
+            FeatureDefinition(name=name, project=project, type=type_)
+            for name, project, type_ in self._native.list_known_toggles()
+        ]

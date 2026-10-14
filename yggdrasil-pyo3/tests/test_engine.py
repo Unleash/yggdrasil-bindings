@@ -7,6 +7,7 @@ from unittest.mock import Mock
 import pytest
 
 from yggdrasil_pyo3.engine import (
+    FeatureDefinition,
     FeatureToggle,
     FeatureVariant,
     PyO3UnleashEngine,
@@ -954,3 +955,20 @@ def test_get_state_and_roundtrip():
     other_engine = PyO3UnleashEngine()
     other_engine.take_state(retrieved_state)
     assert other_engine.is_enabled("testFeature", {}).is_enabled is True
+
+def test_list_known_toggles():
+    engine = PyO3UnleashEngine()
+
+    engine.take_state(CUSTOM_STRATEGY_STATE)
+    first_toggle = engine.list_known_toggles()[0]
+
+    assert len(engine.list_known_toggles()) == 1
+    assert first_toggle == FeatureDefinition(
+        name="Feature.A", project="default", type=None
+    )
+
+
+def test_list_empty_toggles_yields_empty_list():
+    engine = PyO3UnleashEngine()
+
+    assert engine.list_known_toggles() == []

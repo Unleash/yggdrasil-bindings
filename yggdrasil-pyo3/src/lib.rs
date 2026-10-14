@@ -126,6 +126,15 @@ impl NativeEngine {
         serde_json::to_string(&self.engine.get_state()?)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
+
+    fn list_known_toggles(&self) -> PyResult<Vec<(String, String, Option<String>)>> {
+        Ok(self
+            .engine
+            .list_known_toggles()?
+            .into_iter()
+            .map(|toggle| (toggle.name, toggle.project, toggle.feature_type))
+            .collect())
+    }
 }
 
 /// Reads a context dict into the core's `Context`, with the same rules as the
