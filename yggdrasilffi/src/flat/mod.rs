@@ -16,7 +16,7 @@ use crate::flat::messaging::yggdrasil::messaging::{
     ObserveHistogram, SetGauge, VoidResponse,
 };
 use crate::flat::serialisation::{Buf, MetricMeasurement, TakeStateResult};
-use crate::{get_json, ManagedEngine, RawPointerDataType};
+use crate::{get_engine, get_json, FFIError};
 use chrono::Utc;
 use messaging::yggdrasil::messaging::{
     BuiltInStrategies, ContextMessage, FeatureDefs, MetricsResponse, Response, TakeStateResponse,
@@ -24,10 +24,8 @@ use messaging::yggdrasil::messaging::{
 };
 use serialisation::{FlatError, FlatMessage, ResponseMessage};
 use std::collections::{BTreeMap, HashMap};
-use std::mem::forget;
 use std::panic;
 use std::panic::AssertUnwindSafe;
-use std::sync::{Arc, Mutex, MutexGuard};
 use unleash_types::client_metrics::MetricBucket;
 use unleash_yggdrasil::state::{
     EnrichedContext, ExternalResultsCow, ExternalResultsRef, PropertiesCow, PropertiesRef,
@@ -62,24 +60,10 @@ impl From<flatbuffers::InvalidFlatbuffer> for FlatError {
     }
 }
 
-///
-/// # Safety
-///
-/// Must be freed on the calling side, we forget this in order to be able to pass it back to the caller
-unsafe fn get_engine(engine_ptr: *mut c_void) -> Result<ManagedEngine, FlatError> {
-    if engine_ptr.is_null() {
-        return Err(FlatError::NullError);
+impl From<FFIError> for FlatError {
+    fn from(e: FFIError) -> Self {
+        FlatError::InvalidState(format!("FFI error: {}", e))
     }
-    let arc_instance = Arc::from_raw(engine_ptr as *const RawPointerDataType);
-
-    let cloned_arc = arc_instance.clone();
-    forget(arc_instance);
-
-    Ok(cloned_arc)
-}
-
-fn recover_lock<T>(lock: &Mutex<T>) -> MutexGuard<'_, T> {
-    lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 #[no_mangle]
@@ -97,8 +81,7 @@ pub extern "C" fn flat_buf_free(buf: Buf) {
 /// The return value should also be freed using flat_buf_free
 pub unsafe fn flat_take_state(engine_pointer: *mut c_void, toggles_pointer: *const c_char) -> Buf {
     let result = guard_result::<TakeStateResult, _>(|| {
-        let guard = get_engine(engine_pointer)?;
-        let mut engine = recover_lock(&guard);
+        let engine = get_engine(engine_pointer)?;
         let toggles: UpdateMessage = get_json(toggles_pointer)
             .map_err(|_| FlatError::InvalidState("Your features does not parse".to_string()))?;
         let res = engine.take_state(toggles);
@@ -199,8 +182,7 @@ pub unsafe extern "C" fn flat_check_enabled(
             runtime_hostname: ctx.runtime_hostname(),
         };
 
-        let lock = get_engine(engine_ptr)?;
-        let engine = recover_lock(&lock);
+        let engine = get_engine(engine_ptr)?;
 
         let enabled = engine.check_enabled(&context);
         let impression_data = engine.should_emit_impression_event(context.toggle_name);
@@ -248,8 +230,7 @@ pub unsafe extern "C" fn flat_check_variant(
             runtime_hostname: ctx.runtime_hostname(),
         };
 
-        let lock = get_engine(engine_ptr)?;
-        let engine = recover_lock(&lock);
+        let engine = get_engine(engine_ptr)?;
         let base_variant = engine.check_variant(&context);
         let toggle_enabled = engine.check_enabled(&context).unwrap_or_default();
         let impression_data = engine.should_emit_impression_event(context.toggle_name);
@@ -275,8 +256,7 @@ pub unsafe extern "C" fn flat_check_variant(
 #[no_mangle]
 pub unsafe extern "C" fn flat_list_known_toggles(engine_ptr: *mut c_void) -> Buf {
     let toggles = guard_result::<Vec<ToggleDefinition>, _>(|| {
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
         Ok(Some(engine.list_known_toggles()))
     });
     if let Ok(toggles) = toggles {
@@ -307,8 +287,7 @@ pub unsafe extern "C" fn flat_built_in_strategies() -> Buf {
 #[no_mangle]
 pub unsafe extern "C" fn flat_get_metrics(engine_pointer: *mut c_void) -> Buf {
     let result = guard_result::<MetricBucket, _>(|| {
-        let guard = get_engine(engine_pointer)?;
-        let mut engine = recover_lock(&guard);
+        let engine = get_engine(engine_pointer)?;
         Ok(engine.get_metrics(Utc::now()))
     });
     MetricsResponse::build_response(result)
@@ -340,8 +319,7 @@ pub unsafe extern "C" fn flat_define_counter(
         let define_counter_message =
             root::<DefineCounter>(bytes).map_err(|e| FlatError::InvalidBuffer(e.to_string()))?;
 
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         let Some(name) = define_counter_message.name() else {
             return Err(FlatError::MissingRequiredParameter("name".to_owned()));
@@ -399,8 +377,7 @@ pub unsafe extern "C" fn flat_inc_counter(
         let inc_counter_message =
             root::<IncCounter>(bytes).map_err(|e| FlatError::InvalidBuffer(e.to_string()))?;
 
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         let Some(name) = inc_counter_message.name() else {
             return Err(FlatError::MissingRequiredParameter("name".to_owned()));
@@ -438,8 +415,7 @@ pub unsafe extern "C" fn flat_define_gauge(
         let define_gauge_message =
             root::<DefineGauge>(bytes).map_err(|e| FlatError::InvalidBuffer(e.to_string()))?;
 
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         let Some(name) = define_gauge_message.name() else {
             return Err(FlatError::MissingRequiredParameter("name".to_owned()));
@@ -474,8 +450,7 @@ pub unsafe extern "C" fn flat_set_gauge(
         let set_gauge_message =
             root::<SetGauge>(bytes).map_err(|e| FlatError::InvalidBuffer(e.to_string()))?;
 
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         let Some(name) = set_gauge_message.name() else {
             return Err(FlatError::MissingRequiredParameter("name".to_owned()));
@@ -513,8 +488,7 @@ pub unsafe extern "C" fn flat_define_histogram(
         let define_histogram_message =
             root::<DefineHistogram>(bytes).map_err(|e| FlatError::InvalidBuffer(e.to_string()))?;
 
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         let Some(name) = define_histogram_message.name() else {
             return Err(FlatError::MissingRequiredParameter("name".to_owned()));
@@ -553,8 +527,7 @@ pub unsafe extern "C" fn flat_observe_histogram(
         let observe_histogram_message =
             root::<ObserveHistogram>(bytes).map_err(|e| FlatError::InvalidBuffer(e.to_string()))?;
 
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         let Some(name) = observe_histogram_message.name() else {
             return Err(FlatError::MissingRequiredParameter("name".to_owned()));
@@ -584,8 +557,7 @@ pub unsafe extern "C" fn flat_observe_histogram(
 #[no_mangle]
 pub unsafe extern "C" fn flat_collect_metrics(engine_ptr: *mut c_void) -> Buf {
     let result = guard_result::<MetricMeasurement, _>(|| {
-        let guard = get_engine(engine_ptr)?;
-        let mut engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
         let impact_metrics = engine.collect_impact_metrics();
         let bucket = engine.get_metrics(Utc::now());
         if bucket.is_none() && impact_metrics.is_empty() {
@@ -625,8 +597,7 @@ pub unsafe extern "C" fn flat_restore_impact_metrics(
 
         let collect_metrics: MetricMeasurement = serde_json::from_str(collect_metrics_str)?;
 
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         engine.restore_impact_metrics(collect_metrics.impact_metrics);
 
@@ -644,6 +615,7 @@ mod tests {
     use flatbuffers::{FlatBufferBuilder, WIPOffset};
     use serde_json::Value;
     use std::ffi::CString;
+    use std::mem::forget;
     use unleash_types::client_features::{ClientFeature, ClientFeatures, Strategy};
 
     pub fn allocate(size: usize) -> *mut u8 {
