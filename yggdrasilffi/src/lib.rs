@@ -2,10 +2,8 @@ use std::{
     collections::HashMap,
     ffi::{c_char, c_void, CStr, CString},
     fmt::{self, Display, Formatter},
-    mem::forget,
     panic::{self, AssertUnwindSafe},
     str::Utf8Error,
-    sync::{Arc, Mutex, MutexGuard},
 };
 
 use chrono::Utc;
@@ -34,8 +32,6 @@ struct Response<T> {
     error_message: Option<String>,
 }
 
-type RawPointerDataType = Mutex<EngineState>;
-type ManagedEngine = Arc<RawPointerDataType>;
 type CustomStrategyResults = HashMap<String, bool>;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
@@ -148,23 +144,8 @@ fn parse_custom_results(
     Ok(Some(results))
 }
 
-unsafe fn get_engine(engine_ptr: *mut c_void) -> Result<ManagedEngine, FFIError> {
-    if engine_ptr.is_null() {
-        return Err(FFIError::NullError);
-    }
-    let arc_instance = Arc::from_raw(engine_ptr as *const RawPointerDataType);
-
-    let cloned_arc = arc_instance.clone();
-    forget(arc_instance);
-
-    Ok(cloned_arc)
-}
-
-fn recover_lock<T>(lock: &Mutex<T>) -> MutexGuard<'_, T> {
-    match lock.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    }
+unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a EngineState, FFIError> {
+    unsafe { engine_ptr.cast::<EngineState>().as_ref() }.ok_or(FFIError::NullError)
 }
 
 /// Instantiates a new engine. Returns a pointer to the engine.
@@ -175,9 +156,7 @@ fn recover_lock<T>(lock: &Mutex<T>) -> MutexGuard<'_, T> {
 /// `free_engine` and passing in the pointer returned by this method. Failure to do so will result in a leak.
 #[no_mangle]
 pub extern "C" fn new_engine() -> *mut c_void {
-    let engine = Mutex::new(EngineState::default());
-    let arc = Arc::new(engine);
-    Arc::into_raw(arc) as *mut c_void
+    Box::into_raw(Box::new(EngineState::default())).cast::<c_void>()
 }
 
 /// Frees the memory allocated for the engine.
@@ -192,10 +171,9 @@ pub extern "C" fn new_engine() -> *mut c_void {
 /// the `new_engine` function. Failure to do so will result in a leak.
 #[no_mangle]
 pub unsafe extern "C" fn free_engine(engine_ptr: *mut c_void) {
-    if engine_ptr.is_null() {
-        return;
+    unsafe {
+        drop(Box::from_raw(engine_ptr.cast::<EngineState>()));
     }
-    drop(Arc::from_raw(engine_ptr as *const RawPointerDataType));
 }
 
 /// Takes a JSON string representing a set of toggles. Returns a JSON encoded response object
@@ -214,9 +192,7 @@ pub unsafe extern "C" fn take_state(
     json_ptr: *const c_char,
 ) -> *const c_char {
     let result = guard_result::<(), _>(|| {
-        let guard = get_engine(engine_ptr)?;
-        let mut engine = recover_lock(&guard);
-
+        let engine = get_engine(engine_ptr)?;
         let toggles: UpdateMessage = get_json(json_ptr)?;
 
         if let Some(warnings) = engine.take_state(toggles) {
@@ -238,8 +214,8 @@ pub unsafe extern "C" fn take_state(
 #[no_mangle]
 pub unsafe extern "C" fn get_state(engine_ptr: *mut c_void) -> *const c_char {
     let result = guard_result::<ClientFeatures, _>(|| {
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
+
         Ok(Some(engine.get_state()))
     });
 
@@ -265,8 +241,7 @@ pub unsafe extern "C" fn check_enabled(
     custom_strategy_results_ptr: *const c_char,
 ) -> *const c_char {
     let result = guard_result::<bool, _>(|| {
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         let toggle_name = get_str(toggle_name_ptr)?;
         let context: Context = get_json(context_ptr)?;
@@ -299,8 +274,7 @@ pub unsafe extern "C" fn check_variant(
     custom_strategy_results_ptr: *const c_char,
 ) -> *const c_char {
     let result = guard_result::<ExtendedVariantDef, _>(|| {
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         let toggle_name = get_str(toggle_name_ptr)?;
         let context: Context = get_json(context_ptr)?;
@@ -381,8 +355,7 @@ pub unsafe extern "C" fn count_toggle(
     let enabled = enabled & 1 == 1;
 
     let result = guard_result::<(), _>(|| {
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         let toggle_name = get_str(toggle_name_ptr)?;
 
@@ -412,8 +385,7 @@ pub unsafe extern "C" fn count_variant(
     variant_name_ptr: *const c_char,
 ) -> *const c_char {
     let result = guard_result::<(), _>(|| {
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         let toggle_name = get_str(toggle_name_ptr)?;
         let variant_name = get_str(variant_name_ptr)?;
@@ -440,8 +412,7 @@ pub unsafe extern "C" fn count_variant(
 #[no_mangle]
 pub unsafe extern "C" fn get_metrics(engine_ptr: *mut c_void) -> *mut c_char {
     let result = guard_result::<MetricBucket, _>(|| {
-        let guard = get_engine(engine_ptr)?;
-        let mut engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         Ok(engine.get_metrics(Utc::now()))
     });
@@ -462,8 +433,7 @@ pub unsafe extern "C" fn should_emit_impression_event(
     toggle_name_ptr: *const c_char,
 ) -> *mut c_char {
     let result = guard_result::<bool, _>(|| {
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         let toggle_name = unsafe { get_str(toggle_name_ptr)? };
 
@@ -487,8 +457,7 @@ pub unsafe extern "C" fn should_emit_impression_event(
 #[no_mangle]
 pub unsafe extern "C" fn list_known_toggles(engine_ptr: *mut c_void) -> *mut c_char {
     let result = guard_result::<Vec<ToggleDefinition>, _>(|| {
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         Ok(Some(engine.list_known_toggles()))
     });
@@ -514,8 +483,7 @@ pub unsafe extern "C" fn define_counter(
     help_ptr: *const c_char,
 ) -> *mut c_char {
     let result = guard_result::<(), _>(|| {
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         let name = get_str(name_ptr)?;
         let help = get_str(help_ptr)?;
@@ -546,8 +514,7 @@ pub unsafe extern "C" fn inc_counter(
     labels_ptr: *const c_char,
 ) -> *mut c_char {
     let result = guard_result::<(), _>(|| {
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         let name = get_str(name_ptr)?;
 
@@ -574,8 +541,7 @@ pub unsafe extern "C" fn inc_counter(
 #[no_mangle]
 pub unsafe extern "C" fn collect_impact_metrics(engine_ptr: *mut c_void) -> *mut c_char {
     let result = guard_result::<Vec<CollectedMetric>, _>(|| {
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         Ok(Some(engine.collect_impact_metrics()))
     });
@@ -600,8 +566,7 @@ pub unsafe extern "C" fn restore_impact_metrics(
     metrics_ptr: *const c_char,
 ) -> *mut c_char {
     let result = guard_result::<(), _>(|| {
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         let metrics: Vec<CollectedMetric> = get_json(metrics_ptr)?;
         engine.restore_impact_metrics(metrics);
@@ -629,8 +594,7 @@ pub unsafe extern "C" fn define_gauge(
     help_ptr: *const c_char,
 ) -> *mut c_char {
     let result = guard_result::<(), _>(|| {
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         let name = get_str(name_ptr)?;
         let help = get_str(help_ptr)?;
@@ -661,8 +625,7 @@ pub unsafe extern "C" fn set_gauge(
     labels_ptr: *const c_char,
 ) -> *mut c_char {
     let result = guard_result::<(), _>(|| {
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         let name = get_str(name_ptr)?;
 
@@ -698,8 +661,7 @@ pub unsafe extern "C" fn define_histogram(
     buckets_ptr: *const c_char,
 ) -> *mut c_char {
     let result = guard_result::<(), _>(|| {
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         let name = get_str(name_ptr)?;
         let help = get_str(help_ptr)?;
@@ -731,8 +693,7 @@ pub unsafe extern "C" fn observe_histogram(
     labels_ptr: *const c_char,
 ) -> *mut c_char {
     let result = guard_result::<(), _>(|| {
-        let guard = get_engine(engine_ptr)?;
-        let engine = recover_lock(&guard);
+        let engine = get_engine(engine_ptr)?;
 
         let name = get_str(name_ptr)?;
 
@@ -814,10 +775,8 @@ mod tests {
         };
 
         unsafe {
-            let engine_guard = get_engine(engine_ptr).expect("Expected a valid engine pointer");
-            let mut engine = engine_guard.lock().expect("Failed to lock engine mutex");
+            let engine = get_engine(engine_ptr).expect("Expected a valid engine pointer");
             let warnings = engine.take_state(UpdateMessage::FullResponse(client_features));
-            drop(engine);
 
             let string_response =
                 check_enabled(engine_ptr, toggle_name_ptr, context_ptr, results_ptr);
@@ -939,10 +898,8 @@ mod tests {
         };
 
         unsafe {
-            let engine_guard = get_engine(engine_ptr).expect("Expected a valid engine pointer");
-            let mut engine = engine_guard.lock().expect("Failed to lock engine mutex");
+            let engine = get_engine(engine_ptr).expect("Expected a valid engine pointer");
             let warnings = engine.take_state(UpdateMessage::FullResponse(client_features));
-            drop(engine);
 
             let string_response =
                 check_variant(engine_ptr, toggle_name_ptr, context_ptr, results_ptr);
@@ -998,10 +955,8 @@ mod tests {
         };
 
         unsafe {
-            let engine_guard = get_engine(engine_ptr).expect("Expected a valid engine pointer");
-            let mut engine = engine_guard.lock().expect("Failed to lock engine mutex");
+            let engine = get_engine(engine_ptr).expect("Expected a valid engine pointer");
             engine.take_state(UpdateMessage::FullResponse(client_features));
-            drop(engine);
 
             let string_response = super::list_known_toggles(engine_ptr);
             let response = CStr::from_ptr(string_response).to_str().unwrap();
@@ -1057,10 +1012,8 @@ mod tests {
         };
 
         unsafe {
-            let engine_guard = get_engine(engine_ptr).expect("Expected a valid engine pointer");
-            let mut engine = engine_guard.lock().expect("Failed to lock engine mutex");
+            let engine = get_engine(engine_ptr).expect("Expected a valid engine pointer");
             engine.take_state(UpdateMessage::FullResponse(client_features));
-            drop(engine);
 
             let string_response = get_state(engine_ptr);
             let response = CStr::from_ptr(string_response).to_str().unwrap();
