@@ -12,7 +12,7 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString, PyTuple};
-use unleash_yggdrasil::{Context, CORE_VERSION};
+use unleash_yggdrasil::{Context, ExtendedVariantDef, CORE_VERSION};
 
 use crate::engine::{guard, Engine, EngineError};
 
@@ -69,11 +69,32 @@ impl NativeEngine {
                 .is_enabled(toggle_name, &context, custom_strategy_results.as_ref())?)
         })
     }
-    /// Resolves a toggle's variant, looks up whether it requires an impression
-    /// event, and records the toggle and the variant in the metrics. Returns
+    /// Resolves a toggle's variant and looks up whether it requires an
+    /// impression event, without recording anything. Returns
     /// `(variant, requires_impression_event)`, with `variant` `None` for an
     /// unknown toggle, otherwise `(name, payload, enabled, feature_enabled)`
     /// and `payload` `None` or `{"type": ..., "value": ...}`
+    #[pyo3(signature = (toggle_name, context, custom_strategy_results=None))]
+    fn check_variant<'py>(
+        &self,
+        toggle_name: &str,
+        context: &Bound<'py, PyDict>,
+        custom_strategy_results: Option<HashMap<String, bool>>,
+    ) -> PyResult<(Option<VariantTuple<'py>>, bool)> {
+        guard(|| {
+            let py = context.py();
+            let context = context_from_dict(context)?;
+            let (variant, impression) = self.engine.check_variant(
+                toggle_name,
+                &context,
+                custom_strategy_results.as_ref(),
+            )?;
+            Ok((variant_to_tuple(py, variant)?, impression))
+        })
+    }
+
+    /// Like `check_variant`, and also records the toggle and the variant in
+    /// the metrics; an unknown toggle is recorded as the disabled variant
     #[pyo3(signature = (toggle_name, context, custom_strategy_results=None))]
     fn get_variant<'py>(
         &self,
@@ -81,31 +102,13 @@ impl NativeEngine {
         context: &Bound<'py, PyDict>,
         custom_strategy_results: Option<HashMap<String, bool>>,
     ) -> PyResult<(Option<VariantTuple<'py>>, bool)> {
-        let py = context.py();
         guard(|| {
+            let py = context.py();
             let context = context_from_dict(context)?;
             let (variant, impression) =
                 self.engine
                     .get_variant(toggle_name, &context, custom_strategy_results.as_ref())?;
-            let Some(variant) = variant else {
-                return Ok((None, impression));
-            };
-            let payload = match variant.payload {
-                Some(payload) => {
-                    let dict = PyDict::new(py);
-                    dict.set_item(intern!(py, "type"), payload.payload_type)?;
-                    dict.set_item(intern!(py, "value"), payload.value)?;
-                    Some(dict)
-                }
-                None => None,
-            };
-            let variant = (
-                variant.name,
-                payload,
-                variant.enabled,
-                variant.feature_enabled,
-            );
-            Ok((Some(variant), impression))
+            Ok((variant_to_tuple(py, variant)?, impression))
         })
     }
 
@@ -135,6 +138,82 @@ impl NativeEngine {
             .map(|toggle| (toggle.name, toggle.project, toggle.feature_type))
             .collect())
     }
+
+    fn define_counter(&self, name: &str, help: &str) -> PyResult<()> {
+        Ok(self.engine.define_counter(name, help)?)
+    }
+
+    fn inc_counter(
+        &self,
+        name: &str,
+        value: i64,
+        labels: Option<HashMap<String, String>>,
+    ) -> PyResult<()> {
+        Ok(self.engine.inc_counter(name, value, labels.as_ref())?)
+    }
+
+    fn define_gauge(&self, name: &str, help: &str) -> PyResult<()> {
+        Ok(self.engine.define_gauge(name, help)?)
+    }
+
+    fn set_gauge(
+        &self,
+        name: &str,
+        value: f64,
+        labels: Option<HashMap<String, String>>,
+    ) -> PyResult<()> {
+        Ok(self.engine.set_gauge(name, value, labels.as_ref())?)
+    }
+
+    fn define_histogram(&self, name: &str, help: &str, buckets: Option<Vec<f64>>) -> PyResult<()> {
+        Ok(self
+            .engine
+            .define_histogram(name, help, buckets.unwrap_or_default())?)
+    }
+
+    fn observe_histogram(
+        &self,
+        name: &str,
+        value: f64,
+        labels: Option<HashMap<String, String>>,
+    ) -> PyResult<()> {
+        Ok(self
+            .engine
+            .observe_histogram(name, value, labels.as_ref())?)
+    }
+
+    fn collect_impact_metrics(&self) -> PyResult<String> {
+        serde_json::to_string(&self.engine.collect_impact_metrics()?)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    fn restore_impact_metrics(&self, metrics_json: &str) -> PyResult<()> {
+        Ok(self.engine.restore_impact_metrics(metrics_json)?)
+    }
+}
+
+fn variant_to_tuple<'py>(
+    py: Python<'py>,
+    variant: Option<ExtendedVariantDef>,
+) -> PyResult<Option<VariantTuple<'py>>> {
+    let Some(variant) = variant else {
+        return Ok(None);
+    };
+    let payload = match variant.payload {
+        Some(payload) => {
+            let dict = PyDict::new(py);
+            dict.set_item(intern!(py, "type"), payload.payload_type)?;
+            dict.set_item(intern!(py, "value"), payload.value)?;
+            Some(dict)
+        }
+        None => None,
+    };
+    Ok(Some((
+        variant.name,
+        payload,
+        variant.enabled,
+        variant.feature_enabled,
+    )))
 }
 
 /// Reads a context dict into the core's `Context`, with the same rules as the

@@ -8,6 +8,12 @@ from yggdrasil_pyo3.yggdrasil_native import NativeEngine, core_version  # type: 
 
 _logger = logging.getLogger(__name__)
 
+_NativeVariant = tuple[str, Optional[dict[str, str]], bool, bool]
+_NativeVariantQuery = Callable[
+    [str, dict[str, Any], Optional[dict[str, bool]]],
+    tuple[Optional[_NativeVariant], bool],
+]
+
 
 @dataclass(init=False)
 class FeatureToggle:
@@ -132,9 +138,8 @@ class FeatureDefinition:
 
 
 class PyO3UnleashEngine:
-    """The engine on top of the compiled PyO3 module. So far only `take_state`,
-    `is_enabled`, `get_variant`, `count_toggle`, `get_metrics`, `get_state`,
-    `list_known_toggles` and `get_core_version`.
+    """The engine on top of the compiled PyO3 module, with the methods the SDK
+    uses.
     """
 
     @staticmethod
@@ -206,19 +211,43 @@ class PyO3UnleashEngine:
 
         This records both the toggle and the resolved variant against the
         engine's metrics, so they show up in the next `get_metrics()` payload.
+        Use `check_variant` to ask the same question without recording it; both
+        report impression events the same way.
 
         Never raises, and answers all or nothing: whatever fails, the caller
         gets the disabled variant rather than a half built answer.
         """
+        ## One native call evaluates, looks up the impression flag and
+        ## records the toggle and the variant (unknown toggles as disabled)
+        return self._query_variant(self._native.get_variant, toggle_name, context)
+
+    def check_variant(
+        self, toggle_name: str, context: dict[str, Any]
+    ) -> FeatureVariant:
+        """Ask which variant a feature resolves to, without recording the query.
+
+        The answer matches `get_variant`, but neither the toggle nor the
+        variant is counted towards the engine's metrics. Impression events are
+        not part of that difference: `requires_impression_event_emission`
+        carries the same answer it would under `get_variant`.
+
+        Never raises: whatever fails, the caller gets the disabled variant.
+        """
+        return self._query_variant(self._native.check_variant, toggle_name, context)
+
+    def _query_variant(
+        self,
+        native_query: _NativeVariantQuery,
+        toggle_name: str,
+        context: dict[str, Any],
+    ) -> FeatureVariant:
         try:
             custom_strategy_results = (
                 self.custom_strategy_handler.evaluate_custom_strategies(
                     toggle_name, context
                 )
             )
-            ## One native call evaluates, looks up the impression flag and
-            ## records the toggle and the variant (unknown toggles as disabled)
-            variant, impression = self._native.get_variant(
+            variant, impression = native_query(
                 toggle_name, context or {}, custom_strategy_results
             )
             if variant is None:
@@ -255,9 +284,6 @@ class PyO3UnleashEngine:
             )
             return result
 
-    def count_toggle(self, toggle_name: str, enabled: bool) -> None:
-        self._native.count_toggle(toggle_name, enabled)
-
     def get_metrics(self) -> Optional[dict[str, Any]]:
         metrics = self._native.get_metrics()
         return None if metrics is None else json.loads(metrics)
@@ -270,3 +296,35 @@ class PyO3UnleashEngine:
             FeatureDefinition(name=name, project=project, type=type_)
             for name, project, type_ in self._native.list_known_toggles()
         ]
+
+    def define_counter(self, name: str, help_text: str) -> None:
+        self._native.define_counter(name, help_text)
+
+    def inc_counter(
+        self, name: str, value: int = 1, labels: Optional[dict[str, str]] = None
+    ) -> None:
+        self._native.inc_counter(name, value, labels)
+
+    def define_gauge(self, name: str, help_text: str) -> None:
+        self._native.define_gauge(name, help_text)
+
+    def set_gauge(
+        self, name: str, value: float, labels: Optional[dict[str, str]] = None
+    ) -> None:
+        self._native.set_gauge(name, value, labels)
+
+    def define_histogram(
+        self, name: str, help_text: str, buckets: Optional[list[float]] = None
+    ) -> None:
+        self._native.define_histogram(name, help_text, buckets)
+
+    def observe_histogram(
+        self, name: str, value: float, labels: Optional[dict[str, str]] = None
+    ) -> None:
+        self._native.observe_histogram(name, value, labels)
+
+    def collect_impact_metrics(self) -> list[dict[str, Any]]:
+        return json.loads(self._native.collect_impact_metrics())
+
+    def restore_impact_metrics(self, metrics: list[dict[str, Any]]) -> None:
+        self._native.restore_impact_metrics(json.dumps(metrics))

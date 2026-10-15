@@ -394,41 +394,17 @@ def test_is_enabled_treats_a_missing_context_as_empty_and_gives_it_to_the_fallba
     fallback.assert_called_once_with("nonExistentFeature", None)
 
 
-def test_increments_counts_for_yes_and_no():
-    engine = PyO3UnleashEngine()
-    engine.take_state(_toggle_state("testToggle", True))
-
-    engine.count_toggle("testToggle", True)
-    engine.count_toggle("testToggle", True)
-    engine.count_toggle("testToggle", False)
-
-    metrics = engine.get_metrics()
-
-    assert metrics["toggles"]["testToggle"]["yes"] == 2
-    assert metrics["toggles"]["testToggle"]["no"] == 1
-
-
 def test_metrics_are_flushed_when_get_metrics_is_called():
     engine = PyO3UnleashEngine()
     engine.take_state(_toggle_state("testToggle", True))
 
-    engine.count_toggle("testToggle", True)
+    engine.is_enabled("testToggle", {})
 
     metrics = engine.get_metrics()
     assert metrics["toggles"]["testToggle"]["yes"] == 1
 
     metrics = engine.get_metrics()
     assert metrics is None
-
-
-def test_metrics_are_still_incremented_when_toggle_does_not_exist():
-    engine = PyO3UnleashEngine()
-
-    engine.count_toggle("aToggleSoSecretItDoesNotExist", True)
-
-    metrics = engine.get_metrics()
-
-    assert metrics["toggles"]["aToggleSoSecretItDoesNotExist"]["yes"] == 1
 
 
 def test_is_enabled_counts_fallback_resolved_value_not_raw_response():
@@ -978,3 +954,320 @@ def test_list_empty_toggles_yields_empty_list():
 
 def test_get_core_version_reads_a_version_from_the_library_without_an_engine():
     assert re.fullmatch(r"\d+\.\d+\.\d+", PyO3UnleashEngine.get_core_version())
+
+
+## check_variant, copied from python-engine/tests/test_engine.py
+
+
+def test_check_variant_returns_the_resolved_variant():
+    engine = PyO3UnleashEngine()
+    engine.take_state(
+        _variant_state(
+            "testFeature", True, "sourDough", {"type": "string", "value": "crusty"}
+        )
+    )
+
+    result = engine.check_variant("testFeature", {})
+
+    assert result == FeatureVariant(
+        name="testFeature",
+        variant=Variant(
+            name="sourDough",
+            payload={"type": "string", "value": "crusty"},
+            enabled=True,
+            feature_enabled=True,
+        ),
+        is_found=True,
+        requires_impression_event_emission=False,
+    )
+
+
+def test_check_variant_reports_found_for_a_known_but_disabled_toggle():
+    engine = PyO3UnleashEngine()
+    engine.take_state(_variant_state("disabledFeature", False, "sourDough"))
+
+    result = engine.check_variant("disabledFeature", {})
+
+    ## A disabled toggle resolves to a variant that looks exactly like the
+    ## substituted one, so is_found must come from the engine's status code
+    assert result.variant == disabled_variant()
+    assert result.is_found is True
+
+
+def test_check_variant_returns_the_disabled_variant_for_an_unknown_toggle():
+    engine = PyO3UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+
+    result = engine.check_variant("nonExistentFeature", {})
+
+    assert result == FeatureVariant(
+        name="nonExistentFeature",
+        variant=disabled_variant(),
+        is_found=False,
+        requires_impression_event_emission=False,
+    )
+
+
+def test_check_variant_resolves_the_variant_for_the_given_context():
+    engine = PyO3UnleashEngine()
+    state = {
+        "version": 1,
+        "features": [
+            {
+                "name": "testFeature",
+                "enabled": True,
+                "strategies": [{"name": "default"}],
+                "variants": [
+                    {"name": "sourDough", "weight": 100},
+                    {
+                        "name": "rye",
+                        "weight": 0,
+                        "overrides": [{"contextName": "userId", "values": ["123"]}],
+                    },
+                ],
+            }
+        ],
+    }
+    engine.take_state(json.dumps(state))
+
+    result = engine.check_variant("testFeature", {"userId": "123"})
+
+    ## Only the override can select the zero-weight variant, so this can only
+    ## hold if the context reached the engine
+    assert result.variant.name == "rye"
+
+
+def test_check_variant_does_not_count_the_toggle_or_the_variant():
+    engine = PyO3UnleashEngine()
+    engine.take_state(_variant_state("testFeature", True, "sourDough"))
+
+    engine.get_variant("testFeature", {})
+    engine.check_variant("testFeature", {})
+    engine.check_variant("testFeature", {})
+
+    ## The whole point of check_variant: the query leaves no trace in metrics.
+    ## The get_variant call is what makes this provable, since an engine that
+    ## counted nothing at all would satisfy an empty bucket just as well
+    metrics = engine.get_metrics()
+    assert metrics["toggles"]["testFeature"]["yes"] == 1
+    assert metrics["toggles"]["testFeature"]["variants"] == {"sourDough": 1}
+
+
+def test_check_variant_reports_impression_event_when_toggle_has_impression_data():
+    engine = PyO3UnleashEngine()
+    engine.take_state(_variant_impression_state("testFeature", True, "sourDough", True))
+
+    result = engine.check_variant("testFeature", {})
+
+    ## Skipping the metrics is not the same as skipping impression events: the
+    ## caller still has to emit one for a toggle that carries impression data
+    assert result.variant.name == "sourDough"
+    assert result.requires_impression_event_emission is True
+
+
+def test_check_variant_does_not_report_impression_event_without_impression_data():
+    engine = PyO3UnleashEngine()
+    engine.take_state(
+        _variant_impression_state("testFeature", True, "sourDough", False)
+    )
+
+    result = engine.check_variant("testFeature", {})
+
+    assert result.requires_impression_event_emission is False
+
+
+def test_check_variant_returns_the_disabled_variant_when_engine_errors():
+    engine = PyO3UnleashEngine()
+    engine._native = Mock(wraps=engine._native)
+    engine._native.check_variant.side_effect = ValueError("boom")
+
+    result = engine.check_variant("testFeature", {})
+
+    assert result == FeatureVariant(
+        name="testFeature",
+        variant=disabled_variant(),
+        is_found=False,
+        requires_impression_event_emission=False,
+    )
+
+
+def test_check_variant_does_not_raise_on_unexpected_engine_failure():
+    engine = PyO3UnleashEngine()
+    engine._native = Mock(wraps=engine._native)
+    engine._native.check_variant.side_effect = RuntimeError("kaboom")
+
+    result = engine.check_variant("testFeature", {})
+
+    assert result.variant == disabled_variant()
+    assert result.is_found is False
+
+
+def test_inc_counter_increments_value():
+    engine = PyO3UnleashEngine()
+    engine.define_counter("test_counter", "Test counter")
+    engine.inc_counter("test_counter", 5)
+    engine.inc_counter("test_counter", 3)
+
+    metrics = engine.collect_impact_metrics()
+    counter = next((m for m in metrics if m["name"] == "test_counter"), None)
+
+    assert counter is not None
+    assert counter["help"] == "Test counter"
+    assert len(counter["samples"]) == 1
+    assert counter["samples"][0]["value"] == 8
+
+
+def test_inc_counter_with_labels():
+    engine = PyO3UnleashEngine()
+    engine.define_counter("test_counter", "Test counter")
+    engine.inc_counter("test_counter", 5, {"env": "test"})
+    engine.inc_counter("test_counter", 3, {"env": "prod"})
+
+    metrics = engine.collect_impact_metrics()
+    counter = next((m for m in metrics if m["name"] == "test_counter"), None)
+
+    assert counter is not None
+    assert len(counter["samples"]) == 2
+    test_sample = next(
+        (s for s in counter["samples"] if s["labels"].get("env") == "test"), None
+    )
+    prod_sample = next(
+        (s for s in counter["samples"] if s["labels"].get("env") == "prod"), None
+    )
+    assert test_sample["value"] == 5
+    assert prod_sample["value"] == 3
+
+
+def test_collect_impact_metrics_returns_empty_list_when_no_metrics():
+    engine = PyO3UnleashEngine()
+    metrics = engine.collect_impact_metrics()
+    assert metrics == []
+
+
+def test_set_gauge_sets_value():
+    engine = PyO3UnleashEngine()
+    engine.define_gauge("test_gauge", "Test gauge")
+    engine.set_gauge("test_gauge", 5)
+    engine.set_gauge("test_gauge", 10)
+
+    metrics = engine.collect_impact_metrics()
+    gauge = next((m for m in metrics if m["name"] == "test_gauge"), None)
+
+    assert gauge is not None
+    assert gauge["help"] == "Test gauge"
+    assert len(gauge["samples"]) == 1
+    assert gauge["samples"][0]["value"] == 10
+
+
+def test_set_gauge_with_labels():
+    engine = PyO3UnleashEngine()
+    engine.define_gauge("test_gauge", "Test gauge")
+    engine.set_gauge("test_gauge", 5, {"env": "test"})
+    engine.set_gauge("test_gauge", 3, {"env": "prod"})
+
+    metrics = engine.collect_impact_metrics()
+    gauge = next((m for m in metrics if m["name"] == "test_gauge"), None)
+
+    assert gauge is not None
+    assert len(gauge["samples"]) == 2
+    test_sample = next(
+        (s for s in gauge["samples"] if s["labels"].get("env") == "test"), None
+    )
+    prod_sample = next(
+        (s for s in gauge["samples"] if s["labels"].get("env") == "prod"), None
+    )
+    assert test_sample["value"] == 5
+    assert prod_sample["value"] == 3
+
+
+def test_observe_histogram_observes_values():
+    engine = PyO3UnleashEngine()
+    engine.define_histogram(
+        "request_duration", "Request duration", [0.1, 0.5, 1.0, 5.0]
+    )
+    engine.observe_histogram("request_duration", 0.05)
+    engine.observe_histogram("request_duration", 0.75)
+    engine.observe_histogram("request_duration", 3.0)
+
+    metrics = engine.collect_impact_metrics()
+    histogram = next((m for m in metrics if m["name"] == "request_duration"), None)
+
+    assert histogram is not None
+    assert histogram["help"] == "Request duration"
+    assert histogram["type"] == "histogram"
+    assert len(histogram["samples"]) == 1
+
+
+def test_observe_histogram_with_labels():
+    engine = PyO3UnleashEngine()
+    engine.define_histogram(
+        "request_duration", "Request duration", [0.1, 0.5, 1.0, 5.0]
+    )
+    engine.observe_histogram("request_duration", 0.05, {"env": "test"})
+    engine.observe_histogram("request_duration", 0.75, {"env": "prod"})
+
+    metrics = engine.collect_impact_metrics()
+    histogram = next((m for m in metrics if m["name"] == "request_duration"), None)
+
+    assert histogram is not None
+    assert len(histogram["samples"]) == 2
+    test_sample = next(
+        (s for s in histogram["samples"] if s["labels"].get("env") == "test"), None
+    )
+    prod_sample = next(
+        (s for s in histogram["samples"] if s["labels"].get("env") == "prod"), None
+    )
+    assert test_sample is not None
+    assert prod_sample is not None
+
+
+def test_define_histogram_with_default_buckets():
+    engine = PyO3UnleashEngine()
+    engine.define_histogram("request_duration", "Request duration")
+    engine.observe_histogram("request_duration", 0.05)
+
+    metrics = engine.collect_impact_metrics()
+    histogram = next((m for m in metrics if m["name"] == "request_duration"), None)
+
+    assert histogram is not None
+    assert histogram["type"] == "histogram"
+    assert len(histogram["samples"]) == 1
+
+
+## impact metrics: restore, copied from python-engine/tests/test_engine.py
+
+
+def test_restore_impact_metrics():
+    engine = PyO3UnleashEngine()
+    engine.define_counter("test_counter", "Test counter")
+    engine.inc_counter("test_counter", 10)
+    engine.define_gauge("test_gauge", "Test gauge")
+    engine.set_gauge("test_gauge", 42)
+    engine.define_histogram("test_histogram", "Test histogram", [0.1, 0.5, 1.0])
+    engine.observe_histogram("test_histogram", 0.25)
+
+    metrics = engine.collect_impact_metrics()
+    assert len(metrics) == 3
+    counter = next((m for m in metrics if m["name"] == "test_counter"), None)
+    gauge = next((m for m in metrics if m["name"] == "test_gauge"), None)
+    histogram = next((m for m in metrics if m["name"] == "test_histogram"), None)
+    assert counter["samples"][0]["value"] == 10
+    assert gauge["samples"][0]["value"] == 42
+    assert histogram is not None
+
+    engine.restore_impact_metrics(metrics)
+
+    restored_metrics = engine.collect_impact_metrics()
+    assert len(restored_metrics) == 3
+    restored_counter = next(
+        (m for m in restored_metrics if m["name"] == "test_counter"), None
+    )
+    restored_gauge = next(
+        (m for m in restored_metrics if m["name"] == "test_gauge"), None
+    )
+    restored_histogram = next(
+        (m for m in restored_metrics if m["name"] == "test_histogram"), None
+    )
+    assert restored_counter["samples"][0]["value"] == 10
+    assert restored_gauge["samples"][0]["value"] == 42
+    assert restored_histogram is not None
