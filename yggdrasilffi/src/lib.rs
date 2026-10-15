@@ -171,6 +171,9 @@ pub extern "C" fn new_engine() -> *mut c_void {
 /// the `new_engine` function. Failure to do so will result in a leak.
 #[no_mangle]
 pub unsafe extern "C" fn free_engine(engine_ptr: *mut c_void) {
+    if engine_ptr.is_null() {
+        return;
+    }
     unsafe {
         drop(Box::from_raw(engine_ptr.cast::<EngineState>()));
     }
