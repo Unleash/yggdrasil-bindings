@@ -7,6 +7,8 @@ pub mod engine;
 
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::fmt::{self, Display, Formatter};
+use std::panic::{self, AssertUnwindSafe};
 
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::intern;
@@ -14,12 +16,40 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString, PyTuple};
 use unleash_yggdrasil::{Context, ExtendedVariantDef, CORE_VERSION};
 
-use crate::engine::{guard, Engine, EngineError};
+use crate::engine::Engine;
+
+#[derive(Debug)]
+enum EngineError {
+    InvalidJson(String),
+    Panic,
+}
+
+impl Display for EngineError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            EngineError::InvalidJson(message) => write!(f, "Failed to parse JSON: {message}"),
+            EngineError::Panic => write!(
+                f,
+                "Engine panicked while processing the request. Please report this as a bug with the accompanying stack trace if available."
+            ),
+        }
+    }
+}
+
+impl From<serde_json::Error> for EngineError {
+    fn from(error: serde_json::Error) -> Self {
+        EngineError::InvalidJson(error.to_string())
+    }
+}
 
 impl From<EngineError> for PyErr {
     fn from(error: EngineError) -> Self {
         PyValueError::new_err(error.to_string())
     }
+}
+
+fn guard<T>(action: impl FnOnce() -> PyResult<T>) -> PyResult<T> {
+    panic::catch_unwind(AssertUnwindSafe(action)).unwrap_or_else(|_| Err(EngineError::Panic.into()))
 }
 
 /// A variant as `NativeEngine.get_variant` hands it to Python:
@@ -41,7 +71,12 @@ impl NativeEngine {
     }
 
     fn take_state(&self, state_json: &str) -> PyResult<Option<String>> {
-        let warnings = self.engine.take_state(state_json)?;
+        let warnings = guard(|| {
+            Ok(self
+                .engine
+                .take_state(state_json)
+                .map_err(EngineError::from)?)
+        })?;
         Ok(warnings.filter(|w| !w.is_empty()).map(|warnings| {
             warnings
                 .iter()
@@ -66,7 +101,7 @@ impl NativeEngine {
             let context = context_from_dict(context)?;
             Ok(self
                 .engine
-                .is_enabled(toggle_name, &context, custom_strategy_results.as_ref())?)
+                .is_enabled(toggle_name, &context, custom_strategy_results.as_ref()))
         })
     }
     /// Resolves a toggle's variant and looks up whether it requires an
@@ -84,11 +119,9 @@ impl NativeEngine {
         guard(|| {
             let py = context.py();
             let context = context_from_dict(context)?;
-            let (variant, impression) = self.engine.check_variant(
-                toggle_name,
-                &context,
-                custom_strategy_results.as_ref(),
-            )?;
+            let (variant, impression) =
+                self.engine
+                    .check_variant(toggle_name, &context, custom_strategy_results.as_ref());
             Ok((variant_to_tuple(py, variant)?, impression))
         })
     }
@@ -107,17 +140,20 @@ impl NativeEngine {
             let context = context_from_dict(context)?;
             let (variant, impression) =
                 self.engine
-                    .get_variant(toggle_name, &context, custom_strategy_results.as_ref())?;
+                    .get_variant(toggle_name, &context, custom_strategy_results.as_ref());
             Ok((variant_to_tuple(py, variant)?, impression))
         })
     }
 
     fn count_toggle(&self, toggle_name: &str, enabled: bool) -> PyResult<()> {
-        Ok(self.engine.count_toggle(toggle_name, enabled)?)
+        guard(|| {
+            self.engine.count_toggle(toggle_name, enabled);
+            Ok(())
+        })
     }
 
     fn get_metrics(&self) -> PyResult<Option<String>> {
-        let Some(bucket) = self.engine.get_metrics()? else {
+        let Some(bucket) = guard(|| Ok(self.engine.get_metrics()))? else {
             return Ok(None);
         };
         serde_json::to_string(&bucket)
@@ -126,21 +162,22 @@ impl NativeEngine {
     }
 
     fn get_state(&self) -> PyResult<String> {
-        serde_json::to_string(&self.engine.get_state()?)
+        serde_json::to_string(&guard(|| Ok(self.engine.get_state()))?)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     fn list_known_toggles(&self) -> PyResult<Vec<(String, String, Option<String>)>> {
-        Ok(self
-            .engine
-            .list_known_toggles()?
+        Ok(guard(|| Ok(self.engine.list_known_toggles()))?
             .into_iter()
             .map(|toggle| (toggle.name, toggle.project, toggle.feature_type))
             .collect())
     }
 
     fn define_counter(&self, name: &str, help: &str) -> PyResult<()> {
-        Ok(self.engine.define_counter(name, help)?)
+        guard(|| {
+            self.engine.define_counter(name, help);
+            Ok(())
+        })
     }
 
     fn inc_counter(
@@ -149,11 +186,17 @@ impl NativeEngine {
         value: i64,
         labels: Option<HashMap<String, String>>,
     ) -> PyResult<()> {
-        Ok(self.engine.inc_counter(name, value, labels.as_ref())?)
+        guard(|| {
+            self.engine.inc_counter(name, value, labels.as_ref());
+            Ok(())
+        })
     }
 
     fn define_gauge(&self, name: &str, help: &str) -> PyResult<()> {
-        Ok(self.engine.define_gauge(name, help)?)
+        guard(|| {
+            self.engine.define_gauge(name, help);
+            Ok(())
+        })
     }
 
     fn set_gauge(
@@ -162,13 +205,18 @@ impl NativeEngine {
         value: f64,
         labels: Option<HashMap<String, String>>,
     ) -> PyResult<()> {
-        Ok(self.engine.set_gauge(name, value, labels.as_ref())?)
+        guard(|| {
+            self.engine.set_gauge(name, value, labels.as_ref());
+            Ok(())
+        })
     }
 
     fn define_histogram(&self, name: &str, help: &str, buckets: Option<Vec<f64>>) -> PyResult<()> {
-        Ok(self
-            .engine
-            .define_histogram(name, help, buckets.unwrap_or_default())?)
+        guard(|| {
+            self.engine
+                .define_histogram(name, help, buckets.unwrap_or_default());
+            Ok(())
+        })
     }
 
     fn observe_histogram(
@@ -177,18 +225,24 @@ impl NativeEngine {
         value: f64,
         labels: Option<HashMap<String, String>>,
     ) -> PyResult<()> {
-        Ok(self
-            .engine
-            .observe_histogram(name, value, labels.as_ref())?)
+        guard(|| {
+            self.engine.observe_histogram(name, value, labels.as_ref());
+            Ok(())
+        })
     }
 
     fn collect_impact_metrics(&self) -> PyResult<String> {
-        serde_json::to_string(&self.engine.collect_impact_metrics()?)
+        serde_json::to_string(&guard(|| Ok(self.engine.collect_impact_metrics()))?)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     fn restore_impact_metrics(&self, metrics_json: &str) -> PyResult<()> {
-        Ok(self.engine.restore_impact_metrics(metrics_json)?)
+        guard(|| {
+            Ok(self
+                .engine
+                .restore_impact_metrics(metrics_json)
+                .map_err(EngineError::from)?)
+        })
     }
 }
 

@@ -1,12 +1,6 @@
-//! Engine logic copied from the yggdrasilffi shim
-//!  engine state, panic guard, and the calls `is_enabled` needs
-//!
-//! only Rust with no PyO3 types, so it can later move into a library shared
-//! with the shim to remove duplication
+
 
 use std::collections::HashMap;
-use std::fmt::{self, Display, Formatter};
-use std::panic::{self, AssertUnwindSafe};
 
 use chrono::Utc;
 use unleash_types::client_features::ClientFeatures;
@@ -20,36 +14,15 @@ use unleash_yggdrasil::{
     VariantDef,
 };
 
-#[derive(Debug)]
-pub enum EngineError {
-    InvalidJson(String),
-    Panic,
-}
-
-impl Display for EngineError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            EngineError::InvalidJson(message) => write!(f, "Failed to parse JSON: {message}"),
-            EngineError::Panic => write!(
-                f,
-                "Engine panicked while processing the request. Please report this as a bug with the accompanying stack trace if available."
-            ),
-        }
-    }
-}
-
 #[derive(Default)]
 pub struct Engine {
     state: EngineState,
 }
 
 impl Engine {
-    pub fn take_state(&self, json: &str) -> Result<Option<Vec<EvalWarning>>, EngineError> {
-        guard(|| {
-            let message: UpdateMessage =
-                serde_json::from_str(json).map_err(|e| EngineError::InvalidJson(e.to_string()))?;
-            Ok(self.state.take_state(message))
-        })
+    pub fn take_state(&self, json: &str) -> Result<Option<Vec<EvalWarning>>, serde_json::Error> {
+        let message: UpdateMessage = serde_json::from_str(json)?;
+        Ok(self.state.take_state(message))
     }
 
     pub fn is_enabled(
@@ -57,16 +30,14 @@ impl Engine {
         toggle_name: &str,
         context: &Context,
         custom_strategy_results: Option<&HashMap<String, bool>>,
-    ) -> Result<(Option<bool>, bool), EngineError> {
-        guard(|| {
-            let engine = &self.state;
-            let enabled = evaluate(engine, toggle_name, context, custom_strategy_results);
-            let impression = engine.should_emit_impression_event(toggle_name);
-            if let Some(enabled) = enabled {
-                engine.count_toggle(toggle_name, enabled);
-            }
-            Ok((enabled, impression))
-        })
+    ) -> (Option<bool>, bool) {
+        let engine = &self.state;
+        let enabled = evaluate(engine, toggle_name, context, custom_strategy_results);
+        let impression = engine.should_emit_impression_event(toggle_name);
+        if let Some(enabled) = enabled {
+            engine.count_toggle(toggle_name, enabled);
+        }
+        (enabled, impression)
     }
 
     /// Resolves a toggle's variant and looks up whether it requires an
@@ -78,15 +49,8 @@ impl Engine {
         toggle_name: &str,
         context: &Context,
         custom_strategy_results: Option<&HashMap<String, bool>>,
-    ) -> Result<(Option<ExtendedVariantDef>, bool), EngineError> {
-        guard(|| {
-            Ok(resolve_variant(
-                &self.state,
-                toggle_name,
-                context,
-                custom_strategy_results,
-            ))
-        })
+    ) -> (Option<ExtendedVariantDef>, bool) {
+        resolve_variant(&self.state, toggle_name, context, custom_strategy_results)
     }
 
     /// Like `check_variant`, and also records the toggle and the variant in
@@ -96,135 +60,88 @@ impl Engine {
         toggle_name: &str,
         context: &Context,
         custom_strategy_results: Option<&HashMap<String, bool>>,
-    ) -> Result<(Option<ExtendedVariantDef>, bool), EngineError> {
-        guard(|| {
-            let engine = &self.state;
-            let (variant, impression) =
-                resolve_variant(engine, toggle_name, context, custom_strategy_results);
-            let disabled;
-            let (feature_enabled, variant_name) = match &variant {
-                Some(variant) => (variant.feature_enabled, variant.name.as_str()),
-                None => {
-                    disabled = VariantDef::default();
-                    (false, disabled.name.as_str())
-                }
-            };
-            engine.count_toggle(toggle_name, feature_enabled);
-            engine.count_variant(toggle_name, variant_name);
-            Ok((variant, impression))
-        })
-    }
-
-    pub fn count_toggle(&self, toggle_name: &str, enabled: bool) -> Result<(), EngineError> {
-        guard(|| {
-            self.state.count_toggle(toggle_name, enabled);
-            Ok(())
-        })
-    }
-
-    pub fn get_metrics(&self) -> Result<Option<MetricBucket>, EngineError> {
-        guard(|| Ok(self.state.get_metrics(Utc::now())))
-    }
-
-    pub fn get_state(&self) -> Result<ClientFeatures, EngineError> {
-        guard(|| Ok(self.state.get_state()))
-    }
-
-    pub fn list_known_toggles(&self) -> Result<Vec<ToggleDefinition>, EngineError> {
-        guard(|| Ok(self.state.list_known_toggles()))
-    }
-
-    pub fn define_counter(&self, name: &str, help: &str) -> Result<(), EngineError> {
-        guard(|| {
-            self.state.define_counter(MetricOptions::new(name, help));
-            Ok(())
-        })
-    }
-
-    pub fn inc_counter(
-        &self,
-        name: &str,
-        value: i64,
-        labels: Option<&MetricLabels>,
-    ) -> Result<(), EngineError> {
-        guard(|| {
-            let engine = &self.state;
-            match labels {
-                Some(labels) if !labels.is_empty() => {
-                    engine.inc_counter_with_labels(name, value, labels)
-                }
-                _ => engine.inc_counter_by(name, value),
+    ) -> (Option<ExtendedVariantDef>, bool) {
+        let engine = &self.state;
+        let (variant, impression) =
+            resolve_variant(engine, toggle_name, context, custom_strategy_results);
+        let disabled;
+        let (feature_enabled, variant_name) = match &variant {
+            Some(variant) => (variant.feature_enabled, variant.name.as_str()),
+            None => {
+                disabled = VariantDef::default();
+                (false, disabled.name.as_str())
             }
-            Ok(())
-        })
+        };
+        engine.count_toggle(toggle_name, feature_enabled);
+        engine.count_variant(toggle_name, variant_name);
+        (variant, impression)
     }
 
-    pub fn define_gauge(&self, name: &str, help: &str) -> Result<(), EngineError> {
-        guard(|| {
-            self.state.define_gauge(MetricOptions::new(name, help));
-            Ok(())
-        })
+    pub fn count_toggle(&self, toggle_name: &str, enabled: bool) {
+        self.state.count_toggle(toggle_name, enabled);
     }
-    pub fn set_gauge(
-        &self,
-        name: &str,
-        value: f64,
-        labels: Option<&MetricLabels>,
-    ) -> Result<(), EngineError> {
-        guard(|| {
-            let engine = &self.state;
-            match labels {
-                Some(labels) if !labels.is_empty() => {
-                    engine.set_gauge_with_labels(name, value, labels)
-                }
-                _ => engine.set_gauge(name, value),
+
+    pub fn get_metrics(&self) -> Option<MetricBucket> {
+        self.state.get_metrics(Utc::now())
+    }
+
+    pub fn get_state(&self) -> ClientFeatures {
+        self.state.get_state()
+    }
+
+    pub fn list_known_toggles(&self) -> Vec<ToggleDefinition> {
+        self.state.list_known_toggles()
+    }
+
+    pub fn define_counter(&self, name: &str, help: &str) {
+        self.state.define_counter(MetricOptions::new(name, help));
+    }
+
+    pub fn inc_counter(&self, name: &str, value: i64, labels: Option<&MetricLabels>) {
+        let engine = &self.state;
+        match labels {
+            Some(labels) if !labels.is_empty() => {
+                engine.inc_counter_with_labels(name, value, labels)
             }
-            Ok(())
-        })
+            _ => engine.inc_counter_by(name, value),
+        }
     }
 
-    pub fn define_histogram(
-        &self,
-        name: &str,
-        help: &str,
-        buckets: Vec<f64>,
-    ) -> Result<(), EngineError> {
-        guard(|| {
-            self.state
-                .define_histogram(BucketMetricOptions::new(name, help, buckets));
-            Ok(())
-        })
+    pub fn define_gauge(&self, name: &str, help: &str) {
+        self.state.define_gauge(MetricOptions::new(name, help));
     }
 
-    pub fn observe_histogram(
-        &self,
-        name: &str,
-        value: f64,
-        labels: Option<&MetricLabels>,
-    ) -> Result<(), EngineError> {
-        guard(|| {
-            let engine = &self.state;
-            match labels {
-                Some(labels) if !labels.is_empty() => {
-                    engine.observe_histogram_with_labels(name, value, labels)
-                }
-                _ => engine.observe_histogram(name, value),
+    pub fn set_gauge(&self, name: &str, value: f64, labels: Option<&MetricLabels>) {
+        let engine = &self.state;
+        match labels {
+            Some(labels) if !labels.is_empty() => engine.set_gauge_with_labels(name, value, labels),
+            _ => engine.set_gauge(name, value),
+        }
+    }
+
+    pub fn define_histogram(&self, name: &str, help: &str, buckets: Vec<f64>) {
+        self.state
+            .define_histogram(BucketMetricOptions::new(name, help, buckets));
+    }
+
+    pub fn observe_histogram(&self, name: &str, value: f64, labels: Option<&MetricLabels>) {
+        let engine = &self.state;
+        match labels {
+            Some(labels) if !labels.is_empty() => {
+                engine.observe_histogram_with_labels(name, value, labels)
             }
-            Ok(())
-        })
+            _ => engine.observe_histogram(name, value),
+        }
     }
 
-    pub fn collect_impact_metrics(&self) -> Result<Vec<CollectedMetric>, EngineError> {
-        guard(|| Ok(self.state.collect_impact_metrics()))
+    pub fn collect_impact_metrics(&self) -> Vec<CollectedMetric> {
+        self.state.collect_impact_metrics()
     }
 
-    pub fn restore_impact_metrics(&self, json: &str) -> Result<(), EngineError> {
-        guard(|| {
-            let metrics: Vec<CollectedMetric> =
-                serde_json::from_str(json).map_err(|e| EngineError::InvalidJson(e.to_string()))?;
-            self.state.restore_impact_metrics(metrics);
-            Ok(())
-        })
+    pub fn restore_impact_metrics(&self, json: &str) -> Result<(), serde_json::Error> {
+        let metrics: Vec<CollectedMetric> = serde_json::from_str(json)?;
+        self.state.restore_impact_metrics(metrics);
+        Ok(())
     }
 }
 
@@ -257,10 +174,6 @@ fn evaluate(
     ))
 }
 
-pub fn guard<T, E: From<EngineError>>(action: impl FnOnce() -> Result<T, E>) -> Result<T, E> {
-    panic::catch_unwind(AssertUnwindSafe(action)).unwrap_or_else(|_| Err(EngineError::Panic.into()))
-}
-
 #[cfg(test)]
 mod tests {
     use unleash_types::client_features::{ClientFeature, ClientFeatures, Strategy};
@@ -274,9 +187,7 @@ mod tests {
         let engine = Engine::default();
         let context: Context = serde_json::from_str("{}").unwrap();
 
-        let (enabled, _) = engine
-            .is_enabled("some-toggle", &context, None)
-            .expect("Expected no error");
+        let (enabled, _) = engine.is_enabled("some-toggle", &context, None);
 
         assert!(enabled.is_none());
     }
@@ -311,9 +222,7 @@ mod tests {
         let warnings = engine
             .take_state(&serde_json::to_string(&client_features).unwrap())
             .expect("Expected no error");
-        let (enabled, _) = engine
-            .is_enabled(toggle_under_test, &context, None)
-            .expect("Expected no error");
+        let (enabled, _) = engine.is_enabled(toggle_under_test, &context, None);
 
         assert_eq!(enabled, Some(true));
         assert!(warnings.is_none());
@@ -350,9 +259,7 @@ mod tests {
 
         let context: Context =
             serde_json::from_value(serde_json::json!({ "appName": appname_test })).unwrap();
-        let (enabled, _) = engine
-            .is_enabled(toggle_under_test, &context, None)
-            .unwrap();
+        let (enabled, _) = engine.is_enabled(toggle_under_test, &context, None);
 
         assert_eq!(enabled, Some(true));
     }
@@ -384,15 +291,11 @@ mod tests {
             .unwrap();
         let context = Context::default();
 
-        engine.is_enabled("some-toggle", &context, None).unwrap();
-        engine.is_enabled("unknown-toggle", &context, None).unwrap();
-        engine.count_toggle("unknown-toggle", true).unwrap();
+        engine.is_enabled("some-toggle", &context, None);
+        engine.is_enabled("unknown-toggle", &context, None);
+        engine.count_toggle("unknown-toggle", true);
 
-        let toggles = engine
-            .get_metrics()
-            .unwrap()
-            .expect("Expected metrics")
-            .toggles;
+        let toggles = engine.get_metrics().expect("Expected metrics").toggles;
 
         assert_eq!(
             (toggles["some-toggle"].yes, toggles["some-toggle"].no),
@@ -408,20 +311,16 @@ mod tests {
     fn get_metrics_is_none_when_nothing_was_counted_and_resets_the_counts() {
         let engine = Engine::default();
 
-        assert!(engine.get_metrics().unwrap().is_none());
+        assert!(engine.get_metrics().is_none());
 
-        engine.count_toggle("some-toggle", false).unwrap();
-        let toggles = engine
-            .get_metrics()
-            .unwrap()
-            .expect("Expected metrics")
-            .toggles;
+        engine.count_toggle("some-toggle", false);
+        let toggles = engine.get_metrics().expect("Expected metrics").toggles;
 
         assert_eq!(
             (toggles["some-toggle"].yes, toggles["some-toggle"].no),
             (0, 1)
         );
-        assert!(engine.get_metrics().unwrap().is_none());
+        assert!(engine.get_metrics().is_none());
     }
 
     #[test]
@@ -451,7 +350,7 @@ mod tests {
         engine.take_state(&state.to_string()).unwrap();
         let context = Context::default();
 
-        let (variant, impression) = engine.get_variant("with-variant", &context, None).unwrap();
+        let (variant, impression) = engine.get_variant("with-variant", &context, None);
         let variant = variant.expect("Expected a variant");
         assert_eq!(
             (
@@ -464,9 +363,7 @@ mod tests {
         assert_eq!(variant.payload.expect("Expected a payload").value, "b");
         assert!(impression);
 
-        let (variant, impression) = engine
-            .get_variant("disabled-toggle", &context, None)
-            .unwrap();
+        let (variant, impression) = engine.get_variant("disabled-toggle", &context, None);
         let variant = variant.expect("Expected a variant");
         assert_eq!(
             (
@@ -478,14 +375,10 @@ mod tests {
         );
         assert!(!impression);
 
-        let (variant, _) = engine.get_variant("unknown", &context, None).unwrap();
+        let (variant, _) = engine.get_variant("unknown", &context, None);
         assert!(variant.is_none());
 
-        let toggles = engine
-            .get_metrics()
-            .unwrap()
-            .expect("Expected metrics")
-            .toggles;
+        let toggles = engine.get_metrics().expect("Expected metrics").toggles;
         let counts = |name: &str, variant: &str| {
             let stats = &toggles[name];
             (stats.yes, stats.no, stats.variants[variant])
@@ -499,7 +392,7 @@ mod tests {
     fn get_state_is_empty_before_take_state_and_the_taken_state_after() {
         let engine = Engine::default();
 
-        assert!(engine.get_state().unwrap().features.is_empty());
+        assert!(engine.get_state().features.is_empty());
 
         let state = serde_json::json!({
             "version": 1,
@@ -507,7 +400,7 @@ mod tests {
         });
         engine.take_state(&state.to_string()).unwrap();
 
-        let features = engine.get_state().unwrap().features;
+        let features = engine.get_state().features;
         assert_eq!(features.len(), 1);
         assert_eq!(features[0].name, "some-toggle");
     }
@@ -516,7 +409,7 @@ mod tests {
     fn list_known_toggles_is_empty_before_take_state_and_lists_the_toggles_after() {
         let engine = Engine::default();
 
-        assert!(engine.list_known_toggles().unwrap().is_empty());
+        assert!(engine.list_known_toggles().is_empty());
 
         let state = serde_json::json!({
             "version": 1,
@@ -530,7 +423,7 @@ mod tests {
         });
         engine.take_state(&state.to_string()).unwrap();
 
-        let toggles = engine.list_known_toggles().unwrap();
+        let toggles = engine.list_known_toggles();
         assert_eq!(toggles.len(), 1);
         assert_eq!(
             (
