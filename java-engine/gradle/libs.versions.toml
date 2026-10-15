@@ -14,7 +14,7 @@ jackson-core = { group = "com.fasterxml.jackson.core", name = "jackson-core", ve
 jackson-databind = { group = "com.fasterxml.jackson.core", name = "jackson-databind", version.ref = "jackson"}
 jackson-jsr310 = { group = "com.fasterxml.jackson.datatype", name = "jackson-datatype-jsr310", version.ref = "jackson"}
 jmh-core = { group = "org.openjdk.jmh", name = "jmh-core", version.ref = "jmh" }
-jmh-annprocess = { group = "org.openjdk.jmh", name = "jmh-annprocess", version.ref = "jmh" }
+jmh-annprocess = { group = "org.openjdk.jmh", name = "jmh-generator-annprocess", version.ref = "jmh" }
 jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna" }
 junit-bom = { group = "org.junit", name = "junit-bom", version.ref = "junit" }
 mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }

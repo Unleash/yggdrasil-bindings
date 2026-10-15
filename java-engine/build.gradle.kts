@@ -160,12 +160,20 @@ tasks.named<Test>("test") {
     testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
 }
 
-tasks.named("jmh") {
-    dependsOn(copyTestBinary)
+jmh {
+    includeTests.set(false)
+    failOnError.set(true)
 }
 
-tasks.named("jmhJar") {
-    dependsOn(copyTestBinary)
+tasks.named("jmh") {
+    // Benchmark results depend on the runtime environment, even when sources are unchanged.
+    outputs.upToDateWhen { false }
+}
+
+tasks.named<Jar>("jmhJar") {
+    from(copyTestBinary) {
+        into("native")
+    }
 }
 
 spotless {
