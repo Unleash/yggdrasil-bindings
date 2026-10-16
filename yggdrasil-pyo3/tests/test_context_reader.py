@@ -13,7 +13,7 @@ import math
 import pytest
 
 try:
-    from yggdrasil_pyo3.yggdrasil_native import (  # type: ignore
+    from yggdrasil_engine.yggdrasil_native import (  # type: ignore
         context_from_dict,
         context_from_json,
     )

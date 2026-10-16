@@ -1,14 +1,14 @@
-# yggdrasil-pyo3
+# yggdrasil-engine
 
 Python engine for evaluating Unleash feature flags, built with [PyO3](https://pyo3.rs/) and
-[maturin](https://www.maturin.rs/). In development: not published and not used by the Python SDK
-yet. 
+[maturin](https://www.maturin.rs/). Published as `yggdrasil-engine` 3.x, replacing the ctypes engine
+(2.x, `python-engine/`). In development: not used by the Python SDK yet.
 
 Implements the engine methods the Python SDK uses.
 
-- `src/`: the Rust part, compiled into the Python module `yggdrasil_pyo3.yggdrasil_native`
+- `src/`: the Rust part, compiled into the Python module `yggdrasil_engine.yggdrasil_native`
   - `lib.rs`: the Python glue around the core engine
-- `python/yggdrasil_pyo3/`: the Python package
+- `python/yggdrasil_engine/`: the Python package
 - `tests/`: python tests
 
 ## Test locally
@@ -55,7 +55,7 @@ MATURIN_PEP517_ARGS="--features test-helpers" python -m pip install .
 
 **For development: `maturin develop`.** 
 
-builds the Rust module into `python/yggdrasil_pyo3/` and points the virtual environment at this folder
+builds the Rust module into `python/yggdrasil_engine/` and points the virtual environment at this folder
 
 run it again after changing Rust code
 

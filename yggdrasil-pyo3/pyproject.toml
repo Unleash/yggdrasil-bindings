@@ -1,8 +1,11 @@
 [project]
-name = "yggdrasil-pyo3"
-description = "PyO3 engine for evaluating Unleash feature flags (in development, not published)"
+name = "yggdrasil-engine"
+version = "3.0.0a1"
+description = "Engine for evaluating Unleash feature flags"
+authors = [{ name = "Simon Hornby", email = "liquidwicked64@gmail.com" }]
+license = "MIT"
+readme = "README.md"
 requires-python = ">=3.10"
-dynamic = ["version"]
 
 [build-system]
 requires = ["maturin>=1.15,<2.0"]
@@ -10,7 +13,8 @@ build-backend = "maturin"
 
 [tool.maturin]
 python-source = "python"
-module-name = "yggdrasil_pyo3.yggdrasil_native"
+module-name = "yggdrasil_engine.yggdrasil_native"
+exclude = ["python/yggdrasil_engine/**/__pycache__/**"]
 
 [dependency-groups]
 dev = [
@@ -39,4 +43,4 @@ lint.fixable = ["I"]
 
 [tool.ruff.lint.isort]
 # a maturin's project native module is a compiled .so file that only exists after a build and has no .py
-known-first-party = ["yggdrasil_pyo3"]
+known-first-party = ["yggdrasil_engine"]
