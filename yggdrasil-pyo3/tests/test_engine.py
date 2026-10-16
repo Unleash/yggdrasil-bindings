@@ -7,11 +7,11 @@ from unittest.mock import Mock
 
 import pytest
 
-from yggdrasil_pyo3.engine import (
+from yggdrasil_engine.engine import (
     FeatureDefinition,
     FeatureToggle,
     FeatureVariant,
-    PyO3UnleashEngine,
+    UnleashEngine,
     Variant,
     disabled_variant,
 )
@@ -69,8 +69,8 @@ def _impression_state(name: str, enabled: bool, impression_data: bool) -> str:
     )
 
 
-## copied from python-engine/tests/test_engine.py (`UnleashEngine` → `PyO3UnleashEngine`;
-## the `print` in `variant_to_dict` left out)
+## copied from python-engine/tests/test_engine.py (the `print` in
+## `variant_to_dict` left out)
 
 
 def variant_to_dict(variant) -> dict:
@@ -78,7 +78,7 @@ def variant_to_dict(variant) -> dict:
 
 
 def test_client_spec():
-    unleash_engine = PyO3UnleashEngine()
+    unleash_engine = UnleashEngine()
 
     with open("../client-specification/specifications/index.json", "r") as file:
         test_suites = json.load(file)
@@ -120,7 +120,7 @@ def test_client_spec():
 
 
 def test_custom_strategies_work_end_to_end():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
 
     class BreadStrategy:
         def apply(self, _parameters, context):
@@ -141,7 +141,7 @@ def test_custom_strategies_work_end_to_end():
 
 
 def test_is_enabled_ignores_callback_value_if_engine_responded():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
 
     state = {
         "version": 1,
@@ -164,7 +164,7 @@ def test_is_enabled_ignores_callback_value_if_engine_responded():
 
 
 def test_is_enabled_returns_callback_value_if_engine_did_not_respond():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
 
     result = engine.is_enabled(
         "nonExistentFeature", {}, fallback_function=lambda name, ctx: True
@@ -174,7 +174,7 @@ def test_is_enabled_returns_callback_value_if_engine_did_not_respond():
 
 
 def test_is_enabled_ignores_callback_value_when_engine_returns_false():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_toggle_state("disabledFeature", False))
 
     result = engine.is_enabled(
@@ -185,7 +185,7 @@ def test_is_enabled_ignores_callback_value_when_engine_returns_false():
 
 
 def test_is_enabled_fallback_returning_false_is_respected():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
 
     result = engine.is_enabled(
         "nonExistentFeature", {}, fallback_function=lambda name, ctx: False
@@ -195,7 +195,7 @@ def test_is_enabled_fallback_returning_false_is_respected():
 
 
 def test_is_enabled_fallback_receives_toggle_name_and_context():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     context = {"userId": "123"}
     fallback = Mock(return_value=True)
 
@@ -205,7 +205,7 @@ def test_is_enabled_fallback_receives_toggle_name_and_context():
 
 
 def test_is_enabled_fallback_not_invoked_when_toggle_found():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_toggle_state("testFeature", True))
     fallback = Mock(return_value=True)
 
@@ -215,7 +215,7 @@ def test_is_enabled_fallback_not_invoked_when_toggle_found():
 
 
 def test_is_enabled_returns_feature_toggle_for_enabled_toggle():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_toggle_state("testFeature", True))
 
     result = engine.is_enabled("testFeature", {})
@@ -224,7 +224,7 @@ def test_is_enabled_returns_feature_toggle_for_enabled_toggle():
 
 
 def test_is_enabled_returns_found_feature_toggle_when_toggle_is_disabled():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_toggle_state("disabledFeature", False))
 
     result = engine.is_enabled("disabledFeature", {})
@@ -235,7 +235,7 @@ def test_is_enabled_returns_found_feature_toggle_when_toggle_is_disabled():
 
 
 def test_is_enabled_reports_not_found_when_fallback_resolves_value():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
 
     result = engine.is_enabled(
         "nonExistentFeature", {}, fallback_function=lambda name, ctx: True
@@ -247,14 +247,14 @@ def test_is_enabled_reports_not_found_when_fallback_resolves_value():
 
 
 def test_is_enabled_names_the_queried_toggle():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_toggle_state("testFeature", True))
 
     assert engine.is_enabled("testFeature", {}).name == "testFeature"
 
 
 def test_is_enabled_coerces_fallback_value_to_bool():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
 
     result = engine.is_enabled(
         "nonExistentFeature", {}, fallback_function=lambda name, ctx: "truthy"
@@ -269,7 +269,7 @@ def test_feature_toggle_cannot_be_used_as_a_bool():
 
 
 def test_is_enabled_result_cannot_be_used_as_a_bool():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_toggle_state("testFeature", True))
 
     result = engine.is_enabled("testFeature", {})
@@ -306,7 +306,7 @@ def test_feature_toggle_equality_includes_impression_event_flag():
 
 
 def test_is_enabled_reports_impression_event_when_toggle_has_impression_data():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_impression_state("testFeature", True, True))
 
     result = engine.is_enabled("testFeature", {})
@@ -315,7 +315,7 @@ def test_is_enabled_reports_impression_event_when_toggle_has_impression_data():
 
 
 def test_is_enabled_does_not_report_impression_event_without_impression_data():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_toggle_state("testFeature", True))
 
     result = engine.is_enabled("testFeature", {})
@@ -324,7 +324,7 @@ def test_is_enabled_does_not_report_impression_event_without_impression_data():
 
 
 def test_is_enabled_reports_impression_event_for_disabled_toggle():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_impression_state("disabledFeature", False, True))
 
     result = engine.is_enabled("disabledFeature", {})
@@ -336,7 +336,7 @@ def test_is_enabled_reports_impression_event_for_disabled_toggle():
 
 
 def test_is_enabled_defaults_to_disabled_when_fallback_raises():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
 
     def exploding_fallback(name, ctx):
         raise RuntimeError("bad fallback")
@@ -352,7 +352,7 @@ def test_is_enabled_defaults_to_disabled_when_fallback_raises():
 
 
 def test_is_enabled_fallback_function_must_be_passed_as_keyword():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_toggle_state("testFeature", True))
 
     ## This TypeError comes from binding the arguments, before any of the
@@ -372,10 +372,10 @@ def test_is_enabled_fallback_function_must_be_passed_as_keyword():
 def test_is_enabled_does_not_raise_when_the_context_cannot_be_read(
     caplog: pytest.LogCaptureFixture,
 ):
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     _ = engine.take_state(_toggle_state("testFeature", True))
 
-    with caplog.at_level(logging.WARNING, logger="yggdrasil_pyo3.engine"):
+    with caplog.at_level(logging.WARNING, logger="yggdrasil_engine.engine"):
         result = engine.is_enabled("testFeature", {"plan": object()})
 
     assert result == FeatureToggle(name="testFeature")
@@ -383,7 +383,7 @@ def test_is_enabled_does_not_raise_when_the_context_cannot_be_read(
 
 
 def test_is_enabled_treats_a_missing_context_as_empty_and_gives_it_to_the_fallback_as_is():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     _ = engine.take_state(_toggle_state("testFeature", True))
     fallback = Mock(return_value=True)
 
@@ -395,7 +395,7 @@ def test_is_enabled_treats_a_missing_context_as_empty_and_gives_it_to_the_fallba
 
 
 def test_metrics_are_flushed_when_get_metrics_is_called():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_toggle_state("testToggle", True))
 
     engine.is_enabled("testToggle", {})
@@ -408,7 +408,7 @@ def test_metrics_are_flushed_when_get_metrics_is_called():
 
 
 def test_is_enabled_counts_fallback_resolved_value_not_raw_response():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
 
     engine.is_enabled(
         "nonExistentFeature", {}, fallback_function=lambda name, ctx: True
@@ -421,7 +421,7 @@ def test_is_enabled_counts_fallback_resolved_value_not_raw_response():
 
 
 def test_is_enabled_reports_not_found_when_toggle_missing_without_fallback():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
 
     result = engine.is_enabled("nonExistentFeature", {})
 
@@ -434,7 +434,7 @@ def test_is_enabled_reports_not_found_when_toggle_missing_without_fallback():
 
 
 def test_is_enabled_counts_disabled_toggle_as_no():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_toggle_state("disabledFeature", False))
 
     engine.is_enabled("disabledFeature", {})
@@ -446,7 +446,7 @@ def test_is_enabled_counts_disabled_toggle_as_no():
 
 
 def test_is_enabled_accumulates_counts_across_multiple_calls():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     state = {
         "version": 1,
         "features": [
@@ -477,7 +477,7 @@ def test_is_enabled_accumulates_counts_across_multiple_calls():
 
 
 def test_is_enabled_does_not_count_the_toggle_when_engine_errors():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine._native = Mock(wraps=engine._native)
     engine._native.is_enabled.side_effect = ValueError("boom")
 
@@ -527,7 +527,7 @@ def _variant_impression_state(
 
 
 def test_get_variant_does_not_crash():
-    unleash_engine = PyO3UnleashEngine()
+    unleash_engine = UnleashEngine()
 
     with open("../test-data/simple.json") as file:
         state = json.load(file)
@@ -598,7 +598,7 @@ def test_feature_variant_equality_includes_impression_event_flag():
 
 
 def test_get_variant_does_not_share_one_disabled_variant_instance():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
 
     first = engine.get_variant("firstFeature", {})
     second = engine.get_variant("secondFeature", {})
@@ -613,7 +613,7 @@ def test_get_variant_does_not_share_one_disabled_variant_instance():
 
 
 def test_get_variant_returns_the_resolved_variant_for_an_enabled_toggle():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(
         _variant_state(
             "testFeature", True, "sourDough", {"type": "string", "value": "crusty"}
@@ -636,14 +636,14 @@ def test_get_variant_returns_the_resolved_variant_for_an_enabled_toggle():
 
 
 def test_get_variant_names_the_queried_toggle():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_variant_state("testFeature", True, "sourDough"))
 
     assert engine.get_variant("testFeature", {}).name == "testFeature"
 
 
 def test_get_variant_reports_found_for_an_enabled_toggle_without_variants():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_toggle_state("testFeature", True))
 
     result = engine.get_variant("testFeature", {})
@@ -655,7 +655,7 @@ def test_get_variant_reports_found_for_an_enabled_toggle_without_variants():
 
 
 def test_get_variant_reports_found_for_a_known_but_disabled_toggle():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_variant_state("disabledFeature", False, "sourDough"))
 
     result = engine.get_variant("disabledFeature", {})
@@ -668,7 +668,7 @@ def test_get_variant_reports_found_for_a_known_but_disabled_toggle():
 
 
 def test_get_variant_resolves_the_variant_for_the_given_context():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     state = {
         "version": 1,
         "features": [
@@ -697,7 +697,7 @@ def test_get_variant_resolves_the_variant_for_the_given_context():
 
 
 def test_get_variant_does_not_accept_a_fallback_function():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_variant_state("testFeature", True, "sourDough"))
 
     ## Unlike is_enabled, there is no user supplied fallback; the disabled
@@ -707,7 +707,7 @@ def test_get_variant_does_not_accept_a_fallback_function():
 
 
 def test_get_variant_returns_the_disabled_variant_for_an_unknown_toggle():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_variant_state("testFeature", True, "sourDough"))
 
     result = engine.get_variant("nonExistentFeature", {})
@@ -721,7 +721,7 @@ def test_get_variant_returns_the_disabled_variant_for_an_unknown_toggle():
 
 
 def test_get_variant_returns_the_disabled_variant_when_the_engine_has_no_state():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
 
     result = engine.get_variant("nonExistentFeature", {})
 
@@ -730,7 +730,7 @@ def test_get_variant_returns_the_disabled_variant_when_the_engine_has_no_state()
 
 
 def test_get_variant_counts_the_resolved_variant():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_variant_state("testFeature", True, "sourDough"))
 
     engine.get_variant("testFeature", {})
@@ -741,7 +741,7 @@ def test_get_variant_counts_the_resolved_variant():
 
 
 def test_get_variant_counts_an_enabled_toggle_as_yes():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_variant_state("testFeature", True, "sourDough"))
 
     engine.get_variant("testFeature", {})
@@ -753,7 +753,7 @@ def test_get_variant_counts_an_enabled_toggle_as_yes():
 
 
 def test_get_variant_counts_a_disabled_toggle_as_no():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_variant_state("disabledFeature", False, "sourDough"))
 
     engine.get_variant("disabledFeature", {})
@@ -765,7 +765,7 @@ def test_get_variant_counts_a_disabled_toggle_as_no():
 
 
 def test_get_variant_counts_an_enabled_toggle_without_variants_as_yes():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_toggle_state("testFeature", True))
 
     engine.get_variant("testFeature", {})
@@ -779,7 +779,7 @@ def test_get_variant_counts_an_enabled_toggle_without_variants_as_yes():
 
 
 def test_get_variant_counts_the_substituted_disabled_variant_for_an_unknown_toggle():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
 
     engine.get_variant("nonExistentFeature", {})
 
@@ -789,7 +789,7 @@ def test_get_variant_counts_the_substituted_disabled_variant_for_an_unknown_togg
 
 
 def test_get_variant_counts_an_unknown_toggle_as_no():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
 
     engine.get_variant("nonExistentFeature", {})
 
@@ -800,7 +800,7 @@ def test_get_variant_counts_an_unknown_toggle_as_no():
 
 
 def test_get_variant_accumulates_counts_across_multiple_calls():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     state = {
         "version": 1,
         "features": [
@@ -833,7 +833,7 @@ def test_get_variant_accumulates_counts_across_multiple_calls():
 
 
 def test_get_variant_reports_impression_event_when_toggle_has_impression_data():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_variant_impression_state("testFeature", True, "sourDough", True))
 
     result = engine.get_variant("testFeature", {})
@@ -842,7 +842,7 @@ def test_get_variant_reports_impression_event_when_toggle_has_impression_data():
 
 
 def test_get_variant_does_not_report_impression_event_without_impression_data():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_variant_state("testFeature", True, "sourDough"))
 
     result = engine.get_variant("testFeature", {})
@@ -851,7 +851,7 @@ def test_get_variant_does_not_report_impression_event_without_impression_data():
 
 
 def test_get_variant_reports_impression_event_for_a_disabled_toggle():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(
         _variant_impression_state("disabledFeature", False, "sourDough", True)
     )
@@ -865,7 +865,7 @@ def test_get_variant_reports_impression_event_for_a_disabled_toggle():
 
 
 def test_get_variant_does_not_report_impression_event_for_unknown_toggle():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
 
     result = engine.get_variant("nonExistentFeature", {})
 
@@ -874,7 +874,7 @@ def test_get_variant_does_not_report_impression_event_for_unknown_toggle():
 
 
 def test_get_variant_returns_the_disabled_variant_when_engine_errors():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine._native = Mock(wraps=engine._native)
     engine._native.get_variant.side_effect = ValueError("boomboom")
 
@@ -889,7 +889,7 @@ def test_get_variant_returns_the_disabled_variant_when_engine_errors():
 
 
 def test_get_variant_does_not_count_when_engine_errors():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine._native = Mock(wraps=engine._native)
     engine._native.get_variant.side_effect = ValueError("boom")
 
@@ -900,14 +900,14 @@ def test_get_variant_does_not_count_when_engine_errors():
 
 
 def test_take_state_returns_no_warnings_for_a_valid_state():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
 
     assert engine.take_state(_toggle_state("testFeature", True)) is None
 
 
 def test_get_state_and_roundtrip():
     """Test get_state returns valid JSON and supports roundtrip"""
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
 
     empty_state = engine.get_state()
     assert '"features":[]' in empty_state
@@ -936,13 +936,13 @@ def test_get_state_and_roundtrip():
     assert "error_message" not in retrieved_state
 
     ## the state taken back evaluates the same
-    other_engine = PyO3UnleashEngine()
+    other_engine = UnleashEngine()
     other_engine.take_state(retrieved_state)
     assert other_engine.is_enabled("testFeature", {}).is_enabled is True
 
 
 def test_list_known_toggles():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
 
     engine.take_state(CUSTOM_STRATEGY_STATE)
     first_toggle = engine.list_known_toggles()[0]
@@ -954,7 +954,7 @@ def test_list_known_toggles():
 
 
 def test_list_known_toggles_includes_the_project_and_type():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     state = {
         "version": 1,
         "features": [
@@ -975,20 +975,20 @@ def test_list_known_toggles_includes_the_project_and_type():
 
 
 def test_list_empty_toggles_yields_empty_list():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
 
     assert engine.list_known_toggles() == []
 
 
 def test_get_core_version_reads_a_version_from_the_library_without_an_engine():
-    assert re.fullmatch(r"\d+\.\d+\.\d+", PyO3UnleashEngine.get_core_version())
+    assert re.fullmatch(r"\d+\.\d+\.\d+", UnleashEngine.get_core_version())
 
 
 ## check_variant, copied from python-engine/tests/test_engine.py
 
 
 def test_check_variant_returns_the_resolved_variant():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(
         _variant_state(
             "testFeature", True, "sourDough", {"type": "string", "value": "crusty"}
@@ -1011,7 +1011,7 @@ def test_check_variant_returns_the_resolved_variant():
 
 
 def test_check_variant_reports_found_for_a_known_but_disabled_toggle():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_variant_state("disabledFeature", False, "sourDough"))
 
     result = engine.check_variant("disabledFeature", {})
@@ -1024,7 +1024,7 @@ def test_check_variant_reports_found_for_a_known_but_disabled_toggle():
 
 
 def test_check_variant_returns_the_disabled_variant_for_an_unknown_toggle():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_variant_state("testFeature", True, "sourDough"))
 
     result = engine.check_variant("nonExistentFeature", {})
@@ -1038,7 +1038,7 @@ def test_check_variant_returns_the_disabled_variant_for_an_unknown_toggle():
 
 
 def test_check_variant_resolves_the_variant_for_the_given_context():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     state = {
         "version": 1,
         "features": [
@@ -1067,7 +1067,7 @@ def test_check_variant_resolves_the_variant_for_the_given_context():
 
 
 def test_check_variant_does_not_count_the_toggle_or_the_variant():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_variant_state("testFeature", True, "sourDough"))
 
     engine.get_variant("testFeature", {})
@@ -1083,7 +1083,7 @@ def test_check_variant_does_not_count_the_toggle_or_the_variant():
 
 
 def test_check_variant_does_not_count_an_unknown_toggle():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
 
     engine.check_variant("nonExistentFeature", {})
 
@@ -1091,7 +1091,7 @@ def test_check_variant_does_not_count_an_unknown_toggle():
 
 
 def test_check_variant_reports_impression_event_when_toggle_has_impression_data():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(_variant_impression_state("testFeature", True, "sourDough", True))
 
     result = engine.check_variant("testFeature", {})
@@ -1103,7 +1103,7 @@ def test_check_variant_reports_impression_event_when_toggle_has_impression_data(
 
 
 def test_check_variant_does_not_report_impression_event_without_impression_data():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.take_state(
         _variant_impression_state("testFeature", True, "sourDough", False)
     )
@@ -1114,7 +1114,7 @@ def test_check_variant_does_not_report_impression_event_without_impression_data(
 
 
 def test_check_variant_returns_the_disabled_variant_when_engine_errors():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine._native = Mock(wraps=engine._native)
     engine._native.check_variant.side_effect = ValueError("boom")
 
@@ -1129,7 +1129,7 @@ def test_check_variant_returns_the_disabled_variant_when_engine_errors():
 
 
 def test_check_variant_does_not_raise_on_unexpected_engine_failure():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine._native = Mock(wraps=engine._native)
     engine._native.check_variant.side_effect = RuntimeError("kaboom")
 
@@ -1140,7 +1140,7 @@ def test_check_variant_does_not_raise_on_unexpected_engine_failure():
 
 
 def test_inc_counter_increments_value():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.define_counter("test_counter", "Test counter")
     engine.inc_counter("test_counter", 5)
     engine.inc_counter("test_counter", 3)
@@ -1155,7 +1155,7 @@ def test_inc_counter_increments_value():
 
 
 def test_inc_counter_with_labels():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.define_counter("test_counter", "Test counter")
     engine.inc_counter("test_counter", 5, {"env": "test"})
     engine.inc_counter("test_counter", 3, {"env": "prod"})
@@ -1176,13 +1176,13 @@ def test_inc_counter_with_labels():
 
 
 def test_collect_impact_metrics_returns_empty_list_when_no_metrics():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     metrics = engine.collect_impact_metrics()
     assert metrics == []
 
 
 def test_set_gauge_sets_value():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.define_gauge("test_gauge", "Test gauge")
     engine.set_gauge("test_gauge", 5)
     engine.set_gauge("test_gauge", 10)
@@ -1197,7 +1197,7 @@ def test_set_gauge_sets_value():
 
 
 def test_set_gauge_with_labels():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.define_gauge("test_gauge", "Test gauge")
     engine.set_gauge("test_gauge", 5, {"env": "test"})
     engine.set_gauge("test_gauge", 3, {"env": "prod"})
@@ -1218,7 +1218,7 @@ def test_set_gauge_with_labels():
 
 
 def test_observe_histogram_observes_values():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.define_histogram(
         "request_duration", "Request duration", [0.1, 0.5, 1.0, 5.0]
     )
@@ -1236,7 +1236,7 @@ def test_observe_histogram_observes_values():
 
 
 def test_observe_histogram_with_labels():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.define_histogram(
         "request_duration", "Request duration", [0.1, 0.5, 1.0, 5.0]
     )
@@ -1259,7 +1259,7 @@ def test_observe_histogram_with_labels():
 
 
 def test_define_histogram_with_default_buckets():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.define_histogram("request_duration", "Request duration")
     engine.observe_histogram("request_duration", 0.05)
 
@@ -1275,7 +1275,7 @@ def test_define_histogram_with_default_buckets():
 
 
 def test_restore_impact_metrics():
-    engine = PyO3UnleashEngine()
+    engine = UnleashEngine()
     engine.define_counter("test_counter", "Test counter")
     engine.inc_counter("test_counter", 10)
     engine.define_gauge("test_gauge", "Test gauge")

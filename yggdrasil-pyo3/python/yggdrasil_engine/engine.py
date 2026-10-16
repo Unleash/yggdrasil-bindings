@@ -3,8 +3,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
-from yggdrasil_pyo3.custom_strategy import CustomStrategyHandler
-from yggdrasil_pyo3.yggdrasil_native import NativeEngine, core_version  # type: ignore
+from yggdrasil_engine.custom_strategy import CustomStrategyHandler
+from yggdrasil_engine.yggdrasil_native import NativeEngine, core_version  # type: ignore
 
 _logger = logging.getLogger(__name__)
 
@@ -135,7 +135,7 @@ class FeatureDefinition:
     type: Optional[str]
 
 
-class PyO3UnleashEngine:
+class UnleashEngine:
     """The engine on top of the compiled PyO3 module, with the methods the SDK
     uses.
     """
