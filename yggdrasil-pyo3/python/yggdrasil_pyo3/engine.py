@@ -289,6 +289,9 @@ class PyO3UnleashEngine:
             )
             return result
 
+    def count_toggle(self, toggle_name: str, enabled: bool) -> None:
+        self._native.count_toggle(toggle_name, enabled)
+
     def get_metrics(self) -> Optional[dict[str, Any]]:
         metrics = self._native.get_metrics()
         return None if metrics is None else json.loads(metrics)
