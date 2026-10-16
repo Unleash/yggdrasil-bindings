@@ -4,11 +4,10 @@ Python engine for evaluating Unleash feature flags, built with [PyO3](https://py
 [maturin](https://www.maturin.rs/). In development: not published and not used by the Python SDK
 yet. 
 
-So far it only `take_state` and `is_enabled` are implemented.
+Implements the engine methods the Python SDK uses.
 
 - `src/`: the Rust part, compiled into the Python module `yggdrasil_pyo3.yggdrasil_native`
-  - `engine.rs`: the engine logic (plain Rust, no PyO3)
-  - `lib.rs`: the Python glue
+  - `lib.rs`: the Python glue around the core engine
 - `python/yggdrasil_pyo3/`: the Python package
 - `tests/`: python tests
 

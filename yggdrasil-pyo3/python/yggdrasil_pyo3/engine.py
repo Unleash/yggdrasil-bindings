@@ -44,9 +44,8 @@ class FeatureToggle:
     the engine is the source of whether a toggle has the publication of
     impression events enabled.
 
-    `False` means that the SDK should not emit impression events. It also means
-    the engine could not be asked, either because the lookup itself failed or
-    because an earlier step of the evaluation did."""
+    `False` means that the SDK should not emit impression events. It is also
+    `False` when the evaluation failed."""
 
     def __init__(
         self,
@@ -104,8 +103,8 @@ class FeatureVariant:
     variant: Variant
     """The variant the toggle resolved to for the given context.
 
-    `get_variant` hands back the disabled variant when the engine did not know
-    the toggle, or when the evaluation failed. Note that a known toggle can
+    `get_variant` and `check_variant` hand back the disabled variant when the
+    engine did not know the toggle, or when the evaluation failed. Note that a known toggle can
     resolve to a variant that looks exactly like it, so read `is_found` to tell
     the two apart.
     """
@@ -125,9 +124,8 @@ class FeatureVariant:
     the engine is the source of whether a toggle has the publication of
     impression events enabled.
 
-    `False` means that the SDK should not emit impression events. It also means
-    the engine could not be asked, either because the lookup itself failed or
-    because an earlier step of the evaluation did."""
+    `False` means that the SDK should not emit impression events. It is also
+    `False` when the evaluation failed."""
 
 
 @dataclass
@@ -169,10 +167,14 @@ class PyO3UnleashEngine:
     ) -> FeatureToggle:
         """Ask whether a feature is enabled, and record the query.
 
+        This records the evaluation against the engine's metrics, so the toggle
+        shows up in the next `get_metrics()` payload.
+
         `fallback_function` is consulted only when the engine does not know the
         toggle; its answer sets `is_enabled` but leaves `is_found` at `False`.
 
-        Never raises: whatever fails, the caller gets the disabled toggle.
+        Never raises, and answers all or nothing: whatever fails, the caller
+        gets the disabled toggle rather than a half built answer.
         """
         try:
             custom_strategy_results = (
@@ -217,8 +219,6 @@ class PyO3UnleashEngine:
         Never raises, and answers all or nothing: whatever fails, the caller
         gets the disabled variant rather than a half built answer.
         """
-        ## One native call evaluates, looks up the impression flag and
-        ## records the toggle and the variant (unknown toggles as disabled)
         return self._query_variant(self._native.get_variant, toggle_name, context)
 
     def check_variant(
@@ -227,11 +227,16 @@ class PyO3UnleashEngine:
         """Ask which variant a feature resolves to, without recording the query.
 
         The answer matches `get_variant`, but neither the toggle nor the
-        variant is counted towards the engine's metrics. Impression events are
-        not part of that difference: `requires_impression_event_emission`
-        carries the same answer it would under `get_variant`.
+        variant is counted towards the engine's metrics, so neither shows up in
+        the next `get_metrics()` payload. Reach for `get_variant` when the
+        query is a real feature check that should be reported back to Unleash.
 
-        Never raises: whatever fails, the caller gets the disabled variant.
+        Impression events are not part of that difference:
+        `requires_impression_event_emission` carries the same answer it would
+        under `get_variant`.
+
+        Never raises, and answers all or nothing: whatever fails, the caller
+        gets the disabled variant rather than a half built answer.
         """
         return self._query_variant(self._native.check_variant, toggle_name, context)
 
@@ -283,6 +288,9 @@ class PyO3UnleashEngine:
                 exc_info=True,
             )
             return result
+
+    def count_toggle(self, toggle_name: str, enabled: bool) -> None:
+        self._native.count_toggle(toggle_name, enabled)
 
     def get_metrics(self) -> Optional[dict[str, Any]]:
         metrics = self._native.get_metrics()
