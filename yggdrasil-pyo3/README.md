@@ -7,8 +7,7 @@ yet.
 So far it only `take_state` and `is_enabled` are implemented.
 
 - `src/`: the Rust part, compiled into the Python module `yggdrasil_pyo3.yggdrasil_native`
-  - `engine.rs`: the engine logic (plain Rust, no PyO3)
-  - `lib.rs`: the Python glue
+  - `lib.rs`: the Python glue around the core engine
 - `python/yggdrasil_pyo3/`: the Python package
 - `tests/`: python tests
 

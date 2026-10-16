@@ -1,22 +1,20 @@
-//! PyO3 engine for Python, built temporarily next to the ctypes engine in
-//! `yggdrasil_engine.engine`.
-//!
-//! reads the context from a Python dict and exposes the engine to Python. The engine logic itself is in `engine`
-
-pub mod engine;
+//! PyO3 engine for Python
 
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
 use std::panic::{self, AssertUnwindSafe};
 
+use chrono::Utc;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString, PyTuple};
-use unleash_yggdrasil::{Context, ExtendedVariantDef, CORE_VERSION};
-
-use crate::engine::Engine;
+use unleash_yggdrasil::impact_metrics::{BucketMetricOptions, CollectedMetric, MetricOptions};
+use unleash_yggdrasil::state::EnrichedContext;
+use unleash_yggdrasil::{
+    Context, EngineState, ExtendedVariantDef, UpdateMessage, VariantDef, CORE_VERSION,
+};
 
 #[derive(Debug)]
 enum EngineError {
@@ -58,7 +56,7 @@ type VariantTuple<'py> = (String, Option<Bound<'py, PyDict>>, bool, bool);
 
 #[pyclass(frozen)]
 struct NativeEngine {
-    engine: Engine,
+    state: EngineState,
 }
 
 #[pymethods]
@@ -66,16 +64,15 @@ impl NativeEngine {
     #[new]
     fn new() -> Self {
         NativeEngine {
-            engine: Engine::default(),
+            state: EngineState::default(),
         }
     }
 
     fn take_state(&self, state_json: &str) -> PyResult<Option<String>> {
         let warnings = guard(|| {
-            Ok(self
-                .engine
-                .take_state(state_json)
-                .map_err(EngineError::from)?)
+            let message: UpdateMessage =
+                serde_json::from_str(state_json).map_err(EngineError::from)?;
+            Ok(self.state.take_state(message))
         })?;
         Ok(warnings.filter(|w| !w.is_empty()).map(|warnings| {
             warnings
@@ -99,9 +96,17 @@ impl NativeEngine {
     ) -> PyResult<(Option<bool>, bool)> {
         guard(|| {
             let context = context_from_dict(context)?;
-            Ok(self
-                .engine
-                .is_enabled(toggle_name, &context, custom_strategy_results.as_ref()))
+            let engine = &self.state;
+            let enabled = engine.check_enabled(&EnrichedContext::from(
+                &context,
+                toggle_name,
+                custom_strategy_results.as_ref(),
+            ));
+            let impression = engine.should_emit_impression_event(toggle_name);
+            if let Some(enabled) = enabled {
+                engine.count_toggle(toggle_name, enabled);
+            }
+            Ok((enabled, impression))
         })
     }
     /// Resolves a toggle's variant and looks up whether it requires an
@@ -119,9 +124,12 @@ impl NativeEngine {
         guard(|| {
             let py = context.py();
             let context = context_from_dict(context)?;
-            let (variant, impression) =
-                self.engine
-                    .check_variant(toggle_name, &context, custom_strategy_results.as_ref());
+            let (variant, impression) = resolve_variant(
+                &self.state,
+                toggle_name,
+                &context,
+                custom_strategy_results.as_ref(),
+            );
             Ok((variant_to_tuple(py, variant)?, impression))
         })
     }
@@ -138,22 +146,36 @@ impl NativeEngine {
         guard(|| {
             let py = context.py();
             let context = context_from_dict(context)?;
-            let (variant, impression) =
-                self.engine
-                    .get_variant(toggle_name, &context, custom_strategy_results.as_ref());
+            let engine = &self.state;
+            let (variant, impression) = resolve_variant(
+                engine,
+                toggle_name,
+                &context,
+                custom_strategy_results.as_ref(),
+            );
+            let disabled;
+            let (feature_enabled, variant_name) = match &variant {
+                Some(variant) => (variant.feature_enabled, variant.name.as_str()),
+                None => {
+                    disabled = VariantDef::default();
+                    (false, disabled.name.as_str())
+                }
+            };
+            engine.count_toggle(toggle_name, feature_enabled);
+            engine.count_variant(toggle_name, variant_name);
             Ok((variant_to_tuple(py, variant)?, impression))
         })
     }
 
     fn count_toggle(&self, toggle_name: &str, enabled: bool) -> PyResult<()> {
         guard(|| {
-            self.engine.count_toggle(toggle_name, enabled);
+            self.state.count_toggle(toggle_name, enabled);
             Ok(())
         })
     }
 
     fn get_metrics(&self) -> PyResult<Option<String>> {
-        let Some(bucket) = guard(|| Ok(self.engine.get_metrics()))? else {
+        let Some(bucket) = guard(|| Ok(self.state.get_metrics(Utc::now())))? else {
             return Ok(None);
         };
         serde_json::to_string(&bucket)
@@ -162,12 +184,12 @@ impl NativeEngine {
     }
 
     fn get_state(&self) -> PyResult<String> {
-        serde_json::to_string(&guard(|| Ok(self.engine.get_state()))?)
+        serde_json::to_string(&guard(|| Ok(self.state.get_state()))?)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     fn list_known_toggles(&self) -> PyResult<Vec<(String, String, Option<String>)>> {
-        Ok(guard(|| Ok(self.engine.list_known_toggles()))?
+        Ok(guard(|| Ok(self.state.list_known_toggles()))?
             .into_iter()
             .map(|toggle| (toggle.name, toggle.project, toggle.feature_type))
             .collect())
@@ -175,7 +197,7 @@ impl NativeEngine {
 
     fn define_counter(&self, name: &str, help: &str) -> PyResult<()> {
         guard(|| {
-            self.engine.define_counter(name, help);
+            self.state.define_counter(MetricOptions::new(name, help));
             Ok(())
         })
     }
@@ -187,14 +209,19 @@ impl NativeEngine {
         labels: Option<HashMap<String, String>>,
     ) -> PyResult<()> {
         guard(|| {
-            self.engine.inc_counter(name, value, labels.as_ref());
+            match labels {
+                Some(labels) if !labels.is_empty() => {
+                    self.state.inc_counter_with_labels(name, value, &labels)
+                }
+                _ => self.state.inc_counter_by(name, value),
+            }
             Ok(())
         })
     }
 
     fn define_gauge(&self, name: &str, help: &str) -> PyResult<()> {
         guard(|| {
-            self.engine.define_gauge(name, help);
+            self.state.define_gauge(MetricOptions::new(name, help));
             Ok(())
         })
     }
@@ -206,15 +233,23 @@ impl NativeEngine {
         labels: Option<HashMap<String, String>>,
     ) -> PyResult<()> {
         guard(|| {
-            self.engine.set_gauge(name, value, labels.as_ref());
+            match labels {
+                Some(labels) if !labels.is_empty() => {
+                    self.state.set_gauge_with_labels(name, value, &labels)
+                }
+                _ => self.state.set_gauge(name, value),
+            }
             Ok(())
         })
     }
 
     fn define_histogram(&self, name: &str, help: &str, buckets: Option<Vec<f64>>) -> PyResult<()> {
         guard(|| {
-            self.engine
-                .define_histogram(name, help, buckets.unwrap_or_default());
+            self.state.define_histogram(BucketMetricOptions::new(
+                name,
+                help,
+                buckets.unwrap_or_default(),
+            ));
             Ok(())
         })
     }
@@ -226,24 +261,43 @@ impl NativeEngine {
         labels: Option<HashMap<String, String>>,
     ) -> PyResult<()> {
         guard(|| {
-            self.engine.observe_histogram(name, value, labels.as_ref());
+            match labels {
+                Some(labels) if !labels.is_empty() => self
+                    .state
+                    .observe_histogram_with_labels(name, value, &labels),
+                _ => self.state.observe_histogram(name, value),
+            }
             Ok(())
         })
     }
 
     fn collect_impact_metrics(&self) -> PyResult<String> {
-        serde_json::to_string(&guard(|| Ok(self.engine.collect_impact_metrics()))?)
+        serde_json::to_string(&guard(|| Ok(self.state.collect_impact_metrics()))?)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     fn restore_impact_metrics(&self, metrics_json: &str) -> PyResult<()> {
         guard(|| {
-            Ok(self
-                .engine
-                .restore_impact_metrics(metrics_json)
-                .map_err(EngineError::from)?)
+            let metrics: Vec<CollectedMetric> =
+                serde_json::from_str(metrics_json).map_err(EngineError::from)?;
+            self.state.restore_impact_metrics(metrics);
+            Ok(())
         })
     }
+}
+
+fn resolve_variant(
+    engine: &EngineState,
+    toggle_name: &str,
+    context: &Context,
+    custom_strategy_results: Option<&HashMap<String, bool>>,
+) -> (Option<ExtendedVariantDef>, bool) {
+    let context = EnrichedContext::from(context, toggle_name, custom_strategy_results);
+    let variant = engine.check_variant(&context).map(|variant| {
+        let enabled = engine.check_enabled(&context).unwrap_or_default();
+        variant.to_enriched_response(enabled)
+    });
+    (variant, engine.should_emit_impression_event(toggle_name))
 }
 
 fn variant_to_tuple<'py>(

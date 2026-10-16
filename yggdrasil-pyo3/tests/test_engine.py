@@ -898,6 +898,12 @@ def test_get_variant_does_not_count_when_engine_errors():
     assert engine.get_metrics() is None
 
 
+def test_take_state_returns_no_warnings_for_a_valid_state():
+    engine = PyO3UnleashEngine()
+
+    assert engine.take_state(_toggle_state("testFeature", True)) is None
+
+
 def test_get_state_and_roundtrip():
     """Test get_state returns valid JSON and supports roundtrip"""
     engine = PyO3UnleashEngine()
@@ -944,6 +950,27 @@ def test_list_known_toggles():
     assert first_toggle == FeatureDefinition(
         name="Feature.A", project="default", type=None
     )
+
+
+def test_list_known_toggles_includes_the_project_and_type():
+    engine = PyO3UnleashEngine()
+    state = {
+        "version": 1,
+        "features": [
+            {
+                "name": "some-toggle",
+                "type": "release",
+                "project": "some-project",
+                "enabled": True,
+                "strategies": [{"name": "default"}],
+            }
+        ],
+    }
+    engine.take_state(json.dumps(state))
+
+    assert engine.list_known_toggles() == [
+        FeatureDefinition(name="some-toggle", project="some-project", type="release")
+    ]
 
 
 def test_list_empty_toggles_yields_empty_list():
@@ -1051,6 +1078,14 @@ def test_check_variant_does_not_count_the_toggle_or_the_variant():
     metrics = engine.get_metrics()
     assert metrics["toggles"]["testFeature"]["yes"] == 1
     assert metrics["toggles"]["testFeature"]["variants"] == {"sourDough": 1}
+
+
+def test_check_variant_does_not_count_an_unknown_toggle():
+    engine = PyO3UnleashEngine()
+
+    engine.check_variant("nonExistentFeature", {})
+
+    assert engine.get_metrics() is None
 
 
 def test_check_variant_reports_impression_event_when_toggle_has_impression_data():
