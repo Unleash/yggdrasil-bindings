@@ -46,12 +46,11 @@ impl From<EngineError> for PyErr {
     }
 }
 
+/// Turns a panic into a `ValueError`
 fn guard<T>(action: impl FnOnce() -> PyResult<T>) -> PyResult<T> {
     panic::catch_unwind(AssertUnwindSafe(action)).unwrap_or_else(|_| Err(EngineError::Panic.into()))
 }
 
-/// A variant as `NativeEngine.get_variant` hands it to Python:
-/// `(name, payload, enabled, feature_enabled)`
 type VariantTuple<'py> = (String, Option<Bound<'py, PyDict>>, bool, bool);
 
 #[pyclass(frozen)]
@@ -85,8 +84,8 @@ impl NativeEngine {
 
     /// Evaluates a toggle, looks up whether it requires an impression event,
     /// and records a known toggle in the metrics. Returns
-    /// `(enabled, requires_impression_event)`, with `enabled` `None` for an
-    /// unknown toggle, which isn't recorded (see `count_toggle`)
+    /// `(enabled, impression)`, with `enabled` `None` for an
+    /// unknown toggle, which isn't recorded
     #[pyo3(signature = (toggle_name, context, custom_strategy_results=None))]
     fn is_enabled(
         &self,
@@ -109,6 +108,7 @@ impl NativeEngine {
             Ok((enabled, impression))
         })
     }
+
     /// Resolves a toggle's variant and looks up whether it requires an
     /// impression event, without recording anything. Returns
     /// `(variant, requires_impression_event)`, with `variant` `None` for an
@@ -389,6 +389,7 @@ fn context_from_dict(dict: &Bound<'_, PyDict>) -> PyResult<Context> {
     }
 
     // Unknown top-level strings move into properties; other values are dropped
+    // This is to support some legacy behavior in the Python SDK that's hard to remove.
     for (key, value) in dict.iter() {
         let key = match key.cast::<PyString>() {
             Ok(key) => key.to_cow()?,
@@ -419,8 +420,8 @@ fn context_from_dict(dict: &Bound<'_, PyDict>) -> PyResult<Context> {
     })
 }
 
-/// Strings, numbers and bools become strings, as in the core's JSON parsing;
-/// anything else has no usable value
+/// Strings, numbers and bools become strings; other values give `None`, or
+/// an error when `json.dumps` would refuse them
 fn value_to_string(value: &Bound<'_, PyAny>) -> PyResult<Option<String>> {
     if let Ok(value) = value.cast::<PyString>() {
         return Ok(Some(value.to_cow()?.into_owned()));
@@ -443,7 +444,6 @@ fn value_to_string(value: &Bound<'_, PyAny>) -> PyResult<Option<String>> {
     Ok(None)
 }
 
-/// Dict keys become strings the way `json.dumps` turns them into JSON keys
 fn key_to_string(key: &Bound<'_, PyAny>) -> PyResult<String> {
     if let Ok(key) = key.cast::<PyString>() {
         return Ok(key.to_cow()?.into_owned());
@@ -459,8 +459,6 @@ fn key_to_string(key: &Bound<'_, PyAny>) -> PyResult<String> {
     }
 }
 
-/// Fails for values `json.dumps` would refuse, so both engines fail on the
-/// same contexts
 fn check_encodable(value: &Bound<'_, PyAny>) -> PyResult<()> {
     if value.is_none()
         || value.is_instance_of::<PyString>()
@@ -480,11 +478,9 @@ fn check_encodable(value: &Bound<'_, PyAny>) -> PyResult<()> {
     }
 }
 
-/// Test helper, only with the `test-helpers` feature: the `Context` our reader
-/// makes from a dict, as JSON. With `context_from_json`, lets the tests check
-/// that `context_from_dict` keeps the same rules as unleash-types (it copies
-/// them). `is_enabled` only returns the answer, not the `Context`
-/// not used by the engine, not in the shipped wheel
+/// Test helper, only with the `test-helpers` feature: the `Context` our
+/// reader makes from a dict, as JSON. Not used by the engine, not in the
+/// shipped wheel
 #[cfg(feature = "test-helpers")]
 #[pyfunction]
 #[pyo3(name = "context_from_dict")]
@@ -494,7 +490,7 @@ fn context_from_dict_as_json(context: &Bound<'_, PyDict>) -> PyResult<String> {
 }
 
 /// Test helper, only with the `test-helpers` feature: the `Context`
-/// unleash-types makes from JSON (its own rules, `Context::from_map`), as JSON.
+/// unleash-types makes from JSON (its own rules, `Context::from_map`), as JSON
 #[cfg(feature = "test-helpers")]
 #[pyfunction]
 #[pyo3(name = "context_from_json")]

@@ -661,7 +661,8 @@ def test_get_variant_reports_found_for_a_known_but_disabled_toggle():
     result = engine.get_variant("disabledFeature", {})
 
     ## A disabled toggle resolves to a variant that looks exactly like the
-    ## substituted one, so is_found must come from the engine's status code
+    ## substituted one, so is_found must come from whether the engine knows
+    ## the toggle
     assert result.variant == disabled_variant()
     assert result.is_found is True
 
@@ -1016,7 +1017,8 @@ def test_check_variant_reports_found_for_a_known_but_disabled_toggle():
     result = engine.check_variant("disabledFeature", {})
 
     ## A disabled toggle resolves to a variant that looks exactly like the
-    ## substituted one, so is_found must come from the engine's status code
+    ## substituted one, so is_found must come from whether the engine knows
+    ## the toggle
     assert result.variant == disabled_variant()
     assert result.is_found is True
 
