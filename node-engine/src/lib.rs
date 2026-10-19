@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use unleash_yggdrasil::{
     state::{EnrichedContext, ExternalResultsRef, PropertiesRef},
-    EngineState, UpdateMessage, VariantDef,
+    EngineState, ExtendedVariantDef, UpdateMessage,
 };
 use wasm_bindgen::prelude::*;
 
@@ -26,8 +26,7 @@ pub struct EnabledResult {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VariantResult {
-    pub variant: Option<VariantDef>,
-    pub feature_enabled: bool,
+    pub variant: Option<ExtendedVariantDef>,
     pub impression_data: bool,
 }
 
@@ -218,7 +217,12 @@ impl NodeEngine {
             engine.count_variant(context.toggle_name, &variant.name);
         }
 
-        serde_wasm_bindgen::to_value(&variant).map_err(|err| JsError::new(&err.to_string()))
+        let variant_result = VariantResult {
+            variant,
+            impression_data: engine.should_emit_impression_event(context.toggle_name),
+        };
+
+        serde_wasm_bindgen::to_value(&variant_result).map_err(|err| JsError::new(&err.to_string()))
     }
 
     #[wasm_bindgen(js_name = count)]
