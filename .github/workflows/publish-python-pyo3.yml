@@ -7,10 +7,6 @@ on:
         description: "Build and test only: no upload to PyPI, no tag"
         type: boolean
         default: true
-  ## TEMPORARY, REMOVE BEFORE MERGING
-  push:
-    branches:
-      - feat/python-engine-pyo3-packaging
 
 jobs:
   build-wheels:
