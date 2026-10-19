@@ -21,15 +21,11 @@
 /php-engine/unleash_engine.h
 /php-engine/libyggdrasilffi.so
 /ruby-engine/lib/libyggdrasilffi*.*
-/python-engine/yggdrasil_engine/lib/
 /python-engine/dist
-/python-engine/.tox
-/python-engine/binaries
-/python-engine/staging
 /python-engine/.python-version
-/yggdrasil-pyo3/.venv
-/yggdrasil-pyo3/python/yggdrasil_pyo3/*.so
-/yggdrasil-pyo3/python/yggdrasil_pyo3/*.pyd
+/python-engine/.venv
+/python-engine/python/yggdrasil_engine/*.so
+/python-engine/python/yggdrasil_engine/*.pyd
 
 
 # Devenv

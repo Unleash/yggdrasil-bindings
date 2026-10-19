@@ -3,10 +3,16 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
-from yggdrasil_pyo3.custom_strategy import CustomStrategyHandler
-from yggdrasil_pyo3.yggdrasil_native import NativeEngine  # type: ignore
+from yggdrasil_engine.custom_strategy import CustomStrategyHandler
+from yggdrasil_engine.yggdrasil_native import NativeEngine, core_version  # type: ignore
 
 _logger = logging.getLogger(__name__)
+
+_NativeVariant = tuple[str, Optional[dict[str, str]], bool, bool]
+_NativeVariantQuery = Callable[
+    [str, dict[str, Any], Optional[dict[str, bool]]],
+    tuple[Optional[_NativeVariant], bool],
+]
 
 
 @dataclass(init=False)
@@ -38,9 +44,8 @@ class FeatureToggle:
     the engine is the source of whether a toggle has the publication of
     impression events enabled.
 
-    `False` means that the SDK should not emit impression events. It also means
-    the engine could not be asked, either because the lookup itself failed or
-    because an earlier step of the evaluation did."""
+    `False` means that the SDK should not emit impression events. It is also
+    `False` when the evaluation failed."""
 
     def __init__(
         self,
@@ -98,8 +103,8 @@ class FeatureVariant:
     variant: Variant
     """The variant the toggle resolved to for the given context.
 
-    `get_variant` hands back the disabled variant when the engine did not know
-    the toggle, or when the evaluation failed. Note that a known toggle can
+    `get_variant` and `check_variant` hand back the disabled variant when the
+    engine did not know the toggle, or when the evaluation failed. Note that a known toggle can
     resolve to a variant that looks exactly like it, so read `is_found` to tell
     the two apart.
     """
@@ -119,15 +124,27 @@ class FeatureVariant:
     the engine is the source of whether a toggle has the publication of
     impression events enabled.
 
-    `False` means that the SDK should not emit impression events. It also means
-    the engine could not be asked, either because the lookup itself failed or
-    because an earlier step of the evaluation did."""
+    `False` means that the SDK should not emit impression events. It is also
+    `False` when the evaluation failed."""
 
 
-class PyO3UnleashEngine:
-    """The engine on top of the compiled PyO3 module. So far only `take_state`,
-    `is_enabled`, `get_variant`, `count_toggle` and `get_metrics`.
+@dataclass
+class FeatureDefinition:
+    name: str
+    project: str
+    type: Optional[str]
+
+
+class UnleashEngine:
+    """The engine on top of the compiled PyO3 module, with the methods the SDK
+    uses.
     """
+
+    @staticmethod
+    def get_core_version() -> str:
+        """The version of the Yggdrasil core this engine runs, read from the
+        compiled module, so it always matches the binary in use."""
+        return core_version()
 
     def __init__(self):
         self._native = NativeEngine()
@@ -150,10 +167,14 @@ class PyO3UnleashEngine:
     ) -> FeatureToggle:
         """Ask whether a feature is enabled, and record the query.
 
+        This records the evaluation against the engine's metrics, so the toggle
+        shows up in the next `get_metrics()` payload.
+
         `fallback_function` is consulted only when the engine does not know the
         toggle; its answer sets `is_enabled` but leaves `is_found` at `False`.
 
-        Never raises: whatever fails, the caller gets the disabled toggle.
+        Never raises, and answers all or nothing: whatever fails, the caller
+        gets the disabled toggle rather than a half built answer.
         """
         try:
             custom_strategy_results = (
@@ -192,19 +213,46 @@ class PyO3UnleashEngine:
 
         This records both the toggle and the resolved variant against the
         engine's metrics, so they show up in the next `get_metrics()` payload.
+        Use `check_variant` to ask the same question without recording it; both
+        report impression events the same way.
 
         Never raises, and answers all or nothing: whatever fails, the caller
         gets the disabled variant rather than a half built answer.
         """
+        return self._query_variant(self._native.get_variant, toggle_name, context)
+
+    def check_variant(
+        self, toggle_name: str, context: dict[str, Any]
+    ) -> FeatureVariant:
+        """Ask which variant a feature resolves to, without recording the query.
+
+        The answer matches `get_variant`, but neither the toggle nor the
+        variant is counted towards the engine's metrics, so neither shows up in
+        the next `get_metrics()` payload. Reach for `get_variant` when the
+        query is a real feature check that should be reported back to Unleash.
+
+        Impression events are not part of that difference:
+        `requires_impression_event_emission` carries the same answer it would
+        under `get_variant`.
+
+        Never raises, and answers all or nothing: whatever fails, the caller
+        gets the disabled variant rather than a half built answer.
+        """
+        return self._query_variant(self._native.check_variant, toggle_name, context)
+
+    def _query_variant(
+        self,
+        native_query: _NativeVariantQuery,
+        toggle_name: str,
+        context: dict[str, Any],
+    ) -> FeatureVariant:
         try:
             custom_strategy_results = (
                 self.custom_strategy_handler.evaluate_custom_strategies(
                     toggle_name, context
                 )
             )
-            ## One native call evaluates, looks up the impression flag and
-            ## records the toggle and the variant (unknown toggles as disabled)
-            variant, impression = self._native.get_variant(
+            variant, impression = native_query(
                 toggle_name, context or {}, custom_strategy_results
             )
             if variant is None:
@@ -247,3 +295,44 @@ class PyO3UnleashEngine:
     def get_metrics(self) -> Optional[dict[str, Any]]:
         metrics = self._native.get_metrics()
         return None if metrics is None else json.loads(metrics)
+
+    def get_state(self) -> str:
+        return self._native.get_state()
+
+    def list_known_toggles(self) -> list[FeatureDefinition]:
+        return [
+            FeatureDefinition(name=name, project=project, type=type_)
+            for name, project, type_ in self._native.list_known_toggles()
+        ]
+
+    def define_counter(self, name: str, help_text: str) -> None:
+        self._native.define_counter(name, help_text)
+
+    def inc_counter(
+        self, name: str, value: int = 1, labels: Optional[dict[str, str]] = None
+    ) -> None:
+        self._native.inc_counter(name, value, labels)
+
+    def define_gauge(self, name: str, help_text: str) -> None:
+        self._native.define_gauge(name, help_text)
+
+    def set_gauge(
+        self, name: str, value: float, labels: Optional[dict[str, str]] = None
+    ) -> None:
+        self._native.set_gauge(name, value, labels)
+
+    def define_histogram(
+        self, name: str, help_text: str, buckets: Optional[list[float]] = None
+    ) -> None:
+        self._native.define_histogram(name, help_text, buckets)
+
+    def observe_histogram(
+        self, name: str, value: float, labels: Optional[dict[str, str]] = None
+    ) -> None:
+        self._native.observe_histogram(name, value, labels)
+
+    def collect_impact_metrics(self) -> list[dict[str, Any]]:
+        return json.loads(self._native.collect_impact_metrics())
+
+    def restore_impact_metrics(self, metrics: list[dict[str, Any]]) -> None:
+        self._native.restore_impact_metrics(json.dumps(metrics))

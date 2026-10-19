@@ -163,6 +163,14 @@ The FFI library is automatically built on running tests but you'll need to make 
 ./gradlew test
 ```
 
+### Benchmarks
+
+Run the JMH `isEnabled` throughput benchmarks from this directory:
+
+```bash
+./gradlew jmh
+```
+
 ### FlatBuffer Bindings
 
 The Java engine uses FlatBuffers for communication with the engine core. If you make changes to the data interchange format, regenerate the bindings like this:

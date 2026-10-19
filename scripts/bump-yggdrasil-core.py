@@ -12,6 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+PRERELEASE_RE = re.compile(r"^(\d+\.\d+\.\d+(?:a|b|rc))(0|[1-9]\d*)$")
 
 
 @dataclass(frozen=True)
@@ -52,6 +53,11 @@ YGGDRASIL_DEP_FIELDS = [
         r'(unleash-yggdrasil\s*=\s*\{\s*version\s*=\s*")([^"]+)(")',
         "WASM Yggdrasil dependency",
     ),
+    VersionField(
+        Path("python-engine/Cargo.toml"),
+        r'(unleash-yggdrasil\s*=\s*\{\s*version\s*=\s*")([^"]+)(")',
+        "Python Yggdrasil dependency",
+    ),
 ]
 
 
@@ -60,11 +66,6 @@ BINDING_ARTIFACT_FIELDS = [
         Path("java-engine/gradle.properties"),
         r"^(yggdrasilCoreVersion=)(.+)()$",
         "Java FFI artifact",
-    ),
-    VersionField(
-        Path("python-engine/yggdrasil_engine/__init__.py"),
-        r'^(__yggdrasil_core_version__\s*=\s*")([^"]+)(")$',
-        "Python FFI artifact",
     ),
     VersionField(
         Path("ruby-engine/yggdrasil-engine.gemspec"),
@@ -111,6 +112,9 @@ def parse_semver(version: str) -> tuple[int, int, int]:
 
 
 def patch_bump(version: str) -> str:
+    prerelease = PRERELEASE_RE.match(version)
+    if prerelease:
+        return f"{prerelease.group(1)}{int(prerelease.group(2)) + 1}"
     major, minor, patch = parse_semver(version)
     return f"{major}.{minor}.{patch + 1}"
 
@@ -208,9 +212,9 @@ def plan(target_yggdrasil_version: str) -> list[tuple[str, str, str]]:
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Update the upstream Yggdrasil dependency, patch-bump yggdrasilffi, "
-            "point Java, Python, Ruby, and .NET at the new FFI artifact, and "
-            "patch-bump those package versions."
+            "Update the upstream Yggdrasil dependency, patch-bump yggdrasilffi, point Java, Ruby, and .NET at "
+            "the new FFI artifact, and patch-bump the Java, Python, Ruby, and "
+            ".NET package versions."
         )
     )
     parser.add_argument(

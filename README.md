@@ -43,7 +43,7 @@ provides Rust and the GitHub CLI, wired up through direnv via `.envrc`.
 | Java       | JDK 21, Gradle wrapper (`./gradlew`)                 |
 | .NET       | `dotnet` SDK; targets `netstandard2.0` and `net6.0`  |
 | Ruby       | Ruby 3.2, Bundler, RSpec                             |
-| Python     | [Poetry](https://python-poetry.org/) (not pip or uv) |
+| Python     | Python 3.10+, Rust, [maturin](https://www.maturin.rs/) |
 | JavaScript | [Bun](https://bun.sh/)                               |
 | Go         | Go 1.18+, cgo                                        |
 | PHP        | Composer, PHPUnit, the FFI extension                 |
@@ -96,9 +96,10 @@ These have both a build workflow and a publish workflow.
 | [Python](python-engine/README.md)         | `yggdrasil-engine`               | PyPI          | 1.3.1        |
 | [JavaScript](javascript-engine/README.md) | `@unleash/yggdrasil-engine`      | npm           | 0.0.1-beta.2 |
 
-JavaScript is the odd one out: it binds to the WebAssembly build via the npm
-package `@unleash/yggdrasil-wasm`, not to the FFI, and is the only binding whose
-CI does not compile the Rust FFI.
+JavaScript and Python don't use the FFI. JavaScript binds to the WebAssembly
+build via the npm package `@unleash/yggdrasil-wasm`. Python compiles the
+Yggdrasil core into its own PyO3 extension module (`python-engine/`), built per
+platform with maturin.
 
 ### In-repo, unsupported
 
@@ -148,14 +149,16 @@ version fails.
 
 A run makes four kinds of change:
 
-1. Sets the `unleash-yggdrasil` pin to the given version in **three** manifests:
-   `yggdrasilffi/Cargo.toml`, `pure-wasm/Cargo.toml`, `yggdrasilwasm/Cargo.toml`.
+1. Sets the `unleash-yggdrasil` pin to the given version in **four** manifests:
+   `yggdrasilffi/Cargo.toml`, `pure-wasm/Cargo.toml`, `yggdrasilwasm/Cargo.toml`,
+   `python-engine/Cargo.toml`.
 2. **Patch-bumps `yggdrasilffi`'s own package version** in `yggdrasilffi/Cargo.toml`.
-3. Points the four FFI artifact fields at that new FFI version — `yggdrasilCoreVersion`
-   in `java-engine/gradle.properties`, `__yggdrasil_core_version__` in
-   `python-engine/yggdrasil_engine/__init__.py`, `yggdrasil_core_version` in the
-   Ruby gemspec metadata, and `<YggdrasilCoreVersion>` in the .NET csproj.
-4. Patch-bumps the Java, Python, Ruby and .NET package versions.
+3. Points the three FFI artifact fields at that new FFI version — `yggdrasilCoreVersion`
+   in `java-engine/gradle.properties`, `yggdrasil_core_version` in the Ruby gemspec
+   metadata, and `<YggdrasilCoreVersion>` in the .NET csproj
+4. Patch-bumps the Java, Python, Ruby and .NET package versions. A pre-release
+   gets its next pre-release number instead
+   moving it to the final version is done manually.
 
 It does not touch `javascript-engine`, `go-engine` or `php-engine`.
 
@@ -185,6 +188,10 @@ Dispatch the relevant workflow: `Publish Java`, `Publish .NET`, `Publish Ruby`,
 `gh release download "yggdrasilffi-v$CORE_VERSION"` to fetch the binaries from
 stage 1, publishes to its registry, and tags the repo `<lang>-engine-v<version>`.
 
+`Publish Python` is the odd one out: it doesn't need stage 1. It builds the wheels
+from `python-engine/` itself, tests each on its platform, and publishes only if all
+pass (see `python-engine/README.md`).
+
 ## CI
 
 | Workflow                       | File                       | Triggers on                                                          |
@@ -193,7 +200,7 @@ stage 1, publishes to its registry, and tags the repo `<lang>-engine-v<version>`
 | Java build                     | `build-java.yaml`          | `java-engine` Java sources and `build.gradle.kts`                    |
 | .NET Build                     | `build-dotnet.yaml`        | `dotnet-engine/**`                                                   |
 | Ruby build                     | `build-ruby.yml`           | `ruby-engine/**`, `yggdrasilffi/**`, `Cargo.toml`                    |
-| Python build                   | `build-python.yml`         | `python-engine/**`, `yggdrasilffi/**`, `Cargo.toml`                  |
+| Python build                   | `build-python.yml`         | `python-engine/**`                                                   |
 | Build JavaScript               | `build-javascript.yml`     | `javascript-engine/**`                                               |
 | Build Rust binaries            | `build-rust-binaries.yaml` | Manual dispatch; the release build matrix without the release        |
 
