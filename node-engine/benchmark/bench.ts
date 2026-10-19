@@ -1,13 +1,13 @@
 import { Bench } from 'tinybench'
 
-import { Wrapper } from '../lib/wrapper.js'
+import { UnleashEngine } from '../lib/unleash-engine.js'
 
 const b = new Bench({
   time: 1_000,
   warmupTime: 500,
 })
 
-const engine = new Wrapper()
+const engine = new UnleashEngine()
 const TOGGLE_NAME = 'bench-toggle';
 const CONTEXT = { userId: 'bench-user' };
 
@@ -28,7 +28,7 @@ const bootstrap = {
 
 engine.takeState(JSON.stringify(bootstrap))
 
-b.add('Wrapper.isEnabled', () => {
+b.add('UnleashEngine.isEnabled', () => {
   engine.isEnabled(TOGGLE_NAME, CONTEXT)
 })
 

@@ -11,7 +11,7 @@ use unleash_yggdrasil::{
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub struct NodeEngine {
+pub struct WasmInterface {
     inner: Option<EngineState>,
 }
 
@@ -120,14 +120,14 @@ impl OwnedContext {
     }
 }
 
-impl Default for NodeEngine {
+impl Default for WasmInterface {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[wasm_bindgen]
-impl NodeEngine {
+impl WasmInterface {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         Self {

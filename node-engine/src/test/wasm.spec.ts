@@ -1,9 +1,9 @@
 import { expect, test } from 'vitest'
 
-import { Wrapper } from '../..'
+import { UnleashEngine } from '../..'
 
 test('evaluates context properties and keeps the feature name separate', () => {
-  const engine = new Wrapper()
+  const engine = new UnleashEngine()
   try {
     engine.takeState(
       JSON.stringify({
@@ -36,7 +36,7 @@ test('evaluates context properties and keeps the feature name separate', () => {
 })
 
 test('supports random rollout and the current time in WASM', () => {
-  const engine = new Wrapper()
+  const engine = new UnleashEngine()
   try {
     engine.takeState(
       JSON.stringify({
@@ -64,7 +64,7 @@ test('supports random rollout and the current time in WASM', () => {
 })
 
 test('throws for invalid state and rejects calls after freeing the engine', () => {
-  const engine = new Wrapper()
+  const engine = new UnleashEngine()
   try {
     expect(() => engine.takeState('invalid JSON')).toThrow(/Failed to parse client features/)
   } finally {

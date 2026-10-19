@@ -39,7 +39,7 @@ run(bindgen, [
   '--out-dir',
   'wasm',
   '--out-name',
-  'node_engine',
+  'wasm-interface',
 ])
 const typescriptPackage = require.resolve('typescript/package.json')
 const tsc = join(dirname(typescriptPackage), require(typescriptPackage).bin.tsc)

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { Wrapper } from '../..'
+import { UnleashEngine } from '../..'
 
 const smokeTestState = {
   "version": 1,
@@ -17,7 +17,7 @@ const smokeTestState = {
 }
 
 test('checks a feature against a new engine', () => {
-  const engine = new Wrapper()
+  const engine = new UnleashEngine()
   const warnings = engine.takeState(JSON.stringify(smokeTestState))
 
   const result = engine.isEnabled('demo-feature')
@@ -28,7 +28,7 @@ test('checks a feature against a new engine', () => {
 })
 
 test('checks a feature with an explicit empty context', () => {
-  const engine = new Wrapper()
+  const engine = new UnleashEngine()
   engine.takeState(JSON.stringify(smokeTestState))
 
   const result = engine.isEnabled('demo-feature', {})
