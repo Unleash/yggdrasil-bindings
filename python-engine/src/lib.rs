@@ -324,10 +324,9 @@ fn variant_to_tuple<'py>(
     )))
 }
 
-/// Reads a context dict into the core's `Context`, with the same rules as the
-/// ctypes engine's path: `json.dumps`, then `Context`'s JSON parsing
-/// (`Context::from_map` in unleash-types). Both engines must see the same
-/// context.
+/// Reads a context dict into the core's `Context`, with the same rules as
+/// `json.dumps`, then `Context`'s JSON parsing (`Context::from_map` in
+/// unleash-types)
 ///
 /// These rules are duplicated from unleash-types for now. The plan is to remove the duplication in
 /// unleash-types: a public constructor that builds a `Context` from simple
