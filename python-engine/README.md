@@ -2,39 +2,98 @@
 
 Provides high level bindings to the Unleash Yggdrasil engine.
 
-## Build and test
-This project uses [poetry](https://python-poetry.org/).
+Implements the engine methods the Python SDK uses.
 
-Before you begin, you'll need to setup the native library. You'll need a Rust compiler. If you're on Windows, you'll need bash or just read the script and do the equivalent powershell steps.
+- `src/`: the Rust part, compiled into the Python module `yggdrasil_engine.yggdrasil_native`
+  - `lib.rs`: the Python glue around the core engine
+- `python/yggdrasil_engine/`: the Python package
+- `tests/`: python tests
+- `scripts/smoke_test.py`: checks an installed wheel; the publish workflow runs it on every platform
 
-``` sh
-./build-and-vendor-ffi.sh
+## Test locally
+
+Rust and Python 3.10 or newer is needed. Run everything from this folder (`python-engine/`).
+
+The Python tests include the client specification, which they read from the repository root:
+
+```sh
+git clone --depth 1 --branch v6.1.0 https://github.com/Unleash/client-specification.git ../client-specification
 ```
 
-To run tests:
+### Rust
 
-```poetry run pytest```
+```sh
+cargo fmt --check
+cargo clippy --all-targets --all-features -- -D warnings
+```
 
-For local development, it can be convenient to have a shell to work in. On Poetry 2.0 and later this
-lives in the [shell plugin](https://github.com/python-poetry/poetry-plugin-shell):
+### Python
 
-```poetry shell```
 
-## Lint and format
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install --group dev
+```
 
-``` sh
-poetry install                      # install dev dependencies
+Then build the package in one of two ways. Both with the `test-helpers` cargo feature: it adds
+test-only functions to the module that the context reader tests need. The shipped wheel is built
+without it.
 
-poetry run ruff format .            # apply formatting
-poetry run ruff check --fix .       # apply lint autofixes
+**Install the built package.** 
 
-poetry run ruff format --check .    # verify formatting
-poetry run ruff check .             # verify lint
-poetry run basedpyright             # verify types
+maturin compiles
+the Rust module and builds the package, and pip installs it into the virtual environment. Tests run
+against the package.
 
-poetry run basedpyright --writebaseline   # re-baseline after formatting or refactors
+```sh
+MATURIN_PEP517_ARGS="--features test-helpers" python -m pip install .
+```
+
+**For development: `maturin develop`.** 
+
+builds the Rust module into `python/yggdrasil_engine/` and points the virtual environment at this folder
+
+run it again after changing Rust code
+
+builds in debug mode by default; add `--release` for an optimised build:
+
+```sh
+maturin develop --features test-helpers
+```
+
+run the checks:
+
+```sh
+pytest
+ruff format --check .
+ruff check .
+```
+
+### Context reader tests
+
+`tests/test_context_reader.py` reads each context both with our reader and with unleash-types'
+parsing of `json.dumps(context)`, and expects the same result. Needs the `test-helpers` feature.
+
+To run only some cases, `-k` matches case names:
+
+```sh
+pytest tests/test_context_reader.py -v -k "leftover string overrides properties"
+```
+
+When a case fails, `-vv` prints the full diff of the two contexts, and `--showlocals` (`-l`) also
+prints the test's local variables:
+
+```sh
+pytest tests/test_context_reader.py -vv -l -k "leftover string overrides properties"
 ```
 
 ## Publish
 
-Publishing is done through Github, with the `Publish Python` workflow. Ensure you've bumped `version` in `pyproject.toml` first.
+Through GitHub, with the manual `Publish Python` workflow
+(`.github/workflows/publish-python.yml`). Bump `version` in `pyproject.toml` first.
+
+It builds one wheel per platform (Linux glibc and musl, macOS, Windows; x86_64 and arm64) and an
+sdist, installs each on a machine of its platform, runs `scripts/smoke_test.py`, and uploads to PyPI
+only if every test passed. With `dry_run` (the default) it builds and tests without uploading.

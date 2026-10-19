@@ -7,24 +7,21 @@ on:
       - main
     paths:
       - 'python-engine/**'
-      - 'yggdrasilffi/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
       - '.github/workflows/build-python.yml'
   pull_request:
     branches:
       - main
     paths:
       - 'python-engine/**'
-      - 'yggdrasilffi/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
       - '.github/workflows/build-python.yml'
   workflow_dispatch:
 
 jobs:
   build-python:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python-engine
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -34,37 +31,6 @@ jobs:
         with:
           python-version: '3.14'
 
-      - name: Install Poetry
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install poetry
-
-      - name: Cache Poetry downloads
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pypoetry
-          key: pypoetry-${{ runner.os }}-${{ hashFiles('python-engine/poetry.lock') }}
-
-      - name: Install Python dependencies
-        id: deps
-        working-directory: python-engine
-        run: poetry install --with dev
-
-      - name: Check formatting
-        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
-        working-directory: python-engine
-        run: poetry run ruff format --check .
-
-      - name: Lint
-        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
-        working-directory: python-engine
-        run: poetry run ruff check .
-
-      - name: Typecheck
-        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
-        working-directory: python-engine
-        run: poetry run basedpyright
-
       - name: Install rust
         run: |
           rustup set auto-self-update disable
@@ -73,6 +39,14 @@ jobs:
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: python-engine -> target
+
+      - name: Check the Rust crate
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets --all-features -- -D warnings
+          cargo test --all-features
 
       - name: Get client spec
         uses: actions/checkout@v6
@@ -81,13 +55,26 @@ jobs:
           ref: v6.1.0
           path: client-specification
 
-      - name: Run cargo tests
-        run: cargo test --all-features
+      ## maturin builds the package with the compiled module, and pip installs it,
+      ## so the tests run against the package as built; with the test-helpers
+      ## feature, which the context reader tests need
+      - name: Build the engine and install dev dependencies
+        id: deps
+        env:
+          MATURIN_PEP517_ARGS: --features test-helpers
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --group dev .
+          python -c "from yggdrasil_engine.yggdrasil_native import context_from_dict, context_from_json"
 
-      - name: Build ffi binaries for Python
-        working-directory: python-engine
-        run: bash ./build-and-vendor-ffi.sh
+      - name: Check formatting
+        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
+        run: ruff format --check .
+
+      - name: Lint
+        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
+        run: ruff check .
 
       - name: Run Python tests
-        working-directory: python-engine
-        run: poetry run pytest
+        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
+        run: pytest
