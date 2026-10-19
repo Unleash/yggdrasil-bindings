@@ -1,20 +1,44 @@
-//! PyO3 engine for Python, built temporarily next to the ctypes engine in
-//! `yggdrasil_engine.engine`.
-//!
-//! reads the context from a Python dict and exposes the engine to Python. The engine logic itself is in `engine`
-
-pub mod engine;
+//! PyO3 engine for Python
 
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::fmt::{self, Display, Formatter};
+use std::panic::{self, AssertUnwindSafe};
 
+use chrono::Utc;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString, PyTuple};
-use unleash_yggdrasil::{Context, ExtendedVariantDef, CORE_VERSION};
+use unleash_yggdrasil::impact_metrics::{BucketMetricOptions, CollectedMetric, MetricOptions};
+use unleash_yggdrasil::state::EnrichedContext;
+use unleash_yggdrasil::{
+    Context, EngineState, ExtendedVariantDef, UpdateMessage, VariantDef, CORE_VERSION,
+};
 
-use crate::engine::{guard, Engine, EngineError};
+#[derive(Debug)]
+enum EngineError {
+    InvalidJson(String),
+    Panic,
+}
+
+impl Display for EngineError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            EngineError::InvalidJson(message) => write!(f, "Failed to parse JSON: {message}"),
+            EngineError::Panic => write!(
+                f,
+                "Engine panicked while processing the request. Please report this as a bug with the accompanying stack trace if available."
+            ),
+        }
+    }
+}
+
+impl From<serde_json::Error> for EngineError {
+    fn from(error: serde_json::Error) -> Self {
+        EngineError::InvalidJson(error.to_string())
+    }
+}
 
 impl From<EngineError> for PyErr {
     fn from(error: EngineError) -> Self {
@@ -22,13 +46,16 @@ impl From<EngineError> for PyErr {
     }
 }
 
-/// A variant as `NativeEngine.get_variant` hands it to Python:
-/// `(name, payload, enabled, feature_enabled)`
+/// Turns a panic into a `ValueError`
+fn guard<T>(action: impl FnOnce() -> PyResult<T>) -> PyResult<T> {
+    panic::catch_unwind(AssertUnwindSafe(action)).unwrap_or_else(|_| Err(EngineError::Panic.into()))
+}
+
 type VariantTuple<'py> = (String, Option<Bound<'py, PyDict>>, bool, bool);
 
 #[pyclass(frozen)]
 struct NativeEngine {
-    engine: Engine,
+    state: EngineState,
 }
 
 #[pymethods]
@@ -36,12 +63,16 @@ impl NativeEngine {
     #[new]
     fn new() -> Self {
         NativeEngine {
-            engine: Engine::default(),
+            state: EngineState::default(),
         }
     }
 
     fn take_state(&self, state_json: &str) -> PyResult<Option<String>> {
-        let warnings = self.engine.take_state(state_json)?;
+        let warnings = guard(|| {
+            let message: UpdateMessage =
+                serde_json::from_str(state_json).map_err(EngineError::from)?;
+            Ok(self.state.take_state(message))
+        })?;
         Ok(warnings.filter(|w| !w.is_empty()).map(|warnings| {
             warnings
                 .iter()
@@ -53,8 +84,8 @@ impl NativeEngine {
 
     /// Evaluates a toggle, looks up whether it requires an impression event,
     /// and records a known toggle in the metrics. Returns
-    /// `(enabled, requires_impression_event)`, with `enabled` `None` for an
-    /// unknown toggle, which isn't recorded (see `count_toggle`)
+    /// `(enabled, impression)`, with `enabled` `None` for an
+    /// unknown toggle, which isn't recorded
     #[pyo3(signature = (toggle_name, context, custom_strategy_results=None))]
     fn is_enabled(
         &self,
@@ -64,11 +95,20 @@ impl NativeEngine {
     ) -> PyResult<(Option<bool>, bool)> {
         guard(|| {
             let context = context_from_dict(context)?;
-            Ok(self
-                .engine
-                .is_enabled(toggle_name, &context, custom_strategy_results.as_ref())?)
+            let engine = &self.state;
+            let enabled = engine.check_enabled(&EnrichedContext::from(
+                &context,
+                toggle_name,
+                custom_strategy_results.as_ref(),
+            ));
+            let impression = engine.should_emit_impression_event(toggle_name);
+            if let Some(enabled) = enabled {
+                engine.count_toggle(toggle_name, enabled);
+            }
+            Ok((enabled, impression))
         })
     }
+
     /// Resolves a toggle's variant and looks up whether it requires an
     /// impression event, without recording anything. Returns
     /// `(variant, requires_impression_event)`, with `variant` `None` for an
@@ -84,11 +124,12 @@ impl NativeEngine {
         guard(|| {
             let py = context.py();
             let context = context_from_dict(context)?;
-            let (variant, impression) = self.engine.check_variant(
+            let (variant, impression) = resolve_variant(
+                &self.state,
                 toggle_name,
                 &context,
                 custom_strategy_results.as_ref(),
-            )?;
+            );
             Ok((variant_to_tuple(py, variant)?, impression))
         })
     }
@@ -105,19 +146,36 @@ impl NativeEngine {
         guard(|| {
             let py = context.py();
             let context = context_from_dict(context)?;
-            let (variant, impression) =
-                self.engine
-                    .get_variant(toggle_name, &context, custom_strategy_results.as_ref())?;
+            let engine = &self.state;
+            let (variant, impression) = resolve_variant(
+                engine,
+                toggle_name,
+                &context,
+                custom_strategy_results.as_ref(),
+            );
+            let disabled;
+            let (feature_enabled, variant_name) = match &variant {
+                Some(variant) => (variant.feature_enabled, variant.name.as_str()),
+                None => {
+                    disabled = VariantDef::default();
+                    (false, disabled.name.as_str())
+                }
+            };
+            engine.count_toggle(toggle_name, feature_enabled);
+            engine.count_variant(toggle_name, variant_name);
             Ok((variant_to_tuple(py, variant)?, impression))
         })
     }
 
     fn count_toggle(&self, toggle_name: &str, enabled: bool) -> PyResult<()> {
-        Ok(self.engine.count_toggle(toggle_name, enabled)?)
+        guard(|| {
+            self.state.count_toggle(toggle_name, enabled);
+            Ok(())
+        })
     }
 
     fn get_metrics(&self) -> PyResult<Option<String>> {
-        let Some(bucket) = self.engine.get_metrics()? else {
+        let Some(bucket) = guard(|| Ok(self.state.get_metrics(Utc::now())))? else {
             return Ok(None);
         };
         serde_json::to_string(&bucket)
@@ -126,21 +184,22 @@ impl NativeEngine {
     }
 
     fn get_state(&self) -> PyResult<String> {
-        serde_json::to_string(&self.engine.get_state()?)
+        serde_json::to_string(&guard(|| Ok(self.state.get_state()))?)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     fn list_known_toggles(&self) -> PyResult<Vec<(String, String, Option<String>)>> {
-        Ok(self
-            .engine
-            .list_known_toggles()?
+        Ok(guard(|| Ok(self.state.list_known_toggles()))?
             .into_iter()
             .map(|toggle| (toggle.name, toggle.project, toggle.feature_type))
             .collect())
     }
 
     fn define_counter(&self, name: &str, help: &str) -> PyResult<()> {
-        Ok(self.engine.define_counter(name, help)?)
+        guard(|| {
+            self.state.define_counter(MetricOptions::new(name, help));
+            Ok(())
+        })
     }
 
     fn inc_counter(
@@ -149,11 +208,22 @@ impl NativeEngine {
         value: i64,
         labels: Option<HashMap<String, String>>,
     ) -> PyResult<()> {
-        Ok(self.engine.inc_counter(name, value, labels.as_ref())?)
+        guard(|| {
+            match labels {
+                Some(labels) if !labels.is_empty() => {
+                    self.state.inc_counter_with_labels(name, value, &labels)
+                }
+                _ => self.state.inc_counter_by(name, value),
+            }
+            Ok(())
+        })
     }
 
     fn define_gauge(&self, name: &str, help: &str) -> PyResult<()> {
-        Ok(self.engine.define_gauge(name, help)?)
+        guard(|| {
+            self.state.define_gauge(MetricOptions::new(name, help));
+            Ok(())
+        })
     }
 
     fn set_gauge(
@@ -162,13 +232,26 @@ impl NativeEngine {
         value: f64,
         labels: Option<HashMap<String, String>>,
     ) -> PyResult<()> {
-        Ok(self.engine.set_gauge(name, value, labels.as_ref())?)
+        guard(|| {
+            match labels {
+                Some(labels) if !labels.is_empty() => {
+                    self.state.set_gauge_with_labels(name, value, &labels)
+                }
+                _ => self.state.set_gauge(name, value),
+            }
+            Ok(())
+        })
     }
 
     fn define_histogram(&self, name: &str, help: &str, buckets: Option<Vec<f64>>) -> PyResult<()> {
-        Ok(self
-            .engine
-            .define_histogram(name, help, buckets.unwrap_or_default())?)
+        guard(|| {
+            self.state.define_histogram(BucketMetricOptions::new(
+                name,
+                help,
+                buckets.unwrap_or_default(),
+            ));
+            Ok(())
+        })
     }
 
     fn observe_histogram(
@@ -177,19 +260,44 @@ impl NativeEngine {
         value: f64,
         labels: Option<HashMap<String, String>>,
     ) -> PyResult<()> {
-        Ok(self
-            .engine
-            .observe_histogram(name, value, labels.as_ref())?)
+        guard(|| {
+            match labels {
+                Some(labels) if !labels.is_empty() => self
+                    .state
+                    .observe_histogram_with_labels(name, value, &labels),
+                _ => self.state.observe_histogram(name, value),
+            }
+            Ok(())
+        })
     }
 
     fn collect_impact_metrics(&self) -> PyResult<String> {
-        serde_json::to_string(&self.engine.collect_impact_metrics()?)
+        serde_json::to_string(&guard(|| Ok(self.state.collect_impact_metrics()))?)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     fn restore_impact_metrics(&self, metrics_json: &str) -> PyResult<()> {
-        Ok(self.engine.restore_impact_metrics(metrics_json)?)
+        guard(|| {
+            let metrics: Vec<CollectedMetric> =
+                serde_json::from_str(metrics_json).map_err(EngineError::from)?;
+            self.state.restore_impact_metrics(metrics);
+            Ok(())
+        })
     }
+}
+
+fn resolve_variant(
+    engine: &EngineState,
+    toggle_name: &str,
+    context: &Context,
+    custom_strategy_results: Option<&HashMap<String, bool>>,
+) -> (Option<ExtendedVariantDef>, bool) {
+    let context = EnrichedContext::from(context, toggle_name, custom_strategy_results);
+    let variant = engine.check_variant(&context).map(|variant| {
+        let enabled = engine.check_enabled(&context).unwrap_or_default();
+        variant.to_enriched_response(enabled)
+    });
+    (variant, engine.should_emit_impression_event(toggle_name))
 }
 
 fn variant_to_tuple<'py>(
@@ -281,6 +389,7 @@ fn context_from_dict(dict: &Bound<'_, PyDict>) -> PyResult<Context> {
     }
 
     // Unknown top-level strings move into properties; other values are dropped
+    // This is to support some legacy behavior in the Python SDK that's hard to remove.
     for (key, value) in dict.iter() {
         let key = match key.cast::<PyString>() {
             Ok(key) => key.to_cow()?,
@@ -311,8 +420,8 @@ fn context_from_dict(dict: &Bound<'_, PyDict>) -> PyResult<Context> {
     })
 }
 
-/// Strings, numbers and bools become strings, as in the core's JSON parsing;
-/// anything else has no usable value
+/// Strings, numbers and bools become strings; other values give `None`, or
+/// an error when `json.dumps` would refuse them
 fn value_to_string(value: &Bound<'_, PyAny>) -> PyResult<Option<String>> {
     if let Ok(value) = value.cast::<PyString>() {
         return Ok(Some(value.to_cow()?.into_owned()));
@@ -335,7 +444,6 @@ fn value_to_string(value: &Bound<'_, PyAny>) -> PyResult<Option<String>> {
     Ok(None)
 }
 
-/// Dict keys become strings the way `json.dumps` turns them into JSON keys
 fn key_to_string(key: &Bound<'_, PyAny>) -> PyResult<String> {
     if let Ok(key) = key.cast::<PyString>() {
         return Ok(key.to_cow()?.into_owned());
@@ -351,8 +459,6 @@ fn key_to_string(key: &Bound<'_, PyAny>) -> PyResult<String> {
     }
 }
 
-/// Fails for values `json.dumps` would refuse, so both engines fail on the
-/// same contexts
 fn check_encodable(value: &Bound<'_, PyAny>) -> PyResult<()> {
     if value.is_none()
         || value.is_instance_of::<PyString>()
@@ -372,11 +478,9 @@ fn check_encodable(value: &Bound<'_, PyAny>) -> PyResult<()> {
     }
 }
 
-/// Test helper, only with the `test-helpers` feature: the `Context` our reader
-/// makes from a dict, as JSON. With `context_from_json`, lets the tests check
-/// that `context_from_dict` keeps the same rules as unleash-types (it copies
-/// them). `is_enabled` only returns the answer, not the `Context`
-/// not used by the engine, not in the shipped wheel
+/// Test helper, only with the `test-helpers` feature: the `Context` our
+/// reader makes from a dict, as JSON. Not used by the engine, not in the
+/// shipped wheel
 #[cfg(feature = "test-helpers")]
 #[pyfunction]
 #[pyo3(name = "context_from_dict")]
@@ -386,7 +490,7 @@ fn context_from_dict_as_json(context: &Bound<'_, PyDict>) -> PyResult<String> {
 }
 
 /// Test helper, only with the `test-helpers` feature: the `Context`
-/// unleash-types makes from JSON (its own rules, `Context::from_map`), as JSON.
+/// unleash-types makes from JSON (its own rules, `Context::from_map`), as JSON
 #[cfg(feature = "test-helpers")]
 #[pyfunction]
 #[pyo3(name = "context_from_json")]
