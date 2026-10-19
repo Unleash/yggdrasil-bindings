@@ -2,7 +2,10 @@
 name = "yggdrasil-engine"
 version = "3.0.0a1"
 description = "Engine for evaluating Unleash feature flags"
-authors = [{ name = "Simon Hornby", email = "liquidwicked64@gmail.com" }]
+authors = [
+    { name = "Simon Hornby", email = "liquidwicked64@gmail.com" },
+    { name = "Alexandra Szanto", email = "szanto.szandra@gmail.com" },
+]
 license = "MIT"
 readme = "README.md"
 requires-python = ">=3.10"

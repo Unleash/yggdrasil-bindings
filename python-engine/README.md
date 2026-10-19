@@ -37,33 +37,33 @@ python -m pip install --upgrade pip
 python -m pip install --group dev
 ```
 
-Then build the package in one of two ways. Both with the `test-helpers` cargo feature: it adds
-test-only functions to the module that the context reader tests need. The shipped wheel is built
-without it.
+Then build the engine, with one of the two commands below.
 
-**Install the built package.** 
+Both turn on the `test-helpers` cargo feature. It adds test-only functions to the module, which
+`tests/test_context_reader.py` needs. The published wheel is built without it.
 
-maturin compiles
-the Rust module and builds the package, and pip installs it into the virtual environment. Tests run
-against the package.
-
-```sh
-MATURIN_PEP517_ARGS="--features test-helpers" python -m pip install .
-```
-
-**For development: `maturin develop`.** 
-
-builds the Rust module into `python/yggdrasil_engine/` and points the virtual environment at this folder
-
-run it again after changing Rust code
-
-builds in debug mode by default; add `--release` for an optimised build:
+**While developing: `maturin develop`**
 
 ```sh
 maturin develop --features test-helpers
 ```
 
-run the checks:
+- compiles the Rust code and puts the module into `python/yggdrasil_engine/`; the virtual
+  environment uses this folder directly, so Python changes apply without rebuilding
+- after changing Rust code, run it again
+- debug build by default (faster to compile, slower to run); add `--release` for an optimised build
+
+**Like CI: install the package**
+
+```sh
+MATURIN_PEP517_ARGS="--features test-helpers" python -m pip install .
+```
+
+- builds the package the way the wheel is built (release mode) and installs it into the virtual
+  environment, so the tests run against the installed package
+- after changing any code, Rust or Python, run it again
+
+Then run the checks:
 
 ```sh
 pytest
@@ -73,26 +73,32 @@ ruff check .
 
 ### Context reader tests
 
-`tests/test_context_reader.py` reads each context both with our reader and with unleash-types'
+`tests/test_context_reader.py` reads each context both with our reader and with `unleash-types'
 parsing of `json.dumps(context)`, and expects the same result. Needs the `test-helpers` feature.
 
-To run only some cases, `-k` matches case names:
+To run one case, give its full test ID (the case name goes in the brackets):
 
 ```sh
-pytest tests/test_context_reader.py -v -k "leftover string overrides properties"
+pytest -v "tests/test_context_reader.py::test_context_reader_matches_unleash_types[leftover string overrides properties]"
+```
+
+To run several cases, `-k` matches words in the case names, e.g. every case with "leftover":
+
+```sh
+pytest tests/test_context_reader.py -v -k leftover
 ```
 
 When a case fails, `-vv` prints the full diff of the two contexts, and `--showlocals` (`-l`) also
 prints the test's local variables:
 
 ```sh
-pytest tests/test_context_reader.py -vv -l -k "leftover string overrides properties"
+pytest tests/test_context_reader.py -vv -l -k leftover
 ```
 
 ## Publish
 
-Through GitHub, with the manual `Publish Python` workflow
-(`.github/workflows/publish-python.yml`). Bump `version` in `pyproject.toml` first.
+1. Bump `version` in `pyproject.toml`
+2. Run the manual `Publish Python` workflow (`.github/workflows/publish-python.yml`)
 
 It builds one wheel per platform (Linux glibc and musl, macOS, Windows; x86_64 and arm64) and an
 sdist, installs each on a machine of its platform, runs `scripts/smoke_test.py`, and uploads to PyPI
