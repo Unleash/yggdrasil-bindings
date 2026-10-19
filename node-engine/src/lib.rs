@@ -209,10 +209,12 @@ impl NodeEngine {
             .check_variant(&context)
             .map(|variant| variant.to_enriched_response(enabled));
 
-        if let Some(is_enabled) = Some(enabled) {
-            engine.count_toggle(context.toggle_name, is_enabled);
-        }
         if let Some(variant) = &variant {
+            // if the variant exists the SDK will short circuit return  and expect
+            // the engine to have recorded the toggle count as well. Unlike the
+            // is_enabled call, we can know the state of the fallback value here
+            // for the enabled state - it's always false because the user cannot define it
+            engine.count_toggle(context.toggle_name, enabled);
             engine.count_variant(context.toggle_name, &variant.name);
         }
 
