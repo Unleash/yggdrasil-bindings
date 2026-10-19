@@ -1,23 +1,12 @@
-import { WasmInterface } from '../wasm/wasm-interface.js';
+import { type EnabledResult, type VariantResult, WasmInterface } from '../wasm/wasm-interface.js';
 
-export enum PayloadType {
-  STRING = 'string',
-  JSON = 'json',
-  CSV = 'csv',
-  NUMBER = 'number',
-}
-
-export interface EnabledResult {
-  enabled?: boolean;
-  impressionData: boolean;
-}
-
-export interface Variant {
-  name: string;
-  payload?: { type: PayloadType; value: string };
-  enabled: boolean;
-  featureEnabled: boolean;
-}
+export type {
+  EnabledResult,
+  Payload,
+  StateWarnings,
+  Variant,
+  VariantResult,
+} from '../wasm/wasm-interface.js';
 
 export interface Context {
   [key: string]: unknown;
@@ -48,7 +37,7 @@ export class UnleashEngine {
     return this.wasmInterface.isEnabled(JSON.stringify({ ...context, toggleName: featureName }));
   }
 
-  getVariant(featureName: string, context?: Context): Variant | undefined {
+  getVariant(featureName: string, context?: Context): VariantResult {
     this.assertInitialized();
     return this.wasmInterface.getVariant(JSON.stringify({ ...context, toggleName: featureName }));
   }
