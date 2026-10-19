@@ -1,6 +1,6 @@
 const { spawnSync } = require('node:child_process')
 const { existsSync } = require('node:fs')
-const { join } = require('node:path')
+const { dirname, join } = require('node:path')
 
 const debug = process.argv.includes('--debug')
 const profile = debug ? 'debug' : 'release'
@@ -41,3 +41,6 @@ run(bindgen, [
   '--out-name',
   'node_engine',
 ])
+const typescriptPackage = require.resolve('typescript/package.json')
+const tsc = join(dirname(typescriptPackage), require(typescriptPackage).bin.tsc)
+run(process.execPath, [tsc, '-p', 'tsconfig.json'])

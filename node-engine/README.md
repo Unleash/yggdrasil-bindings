@@ -19,7 +19,11 @@ yarn bench
 ```
 
 `yarn build` compiles an optimized WASM module and generates the CommonJS loader
-in `wasm/`. `yarn build:debug` uses the debug profile. Use release builds for benchmarks.
+in `wasm/`, then compiles `src/wrapper.ts` to CommonJS JavaScript and TypeScript
+declarations in `lib/`. `yarn build:debug` uses the debug profile. Use release builds for benchmarks.
+After wrapper-only changes, `yarn build:wrapper` regenerates the JS and declarations
+without rebuilding Rust. Both `lib/` and `wasm/` are generated; edit `src/wrapper.ts`
+to add wrapper methods and their types.
 Set `WASM_BINDGEN` to use a CLI installed outside PATH.
 The build also detects a CLI installed with `cargo install --root .tools`.
 

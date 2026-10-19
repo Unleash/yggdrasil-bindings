@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use unleash_yggdrasil::{
     state::{EnrichedContext, ExternalResultsRef, PropertiesRef},
-    EngineState, UpdateMessage,
+    EngineState, UpdateMessage, VariantDef,
 };
 use wasm_bindgen::prelude::*;
 
@@ -20,6 +20,14 @@ pub struct NodeEngine {
 pub struct EnabledResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
+    pub impression_data: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VariantResult {
+    pub variant: Option<VariantDef>,
+    pub feature_enabled: bool,
     pub impression_data: bool,
 }
 
@@ -170,10 +178,66 @@ impl NodeEngine {
         let message = message.normalize();
         let context = message.enriched();
 
+        let is_enabled = engine.check_enabled(&context);
+
+        if let Some(is_enabled) = is_enabled {
+            engine.count_toggle(context.toggle_name, is_enabled);
+        }
+
         serde_wasm_bindgen::to_value(&EnabledResult {
-            enabled: engine.check_enabled(&context),
+            enabled: is_enabled,
             impression_data: engine.should_emit_impression_event(context.toggle_name),
         })
         .map_err(|err| JsError::new(&err.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = getVariant)]
+    pub fn get_variant(&self, enriched_context: &str) -> Result<JsValue, JsError> {
+        let engine = self
+            .inner
+            .as_ref()
+            .ok_or_else(|| JsError::new("Engine state is not initialized"))?;
+
+        let message: ParsedContext = serde_json::from_str(enriched_context)
+            .map_err(|err| JsError::new(&format!("Failed to parse enriched context: {err}")))?;
+
+        let message = message.normalize();
+        let context = message.enriched();
+
+        let enabled = engine.check_enabled(&context).unwrap_or_default();
+        let variant = engine
+            .check_variant(&context)
+            .map(|variant| variant.to_enriched_response(enabled));
+
+        if let Some(is_enabled) = Some(enabled) {
+            engine.count_toggle(context.toggle_name, is_enabled);
+        }
+        if let Some(variant) = &variant {
+            engine.count_variant(context.toggle_name, &variant.name);
+        }
+
+        serde_wasm_bindgen::to_value(&variant).map_err(|err| JsError::new(&err.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = count)]
+    pub fn count(&self, toggle_name: &str, is_enabled: bool) -> Result<(), JsError> {
+        let engine = self
+            .inner
+            .as_ref()
+            .ok_or_else(|| JsError::new("Engine state is not initialized"))?;
+
+        engine.count_toggle(toggle_name, is_enabled);
+        Ok(())
+    }
+
+    #[wasm_bindgen(js_name = countVariant)]
+    pub fn count_variant(&self, toggle_name: &str, variant_name: &str) -> Result<(), JsError> {
+        let engine = self
+            .inner
+            .as_ref()
+            .ok_or_else(|| JsError::new("Engine state is not initialized"))?;
+
+        engine.count_variant(toggle_name, variant_name);
+        Ok(())
     }
 }

@@ -1,6 +1,7 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
+    "lib": ["ES2020", "DOM", "ESNext.Disposable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "outDir": "lib",

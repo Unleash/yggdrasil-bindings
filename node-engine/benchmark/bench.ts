@@ -1,6 +1,6 @@
 import { Bench } from 'tinybench'
 
-import { Wrapper } from '../wrapper.js'
+import { Wrapper } from '../lib/wrapper.js'
 
 const b = new Bench({
   time: 1_000,
