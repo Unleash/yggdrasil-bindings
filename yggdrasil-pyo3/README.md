@@ -89,3 +89,12 @@ When a case fails, `-vv` prints the full diff of the two contexts, and `--showlo
 ```sh
 pytest tests/test_context_reader.py -vv -l -k "leftover string overrides properties"
 ```
+
+## Publish
+
+Through GitHub, with the manual `Publish Python engine (PyO3)` workflow
+(`.github/workflows/publish-python-pyo3.yml`). Bump `version` in `pyproject.toml` first.
+
+It builds one wheel per platform (Linux glibc and musl, macOS, Windows; x86_64 and arm64) and an
+sdist, installs each on a machine of its platform, runs `scripts/smoke_test.py`, and uploads to PyPI
+only if every test passed. With `dry_run` (the default) it builds and tests without uploading.
