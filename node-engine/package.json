@@ -2,8 +2,8 @@
   "name": "yggdrasil-engine",
   "version": "1.0.0",
   "description": "Experimental wasm-bindgen bindings for the Yggdrasil engine",
-  "main": "lib/wrapper.js",
-  "types": "lib/wrapper.d.ts",
+  "main": "lib/unleash-engine.js",
+  "types": "lib/unleash-engine.d.ts",
   "type": "commonjs",
   "license": "MIT",
   "keywords": [

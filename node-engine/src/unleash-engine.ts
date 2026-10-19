@@ -1,4 +1,4 @@
-import { NodeEngine } from '../wasm/node_engine.js';
+import { WasmInterface } from '../wasm/wasm-interface.js';
 
 export enum PayloadType {
   STRING = 'string',
@@ -24,46 +24,46 @@ export interface Context {
   properties?: Record<string, unknown>;
 }
 
-export class Wrapper {
-  nodeEngine: NodeEngine | null;
+export class UnleashEngine {
+  wasmInterface: WasmInterface | null;
 
   constructor() {
-    this.nodeEngine = new NodeEngine();
+    this.wasmInterface = new WasmInterface();
   }
 
   destroy(): void {
-    if (!this.nodeEngine) return;
-    this.nodeEngine.destroy();
-    this.nodeEngine.free();
-    this.nodeEngine = null;
+    if (!this.wasmInterface) return;
+    this.wasmInterface.destroy();
+    this.wasmInterface.free();
+    this.wasmInterface = null;
   }
 
   takeState(rawState: string): string | null {
     this.assertInitialized();
-    return this.nodeEngine.takeState(rawState);
+    return this.wasmInterface.takeState(rawState);
   }
 
   isEnabled(featureName: string, context?: Context): EnabledResult {
     this.assertInitialized();
-    return this.nodeEngine.isEnabled(JSON.stringify({ ...context, toggleName: featureName }));
+    return this.wasmInterface.isEnabled(JSON.stringify({ ...context, toggleName: featureName }));
   }
 
   getVariant(featureName: string, context?: Context): Variant | undefined {
     this.assertInitialized();
-    return this.nodeEngine.getVariant(JSON.stringify({ ...context, toggleName: featureName }));
+    return this.wasmInterface.getVariant(JSON.stringify({ ...context, toggleName: featureName }));
   }
 
   count(featureName: string, isEnabled: boolean): void {
     this.assertInitialized();
-    this.nodeEngine.count(featureName, isEnabled);
+    this.wasmInterface.count(featureName, isEnabled);
   }
 
   countVariant(featureName: string, variantName: string): void {
     this.assertInitialized();
-    this.nodeEngine.countVariant(featureName, variantName);
+    this.wasmInterface.countVariant(featureName, variantName);
   }
 
-  private assertInitialized(): asserts this is this & { nodeEngine: NodeEngine } {
-    if (!this.nodeEngine) throw new Error('Engine state is not initialized');
+  private assertInitialized(): asserts this is this & { wasmInterface: WasmInterface } {
+    if (!this.wasmInterface) throw new Error('Engine state is not initialized');
   }
 }
