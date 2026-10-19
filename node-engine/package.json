@@ -2,8 +2,9 @@
   "name": "yggdrasil-engine",
   "version": "1.0.0",
   "description": "Experimental wasm-bindgen bindings for the Yggdrasil engine",
-  "main": "wrapper.js",
-  "types": "wrapper.d.ts",
+  "main": "lib/wrapper.js",
+  "types": "lib/wrapper.d.ts",
+  "type": "commonjs",
   "license": "MIT",
   "keywords": [
     "WebAssembly",
@@ -13,8 +14,7 @@
   ],
   "files": [
     "wasm",
-    "wrapper.d.ts",
-    "wrapper.js"
+    "lib"
   ],
   "engines": {
     "node": ">= 12.22.0 < 13 || >= 14.17.0 < 15 || >= 15.12.0 < 16 || >= 16.0.0"
@@ -27,6 +27,7 @@
     "bench": "tsx benchmark/bench.ts",
     "build": "node build.js",
     "build:debug": "node build.js --debug",
+    "build:wrapper": "tsc -p tsconfig.json",
     "check:rs": "node build.js --check",
     "format:rs": "cargo fmt",
     "lint": "biome check .",
