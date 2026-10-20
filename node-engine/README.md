@@ -24,6 +24,11 @@ declarations in `lib/`. `yarn build:debug` uses the debug profile. Use release b
 After wrapper-only changes, `yarn build:wrapper` regenerates the JS and declarations
 without rebuilding Rust. Both `lib/` and `wasm/` are generated; edit `src/unleash-engine.ts`
 to add wrapper methods and their types.
+
+Response types are derived from the Rust structs with Tsify and emitted into
+`wasm/wasm-interface.d.ts`. The public TypeScript entry point re-exports those
+types and infers method return types from the generated WASM declarations.
+Rebuild with `yarn build` after changing a Rust response type.
 Set `WASM_BINDGEN` to use a CLI installed outside PATH.
 The build also detects a CLI installed with `cargo install --root .tools`.
 

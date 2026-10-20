@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tsify::{Ts, Tsify};
 use unleash_yggdrasil::{
     state::{EnrichedContext, ExternalResultsRef, PropertiesRef},
     EngineState, ExtendedVariantDef, UpdateMessage,
@@ -15,7 +16,7 @@ pub struct WasmInterface {
     inner: Option<EngineState>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
 pub struct EnabledResult {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -23,12 +24,48 @@ pub struct EnabledResult {
     pub impression_data: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
 pub struct VariantResult {
-    pub variant: Option<ExtendedVariantDef>,
+    pub variant: Option<Variant>,
     pub impression_data: bool,
 }
+
+#[derive(Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct Variant {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payload: Option<Payload>,
+    pub enabled: bool,
+    pub feature_enabled: bool,
+}
+
+#[derive(Serialize, Tsify)]
+pub struct Payload {
+    #[serde(rename = "type")]
+    pub payload_type: String,
+    pub value: String,
+}
+
+impl From<ExtendedVariantDef> for Variant {
+    fn from(variant: ExtendedVariantDef) -> Self {
+        Self {
+            name: variant.name,
+            payload: variant.payload.map(|payload| Payload {
+                payload_type: payload.payload_type,
+                value: payload.value,
+            }),
+            enabled: variant.enabled,
+            feature_enabled: variant.feature_enabled,
+        }
+    }
+}
+
+#[derive(Serialize, Tsify)]
+#[serde(transparent)]
+#[tsify(missing_as_null)]
+pub struct StateWarnings(Option<String>);
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -141,7 +178,7 @@ impl WasmInterface {
     }
 
     #[wasm_bindgen(js_name = takeState)]
-    pub fn take_state(&mut self, raw_state: &str) -> Result<JsValue, JsError> {
+    pub fn take_state(&mut self, raw_state: &str) -> Result<Ts<StateWarnings>, JsError> {
         let engine = self
             .inner
             .as_mut()
@@ -152,20 +189,19 @@ impl WasmInterface {
 
         let warnings = engine.take_state(client_features);
 
-        Ok(match warnings.filter(|w| !w.is_empty()) {
-            Some(warnings) => JsValue::from_str(
-                &warnings
-                    .iter()
-                    .map(|w| format!("{}: {}", w.toggle_name, w.message))
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-            ),
-            None => JsValue::NULL,
-        })
+        let warnings = warnings.filter(|w| !w.is_empty()).map(|warnings| {
+            warnings
+                .iter()
+                .map(|w| format!("{}: {}", w.toggle_name, w.message))
+                .collect::<Vec<_>>()
+                .join("\n")
+        });
+
+        Ok(StateWarnings(warnings).into_ts()?)
     }
 
     #[wasm_bindgen(js_name = isEnabled)]
-    pub fn is_enabled(&self, enriched_context: &str) -> Result<JsValue, JsError> {
+    pub fn is_enabled(&self, enriched_context: &str) -> Result<Ts<EnabledResult>, JsError> {
         let engine = self
             .inner
             .as_ref()
@@ -183,15 +219,15 @@ impl WasmInterface {
             engine.count_toggle(context.toggle_name, is_enabled);
         }
 
-        serde_wasm_bindgen::to_value(&EnabledResult {
+        Ok(EnabledResult {
             enabled: is_enabled,
             impression_data: engine.should_emit_impression_event(context.toggle_name),
-        })
-        .map_err(|err| JsError::new(&err.to_string()))
+        }
+        .into_ts()?)
     }
 
     #[wasm_bindgen(js_name = getVariant)]
-    pub fn get_variant(&self, enriched_context: &str) -> Result<JsValue, JsError> {
+    pub fn get_variant(&self, enriched_context: &str) -> Result<Ts<VariantResult>, JsError> {
         let engine = self
             .inner
             .as_ref()
@@ -218,11 +254,11 @@ impl WasmInterface {
         }
 
         let variant_result = VariantResult {
-            variant,
+            variant: variant.map(Variant::from),
             impression_data: engine.should_emit_impression_event(context.toggle_name),
         };
 
-        serde_wasm_bindgen::to_value(&variant_result).map_err(|err| JsError::new(&err.to_string()))
+        Ok(variant_result.into_ts()?)
     }
 
     #[wasm_bindgen(js_name = count)]
