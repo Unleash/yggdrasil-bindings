@@ -67,9 +67,6 @@ impl NativeEngine {
         }
     }
 
-    /// Parses and loads a full state payload. The GIL is released meanwhile: it is pure Rust
-    /// that can take hundreds of milliseconds on a large payload, and SDKs run it on a
-    /// background thread so the application's own threads keep running
     fn take_state(&self, py: Python<'_>, state_json: &str) -> PyResult<Option<String>> {
         let warnings = py.detach(|| {
             guard(|| {
