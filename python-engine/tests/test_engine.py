@@ -947,7 +947,7 @@ def test_list_known_toggles():
 
     assert len(engine.list_known_toggles()) == 1
     assert first_toggle == FeatureDefinition(
-        name="Feature.A", project="default", type=None
+        name="Feature.A", project="default", type=None, enabled=True
     )
 
 
@@ -968,7 +968,20 @@ def test_list_known_toggles_includes_the_project_and_type():
     engine.take_state(json.dumps(state))
 
     assert engine.list_known_toggles() == [
-        FeatureDefinition(name="some-toggle", project="some-project", type="release")
+        FeatureDefinition(
+            name="some-toggle", project="some-project", type="release", enabled=True
+        )
+    ]
+
+
+def test_list_known_toggles_reports_a_toggle_switched_off_in_the_environment():
+    engine = UnleashEngine()
+    engine.take_state(_toggle_state("switched-off", enabled=False))
+
+    assert engine.list_known_toggles() == [
+        FeatureDefinition(
+            name="switched-off", project="default", type=None, enabled=False
+        )
     ]
 
 

@@ -52,6 +52,7 @@ fn guard<T>(action: impl FnOnce() -> PyResult<T>) -> PyResult<T> {
 }
 
 type VariantTuple<'py> = (String, Option<Bound<'py, PyDict>>, bool, bool);
+type ToggleDefinitionTuple = (String, String, Option<String>, bool);
 
 #[pyclass(frozen)]
 struct NativeEngine {
@@ -190,10 +191,17 @@ impl NativeEngine {
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
-    fn list_known_toggles(&self) -> PyResult<Vec<(String, String, Option<String>)>> {
+    fn list_known_toggles(&self) -> PyResult<Vec<ToggleDefinitionTuple>> {
         Ok(guard(|| Ok(self.state.list_known_toggles()))?
             .into_iter()
-            .map(|toggle| (toggle.name, toggle.project, toggle.feature_type))
+            .map(|toggle| {
+                (
+                    toggle.name,
+                    toggle.project,
+                    toggle.feature_type,
+                    toggle.enabled,
+                )
+            })
             .collect())
     }
 

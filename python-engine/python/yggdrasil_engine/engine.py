@@ -133,6 +133,9 @@ class FeatureDefinition:
     name: str
     project: str
     type: Optional[str]
+    enabled: bool
+    """Whether the toggle is switched on in the environment, before any strategy
+    is evaluated."""
 
 
 class UnleashEngine:
@@ -301,8 +304,8 @@ class UnleashEngine:
 
     def list_known_toggles(self) -> list[FeatureDefinition]:
         return [
-            FeatureDefinition(name=name, project=project, type=type_)
-            for name, project, type_ in self._native.list_known_toggles()
+            FeatureDefinition(name=name, project=project, type=type_, enabled=enabled)
+            for name, project, type_, enabled in self._native.list_known_toggles()
         ]
 
     def define_counter(self, name: str, help_text: str) -> None:
