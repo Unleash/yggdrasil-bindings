@@ -1322,7 +1322,11 @@ def _large_state(toggle_count: int) -> str:
                             "name": "flexibleRollout",
                             "parameters": {"rollout": "50", "stickiness": "userId"},
                             "constraints": [
-                                {"contextName": "userId", "operator": "NOT_IN", "values": values}
+                                {
+                                    "contextName": "userId",
+                                    "operator": "NOT_IN",
+                                    "values": values,
+                                }
                             ],
                         }
                     ],
