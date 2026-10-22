@@ -2,6 +2,8 @@ import json
 import logging
 import os
 import re
+import threading
+import time
 from dataclasses import FrozenInstanceError, asdict
 from unittest.mock import Mock
 
@@ -1304,3 +1306,47 @@ def test_restore_impact_metrics():
     assert restored_counter["samples"][0]["value"] == 10
     assert restored_gauge["samples"][0]["value"] == 42
     assert restored_histogram is not None
+
+
+def _large_state(toggle_count: int) -> str:
+    values = [str(n) for n in range(200)]
+    return json.dumps(
+        {
+            "version": 1,
+            "features": [
+                {
+                    "name": f"toggle-{n}",
+                    "enabled": True,
+                    "strategies": [
+                        {
+                            "name": "flexibleRollout",
+                            "parameters": {"rollout": "50", "stickiness": "userId"},
+                            "constraints": [
+                                {
+                                    "contextName": "userId",
+                                    "operator": "NOT_IN",
+                                    "values": values,
+                                }
+                            ],
+                        }
+                    ],
+                }
+                for n in range(toggle_count)
+            ],
+        }
+    )
+
+
+def test_take_state_lets_other_threads_run():
+    state = _large_state(3000)
+    loader = threading.Thread(target=lambda: UnleashEngine().take_state(state))
+    ticks = 0
+
+    loader.start()
+    while loader.is_alive():
+        ticks += 1
+        time.sleep(0.001)
+    loader.join()
+
+    # Holding the GIL for the whole load leaves this thread a handful of ticks at its edges
+    assert ticks > 20

@@ -67,11 +67,13 @@ impl NativeEngine {
         }
     }
 
-    fn take_state(&self, state_json: &str) -> PyResult<Option<String>> {
-        let warnings = guard(|| {
-            let message: UpdateMessage =
-                serde_json::from_str(state_json).map_err(EngineError::from)?;
-            Ok(self.state.take_state(message))
+    fn take_state(&self, py: Python<'_>, state_json: &str) -> PyResult<Option<String>> {
+        let warnings = py.detach(|| {
+            guard(|| {
+                let message: UpdateMessage =
+                    serde_json::from_str(state_json).map_err(EngineError::from)?;
+                Ok(self.state.take_state(message))
+            })
         })?;
         Ok(warnings.filter(|w| !w.is_empty()).map(|warnings| {
             warnings
