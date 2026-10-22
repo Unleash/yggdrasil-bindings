@@ -1468,3 +1468,58 @@ def test_check_all_variants_does_not_raise_when_the_context_cannot_be_read(
 
     assert results == []
     assert "Failed to evaluate all variants" in caplog.text
+
+
+def _engine_with_a_custom_strategy(strategy) -> UnleashEngine:
+    engine = UnleashEngine()
+    engine.register_custom_strategies({"breadStrategy": strategy})
+    engine.take_state(
+        json.dumps(
+            {
+                "version": 1,
+                "features": [
+                    {
+                        "name": "plain",
+                        "enabled": True,
+                        "strategies": [{"name": "default"}],
+                    },
+                    {
+                        "name": "custom",
+                        "enabled": True,
+                        "strategies": [{"name": "breadStrategy", "parameters": {}}],
+                    },
+                ],
+            }
+        )
+    )
+    return engine
+
+
+def test_check_all_variants_confines_a_raising_custom_strategy_to_its_toggle():
+    class RaisingStrategy:
+        def apply(self, _parameters, _context):
+            raise RuntimeError("the oven is broken")
+
+    engine = _engine_with_a_custom_strategy(RaisingStrategy())
+
+    results = {r.name: r for r in engine.check_all_variants({})}
+
+    assert results == {
+        name: engine.check_variant(name, {}) for name in ("plain", "custom")
+    }
+    assert results["plain"].variant.feature_enabled is True
+
+
+def test_check_all_variants_confines_a_non_bool_custom_strategy_to_its_toggle():
+    class NoneStrategy:
+        def apply(self, _parameters, _context):
+            return None
+
+    engine = _engine_with_a_custom_strategy(NoneStrategy())
+
+    results = {r.name: r for r in engine.check_all_variants({})}
+
+    assert results == {
+        name: engine.check_variant(name, {}) for name in ("plain", "custom")
+    }
+    assert results["custom"].is_found is False

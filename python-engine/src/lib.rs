@@ -150,8 +150,9 @@ impl NativeEngine {
         guard(|| {
             let py = context.py();
             let context = context_from_dict(context)?;
-            let mut results = Vec::new();
-            for toggle in self.state.list_known_toggles() {
+            let toggles = self.state.list_known_toggles();
+            let mut results = Vec::with_capacity(toggles.len());
+            for toggle in toggles {
                 let toggle_results = custom_strategy_results
                     .as_ref()
                     .and_then(|results| results.get(&toggle.name));
