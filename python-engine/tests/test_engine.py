@@ -1363,3 +1363,108 @@ def test_take_state_lets_other_threads_run():
 
     # Holding the GIL for the whole load leaves this thread a handful of ticks at its edges
     assert ticks > 20
+
+
+def _mixed_state() -> str:
+    return json.dumps(
+        {
+            "version": 1,
+            "features": [
+                {"name": "plain", "enabled": True, "strategies": [{"name": "default"}]},
+                {
+                    "name": "withVariant",
+                    "enabled": True,
+                    "strategies": [{"name": "default"}],
+                    "variants": [
+                        {
+                            "name": "sourDough",
+                            "weight": 100,
+                            "payload": {"type": "string", "value": "crusty"},
+                        }
+                    ],
+                },
+                {
+                    "name": "targeted",
+                    "enabled": True,
+                    "strategies": [
+                        {
+                            "name": "default",
+                            "constraints": [
+                                {
+                                    "contextName": "userId",
+                                    "operator": "IN",
+                                    "values": ["7"],
+                                }
+                            ],
+                        }
+                    ],
+                },
+                {"name": "off", "enabled": False, "strategies": [{"name": "default"}]},
+            ],
+        }
+    )
+
+
+def test_check_all_variants_answers_every_known_toggle_as_check_variant_does():
+    engine = UnleashEngine()
+    engine.take_state(_mixed_state())
+    context = {"userId": "7"}
+
+    results = engine.check_all_variants(context)
+
+    assert {result.name: result for result in results} == {
+        name: engine.check_variant(name, context)
+        for name in ("plain", "withVariant", "targeted", "off")
+    }
+
+
+def test_check_all_variants_resolves_against_the_given_context():
+    engine = UnleashEngine()
+    engine.take_state(_mixed_state())
+
+    results = {r.name: r for r in engine.check_all_variants({"userId": "8"})}
+
+    assert results["targeted"].variant.feature_enabled is False
+
+
+def test_check_all_variants_does_not_count_anything():
+    engine = UnleashEngine()
+    engine.take_state(_mixed_state())
+
+    engine.check_all_variants({"userId": "7"})
+
+    assert engine.get_metrics() is None
+
+
+def test_check_all_variants_applies_custom_strategies_per_toggle():
+    engine = UnleashEngine()
+
+    class BreadStrategy:
+        def apply(self, _parameters, context):
+            return context.get("betterThanSlicedBread") is True
+
+    engine.register_custom_strategies({"breadStrategy": BreadStrategy()})
+    engine.take_state(CUSTOM_STRATEGY_STATE)
+
+    better = engine.check_all_variants({"betterThanSlicedBread": True})
+    not_better = engine.check_all_variants({"betterThanSlicedBread": False})
+
+    assert [r.variant.feature_enabled for r in better] == [True]
+    assert [r.variant.feature_enabled for r in not_better] == [False]
+
+
+def test_check_all_variants_is_empty_before_any_state_arrives():
+    assert UnleashEngine().check_all_variants({}) == []
+
+
+def test_check_all_variants_does_not_raise_when_the_context_cannot_be_read(
+    caplog: pytest.LogCaptureFixture,
+):
+    engine = UnleashEngine()
+    engine.take_state(_mixed_state())
+
+    with caplog.at_level(logging.WARNING, logger="yggdrasil_engine.engine"):
+        results = engine.check_all_variants({"plan": object()})
+
+    assert results == []
+    assert "Failed to evaluate all variants" in caplog.text

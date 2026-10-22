@@ -243,6 +243,48 @@ class UnleashEngine:
         """
         return self._query_variant(self._native.check_variant, toggle_name, context)
 
+    def check_all_variants(self, context: dict[str, Any]) -> list[FeatureVariant]:
+        """Ask which variant every known feature resolves to, without recording the queries.
+
+        The bulk form of `check_variant`, for a caller that needs every feature for one
+        context: the context is read once and every toggle is resolved in one native
+        call, with the same answers `check_variant` gives one by one.
+
+        Never raises: whatever fails, the caller gets an empty list rather than a half
+        built answer.
+        """
+        try:
+            custom_strategy_results = {
+                toggle_name: self.custom_strategy_handler.evaluate_custom_strategies(
+                    toggle_name, context
+                )
+                for toggle_name in self.custom_strategy_handler.strategy_definitions
+            }
+            return [
+                FeatureVariant(
+                    name=toggle_name,
+                    variant=Variant(
+                        name=name,
+                        payload=payload,
+                        enabled=enabled,
+                        feature_enabled=feature_enabled,
+                    ),
+                    is_found=True,
+                    requires_impression_event_emission=impression,
+                )
+                for toggle_name, (
+                    name,
+                    payload,
+                    enabled,
+                    feature_enabled,
+                ), impression in self._native.check_all_variants(
+                    context or {}, custom_strategy_results
+                )
+            ]
+        except Exception:
+            _logger.warning("Failed to evaluate all variants", exc_info=True)
+            return []
+
     def _query_variant(
         self,
         native_query: _NativeVariantQuery,
