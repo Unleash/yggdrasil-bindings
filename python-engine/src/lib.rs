@@ -53,6 +53,7 @@ fn guard<T>(action: impl FnOnce() -> PyResult<T>) -> PyResult<T> {
 
 type VariantTuple<'py> = (String, Option<Bound<'py, PyDict>>, bool, bool);
 type ToggleDefinitionTuple = (String, String, Option<String>, bool);
+type ToggleVariantTuple<'py> = (String, VariantTuple<'py>, bool);
 
 #[pyclass(frozen)]
 struct NativeEngine {
@@ -134,6 +135,35 @@ impl NativeEngine {
                 custom_strategy_results.as_ref(),
             );
             Ok((variant_to_tuple(py, variant)?, impression))
+        })
+    }
+
+    /// `check_variant` for every known toggle against one context, read once.
+    /// Returns `(toggle_name, variant, requires_impression_event)` per toggle;
+    /// `custom_strategy_results` is keyed by toggle name
+    #[pyo3(signature = (context, custom_strategy_results=None))]
+    fn check_all_variants<'py>(
+        &self,
+        context: &Bound<'py, PyDict>,
+        custom_strategy_results: Option<HashMap<String, HashMap<String, bool>>>,
+    ) -> PyResult<Vec<ToggleVariantTuple<'py>>> {
+        guard(|| {
+            let py = context.py();
+            let context = context_from_dict(context)?;
+            let toggles = self.state.list_known_toggles();
+            let mut results = Vec::with_capacity(toggles.len());
+            for toggle in toggles {
+                let toggle_results = custom_strategy_results
+                    .as_ref()
+                    .and_then(|results| results.get(&toggle.name));
+                let (variant, impression) =
+                    resolve_variant(&self.state, &toggle.name, &context, toggle_results);
+                // None only for a toggle removed since it was listed
+                if let Some(variant) = variant_to_tuple(py, variant)? {
+                    results.push((toggle.name, variant, impression));
+                }
+            }
+            Ok(results)
         })
     }
 

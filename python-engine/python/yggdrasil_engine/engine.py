@@ -243,6 +243,84 @@ class UnleashEngine:
         """
         return self._query_variant(self._native.check_variant, toggle_name, context)
 
+    def check_all_variants(self, context: dict[str, Any]) -> list[FeatureVariant]:
+        """Ask which variant every known feature resolves to, without recording the queries.
+
+        The bulk form of `check_variant`, for a caller that needs every feature for one
+        context: the context is read once and every toggle is resolved in one native
+        call, with the same answers `check_variant` gives one by one, in no particular
+        order.
+
+        Never raises. A custom strategy that fails only affects its own toggle, which
+        gets the disabled variant as `check_variant` would give it; anything else that
+        fails gives an empty list rather than a half built answer.
+        """
+        try:
+            custom_strategy_results, failed = self._all_custom_strategy_results(context)
+            results = [
+                FeatureVariant(
+                    name=toggle_name,
+                    variant=Variant(
+                        name=name,
+                        payload=payload,
+                        enabled=enabled,
+                        feature_enabled=feature_enabled,
+                    ),
+                    is_found=True,
+                    requires_impression_event_emission=impression,
+                )
+                for toggle_name, (
+                    name,
+                    payload,
+                    enabled,
+                    feature_enabled,
+                ), impression in self._native.check_all_variants(
+                    context or {}, custom_strategy_results
+                )
+                if toggle_name not in failed
+            ]
+            return results + [
+                FeatureVariant(
+                    name=toggle_name,
+                    variant=disabled_variant(),
+                    is_found=False,
+                    requires_impression_event_emission=False,
+                )
+                for toggle_name in failed
+            ]
+        except Exception:
+            _logger.warning("Failed to evaluate all variants", exc_info=True)
+            return []
+
+    def _all_custom_strategy_results(
+        self, context: dict[str, Any]
+    ) -> tuple[dict[str, dict[str, bool]], set[str]]:
+        """Each toggle's custom strategy results, and the toggles whose strategies failed.
+
+        A result that isn't a bool counts as a failure, as it does in `check_variant`,
+        where the engine refuses it.
+        """
+        results: dict[str, dict[str, bool]] = {}
+        failed: set[str] = set()
+        for toggle_name in self.custom_strategy_handler.strategy_definitions:
+            try:
+                toggle_results = (
+                    self.custom_strategy_handler.evaluate_custom_strategies(
+                        toggle_name, context
+                    )
+                )
+                if not all(isinstance(r, bool) for r in toggle_results.values()):
+                    raise TypeError("custom strategies must return a bool")
+                results[toggle_name] = toggle_results
+            except Exception:
+                failed.add(toggle_name)
+                _logger.warning(
+                    "Failed to evaluate custom strategies for toggle %s",
+                    toggle_name,
+                    exc_info=True,
+                )
+        return results, failed
+
     def _query_variant(
         self,
         native_query: _NativeVariantQuery,
