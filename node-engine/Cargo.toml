@@ -12,7 +12,7 @@ crate-type = ["cdylib"]
 chrono = { version = "0.4.42", default-features = false, features = ["serde", "std"] }
 wasm-bindgen = "=0.2.129"
 tsify = { version = "0.5.8", default-features = false, features = ["js"] }
-unleash-yggdrasil = { path = "../../yggdrasil/unleash-yggdrasil", version = "0.21.6", features = ["wasm-types"] }
+unleash-yggdrasil = { version = "0.21.7", features = ["wasm-types"] }
 serde_json = "1.0.154"
 serde = { version = "1.0.217", features = ["derive"] }
 
