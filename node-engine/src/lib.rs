@@ -2,12 +2,15 @@
 
 use std::collections::HashMap;
 
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tsify::{Ts, Tsify};
 use unleash_yggdrasil::{
+    impact_metrics::{BucketMetricOptions, CollectedMetric, MetricOptions},
     state::{EnrichedContext, ExternalResultsRef, PropertiesRef},
-    EngineState, ExtendedVariantDef, UpdateMessage,
+    ClientFeatures, EngineState, ExtendedVariantDef, MetricBucket, ToggleDefinition, UpdateMessage,
+    CORE_VERSION, KNOWN_STRATEGIES, SUPPORTED_SPEC_VERSION,
 };
 use wasm_bindgen::prelude::*;
 
@@ -27,39 +30,22 @@ pub struct EnabledResult {
 #[derive(Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
 pub struct VariantResult {
-    pub variant: Option<Variant>,
+    pub variant: Option<ExtendedVariantDef>,
     pub impression_data: bool,
 }
 
 #[derive(Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
-pub struct Variant {
-    pub name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub payload: Option<Payload>,
-    pub enabled: bool,
-    pub feature_enabled: bool,
+pub struct KnownFeatures {
+    features: Vec<ToggleDefinition>,
 }
 
-#[derive(Serialize, Tsify)]
-pub struct Payload {
-    #[serde(rename = "type")]
-    pub payload_type: String,
-    pub value: String,
-}
-
-impl From<ExtendedVariantDef> for Variant {
-    fn from(variant: ExtendedVariantDef) -> Self {
-        Self {
-            name: variant.name,
-            payload: variant.payload.map(|payload| Payload {
-                payload_type: payload.payload_type,
-                value: payload.value,
-            }),
-            enabled: variant.enabled,
-            feature_enabled: variant.feature_enabled,
-        }
-    }
+#[derive(Serialize, Deserialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+#[tsify(hashmap_as_object)]
+pub struct MetricsResult {
+    bucket: Option<MetricBucket>,
+    impact_metrics: Vec<CollectedMetric>,
 }
 
 #[derive(Serialize, Tsify)]
@@ -163,6 +149,21 @@ impl Default for WasmInterface {
     }
 }
 
+#[wasm_bindgen(js_name = getSpecVersion)]
+pub fn get_spec_version() -> String {
+    SUPPORTED_SPEC_VERSION.to_string()
+}
+
+#[wasm_bindgen(js_name = getYggdrasilVersion)]
+pub fn get_yggdrasil_version() -> String {
+    CORE_VERSION.to_string()
+}
+
+#[wasm_bindgen(js_name = getSupportedStrategies)]
+pub fn get_supported_strategies() -> Vec<String> {
+    KNOWN_STRATEGIES.iter().map(|s| s.to_string()).collect()
+}
+
 #[wasm_bindgen]
 impl WasmInterface {
     #[wasm_bindgen(constructor)]
@@ -254,7 +255,33 @@ impl WasmInterface {
         }
 
         let variant_result = VariantResult {
-            variant: variant.map(Variant::from),
+            variant,
+            impression_data: engine.should_emit_impression_event(context.toggle_name),
+        };
+
+        Ok(variant_result.into_ts()?)
+    }
+
+    #[wasm_bindgen(js_name = checkVariant)]
+    pub fn check_variant(&self, enriched_context: &str) -> Result<Ts<VariantResult>, JsError> {
+        let engine = self
+            .inner
+            .as_ref()
+            .ok_or_else(|| JsError::new("Engine state is not initialized"))?;
+
+        let message: ParsedContext = serde_json::from_str(enriched_context)
+            .map_err(|err| JsError::new(&format!("Failed to parse enriched context: {err}")))?;
+
+        let message = message.normalize();
+        let context = message.enriched();
+
+        let enabled = engine.check_enabled(&context).unwrap_or_default();
+        let variant = engine
+            .check_variant(&context)
+            .map(|variant| variant.to_enriched_response(enabled));
+
+        let variant_result = VariantResult {
+            variant,
             impression_data: engine.should_emit_impression_event(context.toggle_name),
         };
 
@@ -280,6 +307,138 @@ impl WasmInterface {
             .ok_or_else(|| JsError::new("Engine state is not initialized"))?;
 
         engine.count_variant(toggle_name, variant_name);
+        Ok(())
+    }
+
+    #[wasm_bindgen(js_name = getMetrics)]
+    pub fn get_metrics(&self) -> Result<Ts<MetricsResult>, JsError> {
+        let engine = self
+            .inner
+            .as_ref()
+            .ok_or_else(|| JsError::new("Engine state is not initialized"))?;
+
+        let metrics = MetricsResult {
+            bucket: engine.get_metrics(Utc::now()),
+            impact_metrics: engine.collect_impact_metrics(),
+        };
+        Ok(metrics.into_ts()?)
+    }
+
+    #[wasm_bindgen(js_name = restoreMetrics)]
+    pub fn restore_metrics(&self, metrics_result: &str) -> Result<(), JsError> {
+        let engine = self
+            .inner
+            .as_ref()
+            .ok_or_else(|| JsError::new("Engine state is not initialized"))?;
+
+        let metrics: MetricsResult = serde_json::from_str(metrics_result)
+            .map_err(|e| JsError::new(&format!("Failed to parse metrics result: {}", e)))?;
+
+        engine.restore_impact_metrics(metrics.impact_metrics);
+        if let Some(metrics_bucket) = metrics.bucket {
+            engine.restore_metrics(metrics_bucket);
+        }
+        Ok(())
+    }
+
+    #[wasm_bindgen(js_name = getState)]
+    pub fn get_state(&self) -> Result<Ts<ClientFeatures>, JsError> {
+        let engine = self
+            .inner
+            .as_ref()
+            .ok_or_else(|| JsError::new("Engine state is not initialized"))?;
+
+        let state = engine.get_state();
+        Ok(state.into_ts()?)
+    }
+
+    #[wasm_bindgen(js_name = listFeatures)]
+    pub fn list_features(&self) -> Result<Ts<KnownFeatures>, JsError> {
+        let engine = self
+            .inner
+            .as_ref()
+            .ok_or_else(|| JsError::new("Engine state is not initialized"))?;
+
+        let features = KnownFeatures {
+            features: engine.list_known_toggles(),
+        };
+        Ok(features.into_ts()?)
+    }
+
+    #[wasm_bindgen(js_name = defineCounter)]
+    pub fn define_counter(&self, name: &str, help_text: &str) -> Result<(), JsError> {
+        let engine = self
+            .inner
+            .as_ref()
+            .ok_or_else(|| JsError::new("Engine state is not initialized"))?;
+
+        let metrics_options = MetricOptions::new(name, help_text);
+
+        engine.define_counter(metrics_options);
+        Ok(())
+    }
+
+    #[wasm_bindgen(js_name = defineGauge)]
+    pub fn define_gauge(&self, name: &str, help_text: &str) -> Result<(), JsError> {
+        let engine = self
+            .inner
+            .as_ref()
+            .ok_or_else(|| JsError::new("Engine state is not initialized"))?;
+
+        let metrics_options = MetricOptions::new(name, help_text);
+
+        engine.define_gauge(metrics_options);
+        Ok(())
+    }
+
+    #[wasm_bindgen(js_name = defineHistogram)]
+    pub fn define_histogram(
+        &self,
+        name: &str,
+        help_text: &str,
+        buckets: Vec<f64>,
+    ) -> Result<(), JsError> {
+        let engine = self
+            .inner
+            .as_ref()
+            .ok_or_else(|| JsError::new("Engine state is not initialized"))?;
+
+        let metrics_options = BucketMetricOptions::new(name, help_text, buckets);
+
+        engine.define_histogram(metrics_options);
+        Ok(())
+    }
+
+    #[wasm_bindgen(js_name = incrementCounter)]
+    pub fn increment_counter(&self, name: &str, value: i64) -> Result<(), JsError> {
+        let engine = self
+            .inner
+            .as_ref()
+            .ok_or_else(|| JsError::new("Engine state is not initialized"))?;
+
+        engine.inc_counter_by(name, value);
+        Ok(())
+    }
+
+    #[wasm_bindgen(js_name = updateGauge)]
+    pub fn update_gauge(&self, name: &str, value: f64) -> Result<(), JsError> {
+        let engine = self
+            .inner
+            .as_ref()
+            .ok_or_else(|| JsError::new("Engine state is not initialized"))?;
+
+        engine.set_gauge(name, value);
+        Ok(())
+    }
+
+    #[wasm_bindgen(js_name = observeHistogram)]
+    pub fn observe_histogram(&self, name: &str, value: f64) -> Result<(), JsError> {
+        let engine = self
+            .inner
+            .as_ref()
+            .ok_or_else(|| JsError::new("Engine state is not initialized"))?;
+
+        engine.observe_histogram(name, value);
         Ok(())
     }
 }
