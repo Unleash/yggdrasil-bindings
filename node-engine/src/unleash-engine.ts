@@ -10,6 +10,7 @@ import {
   type VariantResult,
   WasmInterface
 } from '../wasm/wasm-interface.js';
+import { type CustomStrategy, CustomStrategyHandler } from './custom-strategies.js';
 
 export type {
   ClientFeatures,
@@ -33,9 +34,11 @@ export { getSpecVersion, getYggdrasilVersion, getSupportedStrategies };
 
 export class UnleashEngine {
   wasmInterface: WasmInterface | null;
+  customStrategyHandler: CustomStrategyHandler;
 
   constructor() {
     this.wasmInterface = new WasmInterface();
+    this.customStrategyHandler = new CustomStrategyHandler();
   }
 
   destroy(): void {
@@ -47,22 +50,27 @@ export class UnleashEngine {
 
   takeState(state: ClientFeatures | ClientFeaturesDelta): string | null {
     this.assertInitialized();
-    return this.wasmInterface.takeState(JSON.stringify(state));
+    const warnings = this.wasmInterface.takeState(JSON.stringify(state));
+    this.customStrategyHandler.updateStrategies(state);
+    return warnings;
   }
 
   isEnabled(featureName: string, context?: Context): EnabledResult {
     this.assertInitialized();
-    return this.wasmInterface.isEnabled(JSON.stringify({ ...context, toggleName: featureName }));
+    const customResults = this.customStrategyHandler.evaluateCustomStrategies(featureName, context ?? {});
+    return this.wasmInterface.isEnabled(JSON.stringify({ ...context, toggleName: featureName, externalResults: customResults }));
   }
 
   getVariant(featureName: string, context?: Context): VariantResult {
     this.assertInitialized();
-    return this.wasmInterface.getVariant(JSON.stringify({ ...context, toggleName: featureName }));
+    const customResults = this.customStrategyHandler.evaluateCustomStrategies(featureName, context ?? {});
+    return this.wasmInterface.getVariant(JSON.stringify({ ...context, toggleName: featureName, externalResults: customResults }));
   }
 
   checkVariant(featureName: string, context?: Context): VariantResult {
     this.assertInitialized();
-    return this.wasmInterface.checkVariant(JSON.stringify({ ...context, toggleName: featureName }));
+    const customResults = this.customStrategyHandler.evaluateCustomStrategies(featureName, context ?? {});
+    return this.wasmInterface.checkVariant(JSON.stringify({ ...context, toggleName: featureName, externalResults: customResults }));
   }
 
   count(featureName: string, isEnabled: boolean): void {
@@ -132,6 +140,11 @@ export class UnleashEngine {
   observeHistogram(name: string, value: number): void {
     this.assertInitialized();
     this.wasmInterface.observeHistogram(name, value);
+  }
+
+  registerCustomStrategies(strategies: CustomStrategy[]): void {
+    this.assertInitialized();
+    this.customStrategyHandler.registerCustomStrategies(strategies);
   }
 
   private assertInitialized(): asserts this is this & { wasmInterface: WasmInterface } {

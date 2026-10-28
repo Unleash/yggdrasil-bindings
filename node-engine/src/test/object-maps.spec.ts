@@ -1,9 +1,11 @@
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { UnleashEngine } from '../unleash-engine.js';
 
-test('round-trips strategy parameter objects', () => {
+test('round-trips strategy parameter objects and evaluates custom strategies', () => {
   const engine = new UnleashEngine();
+  const isEnabled = vi.fn((parameters) => parameters.group === 'staff');
   try {
+    engine.registerCustomStrategies([{ name: 'custom', isEnabled }]);
     engine.takeState({
       version: 1,
       query: undefined,
@@ -19,7 +21,8 @@ test('round-trips strategy parameter objects', () => {
     const state = engine.getState();
     expect(state.features[0].strategies?.[0].parameters).toStrictEqual({ group: 'staff' });
     engine.takeState(state);
-    expect(engine.getState().features[0].strategies?.[0].parameters).toStrictEqual({ group: 'staff' });
+    expect(engine.isEnabled('custom-feature').enabled).toBe(true);
+    expect(isEnabled).toHaveBeenCalledWith({ group: 'staff' }, {});
   } finally {
     engine.destroy();
   }
