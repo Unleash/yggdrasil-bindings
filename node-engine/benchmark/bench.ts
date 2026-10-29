@@ -26,7 +26,7 @@ const bootstrap = {
   ]
 }
 
-engine.takeState(JSON.stringify(bootstrap))
+engine.takeState(bootstrap)
 
 b.add('UnleashEngine.isEnabled', () => {
   engine.isEnabled(TOGGLE_NAME, CONTEXT)
