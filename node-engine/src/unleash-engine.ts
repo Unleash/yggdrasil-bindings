@@ -57,20 +57,41 @@ export class UnleashEngine {
 
   isEnabled(featureName: string, context?: Context): EnabledResult {
     this.assertInitialized();
-    const customResults = this.customStrategyHandler.evaluateCustomStrategies(featureName, context ?? {});
-    return this.wasmInterface.isEnabled(JSON.stringify({ ...context, toggleName: featureName, externalResults: customResults }));
+    try {
+      const customResults = this.customStrategyHandler.evaluateCustomStrategies(featureName, context ?? {});
+      return this.wasmInterface.isEnabled(JSON.stringify({ ...context, toggleName: featureName, externalResults: customResults }));
+    } catch (_: unknown) {
+      return {
+        enabled: undefined,
+        impressionData: false
+      }
+    }
   }
 
   getVariant(featureName: string, context?: Context): VariantResult {
     this.assertInitialized();
-    const customResults = this.customStrategyHandler.evaluateCustomStrategies(featureName, context ?? {});
-    return this.wasmInterface.getVariant(JSON.stringify({ ...context, toggleName: featureName, externalResults: customResults }));
+    try {
+      const customResults = this.customStrategyHandler.evaluateCustomStrategies(featureName, context ?? {});
+      return this.wasmInterface.getVariant(JSON.stringify({ ...context, toggleName: featureName, externalResults: customResults }));
+    } catch (_: unknown) {
+      return {
+        variant: undefined,
+        impressionData: false
+      }
+    }
   }
 
   checkVariant(featureName: string, context?: Context): VariantResult {
     this.assertInitialized();
-    const customResults = this.customStrategyHandler.evaluateCustomStrategies(featureName, context ?? {});
-    return this.wasmInterface.checkVariant(JSON.stringify({ ...context, toggleName: featureName, externalResults: customResults }));
+    try {
+      const customResults = this.customStrategyHandler.evaluateCustomStrategies(featureName, context ?? {});
+      return this.wasmInterface.checkVariant(JSON.stringify({ ...context, toggleName: featureName, externalResults: customResults }));
+    } catch (_: unknown) {
+      return {
+        variant: undefined,
+        impressionData: false
+      }
+    }
   }
 
   count(featureName: string, isEnabled: boolean): void {
