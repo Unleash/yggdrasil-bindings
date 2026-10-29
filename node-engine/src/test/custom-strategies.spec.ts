@@ -1,6 +1,6 @@
-import { expect, test, vi } from 'vitest';
-import { CustomStrategyHandler } from '../custom-strategies.js';
+import { expect, test } from 'vitest';
 import type { ClientFeature, ClientFeatures, Strategy } from '../../wasm/wasm-interface.js';
+import { CustomStrategyHandler } from '../custom-strategies.js';
 
 const strategy = (name: string, parameters?: Record<string, string>): Strategy => ({
   name,

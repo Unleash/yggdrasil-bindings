@@ -3,12 +3,12 @@ import {
   type ClientFeaturesDelta,
   type EnabledResult,
   getSpecVersion,
-  getYggdrasilVersion,
   getSupportedStrategies,
+  getYggdrasilVersion,
   type KnownFeatures,
   type MetricsResult,
   type VariantResult,
-  WasmInterface
+  WasmInterface,
 } from '../wasm/wasm-interface.js';
 import { type CustomStrategy, CustomStrategyHandler } from './custom-strategies.js';
 
@@ -30,7 +30,7 @@ export interface Context {
   properties?: Record<string, unknown>;
 }
 
-export { getSpecVersion, getYggdrasilVersion, getSupportedStrategies };
+export { getSpecVersion, getSupportedStrategies, getYggdrasilVersion };
 
 export class UnleashEngine {
   wasmInterface: WasmInterface | null;
@@ -58,39 +58,54 @@ export class UnleashEngine {
   isEnabled(featureName: string, context?: Context): EnabledResult {
     this.assertInitialized();
     try {
-      const customResults = this.customStrategyHandler.evaluateCustomStrategies(featureName, context ?? {});
-      return this.wasmInterface.isEnabled(JSON.stringify({ ...context, toggleName: featureName, externalResults: customResults }));
+      const customResults = this.customStrategyHandler.evaluateCustomStrategies(
+        featureName,
+        context ?? {},
+      );
+      return this.wasmInterface.isEnabled(
+        JSON.stringify({ ...context, toggleName: featureName, externalResults: customResults }),
+      );
     } catch (_: unknown) {
       return {
         enabled: undefined,
-        impressionData: false
-      }
+        impressionData: false,
+      };
     }
   }
 
   getVariant(featureName: string, context?: Context): VariantResult {
     this.assertInitialized();
     try {
-      const customResults = this.customStrategyHandler.evaluateCustomStrategies(featureName, context ?? {});
-      return this.wasmInterface.getVariant(JSON.stringify({ ...context, toggleName: featureName, externalResults: customResults }));
+      const customResults = this.customStrategyHandler.evaluateCustomStrategies(
+        featureName,
+        context ?? {},
+      );
+      return this.wasmInterface.getVariant(
+        JSON.stringify({ ...context, toggleName: featureName, externalResults: customResults }),
+      );
     } catch (_: unknown) {
       return {
         variant: undefined,
-        impressionData: false
-      }
+        impressionData: false,
+      };
     }
   }
 
   checkVariant(featureName: string, context?: Context): VariantResult {
     this.assertInitialized();
     try {
-      const customResults = this.customStrategyHandler.evaluateCustomStrategies(featureName, context ?? {});
-      return this.wasmInterface.checkVariant(JSON.stringify({ ...context, toggleName: featureName, externalResults: customResults }));
+      const customResults = this.customStrategyHandler.evaluateCustomStrategies(
+        featureName,
+        context ?? {},
+      );
+      return this.wasmInterface.checkVariant(
+        JSON.stringify({ ...context, toggleName: featureName, externalResults: customResults }),
+      );
     } catch (_: unknown) {
       return {
         variant: undefined,
-        impressionData: false
-      }
+        impressionData: false,
+      };
     }
   }
 
@@ -136,18 +151,14 @@ export class UnleashEngine {
 
   defineHistogram(name: string, helpText: string, buckets?: number[]): void {
     this.assertInitialized();
-    this.wasmInterface.defineHistogram(
-      name,
-      helpText,
-      new Float64Array(buckets ?? []),
-    );
+    this.wasmInterface.defineHistogram(name, helpText, new Float64Array(buckets ?? []));
   }
 
   incrementCounter(name: string, value: number = 1): void {
     this.assertInitialized();
 
     if (!Number.isSafeInteger(value)) {
-      throw new RangeError("Counter increment must be a safe integer");
+      throw new RangeError('Counter increment must be a safe integer');
     }
 
     this.wasmInterface.incrementCounter(name, BigInt(value));

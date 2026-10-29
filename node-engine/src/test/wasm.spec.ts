@@ -70,7 +70,7 @@ test('supports random rollout and the current time in WASM', () => {
 test('throws for invalid state and rejects calls after freeing the engine', () => {
   const engine = new UnleashEngine();
   try {
-    expect(() => engine.wasmInterface!.takeState('invalid JSON')).toThrow(
+    expect(() => engine.wasmInterface?.takeState('invalid JSON')).toThrow(
       /Failed to parse client features/,
     );
   } finally {
