@@ -1,0 +1,60 @@
+name: Build Node engine
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'node-engine/**'
+      - '.cargo/**'
+      - '.github/workflows/build-node.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'node-engine/**'
+      - '.cargo/**'
+      - '.github/workflows/build-node.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-node:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: node-engine
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: node-engine -> target
+
+      - name: Install wasm-bindgen CLI
+        run: cargo install wasm-bindgen-cli --version 0.2.129 --locked
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Build WASM and JavaScript wrapper
+        run: yarn build
+
+      - name: Run tests
+        run: yarn test

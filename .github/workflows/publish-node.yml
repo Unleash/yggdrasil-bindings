@@ -1,0 +1,93 @@
+name: Publish Node engine
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build and test only: no npm publish, no tag'
+        type: boolean
+        default: true
+      tag:
+        description: NPM tag
+        type: string
+        default: alpha
+
+concurrency:
+  group: publish-node-engine
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-publish-node:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    defaults:
+      run:
+        working-directory: node-engine
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install npm with trusted publishing support
+        run: npm install --global npm@11
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: node-engine -> target
+
+      - name: Install wasm-bindgen CLI
+        run: cargo install wasm-bindgen-cli --version 0.2.129 --locked
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Build WASM and JavaScript wrapper
+        run: yarn build
+
+      - name: Run tests
+        run: yarn test
+
+      - name: Check package contents
+        run: npm pack --dry-run
+
+      - name: Read engine version
+        id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to npm
+        if: ${{ !inputs.dry_run }}
+        run: npm publish --access public --tag "$NPM_TAG"
+        env:
+          NPM_TAG: ${{ inputs.tag }}
+
+      - name: Create release tag
+        if: ${{ !inputs.dry_run }}
+        uses: actions/github-script@v8
+        env:
+          ENGINE_VERSION: ${{ steps.version.outputs.version }}
+        with:
+          script: |
+            await github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `refs/tags/node-engine-v${process.env.ENGINE_VERSION}`,
+              sha: context.sha,
+            });
