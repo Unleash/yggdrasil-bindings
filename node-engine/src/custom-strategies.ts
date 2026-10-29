@@ -94,7 +94,7 @@ export class CustomStrategyHandler {
         feature.name,
         strategies.map((strategy) => ({
           name: strategy.name,
-          parameters: strategy.parameters ?? {},
+          parameters: { ...(strategy.parameters ?? {}) },
         })),
       );
     } else {
