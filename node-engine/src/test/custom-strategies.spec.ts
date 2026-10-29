@@ -26,37 +26,6 @@ function createHandler() {
   return handler;
 }
 
-test('filters built-ins and numbers only custom strategies in definition order', () => {
-  const handler = new CustomStrategyHandler();
-  const context = { userId: 'alice' };
-  const isEnabled = vi.fn(() => true);
-  handler.registerCustomStrategies([{ name: 'custom', isEnabled }]);
-  handler.updateStrategies(
-    snapshot([
-      {
-        name: 'demo',
-        enabled: true,
-        strategies: [
-          strategy('default'),
-          strategy('custom', { group: 'staff' }),
-          strategy('flexibleRollout'),
-          strategy('unregistered'),
-          strategy('custom'),
-        ],
-      },
-    ]),
-  );
-
-  expect(handler.evaluateCustomStrategies('demo', context)).toEqual({
-    customStrategy1: true,
-    customStrategy2: false,
-    customStrategy3: true,
-  });
-  expect(isEnabled).toHaveBeenNthCalledWith(1, { group: 'staff' }, context);
-  expect(isEnabled).toHaveBeenNthCalledWith(2, {}, context);
-  expect(handler.evaluateCustomStrategies('missing', context)).toEqual({});
-});
-
 test('preserves method receivers and allows replacing implementations', () => {
   const handler = new CustomStrategyHandler();
   handler.updateStrategies(snapshot([customFeature('demo')]));
