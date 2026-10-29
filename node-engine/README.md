@@ -35,7 +35,7 @@ The build also detects a CLI installed with `cargo install --root .tools`.
 ```js
 const { UnleashEngine } = require('yggdrasil-engine')
 const engine = new UnleashEngine()
-engine.takeState(JSON.stringify({ version: 1, features: [] }))
+engine.takeState({ version: 1, features: [] ))
 const result = engine.isEnabled('demo-feature', { userId: 'user-1' })
 engine.destroy()
 ```
