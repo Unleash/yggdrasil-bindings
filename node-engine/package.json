@@ -27,7 +27,7 @@
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
     "access": "public",
-    "tag": "alpha"
+    "tag": "$NPM_TAG"
   },
   "scripts": {
     "bench": "tsx benchmark/bench.ts",
