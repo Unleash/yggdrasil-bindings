@@ -1,11 +1,16 @@
 {
-  "name": "yggdrasil-engine",
-  "version": "1.0.0",
+  "name": "@unleash/yggdrasil-engine",
+  "version": "0.1.0-alpha.2",
   "description": "Experimental wasm-bindgen bindings for the Yggdrasil engine",
   "main": "lib/unleash-engine.js",
   "types": "lib/unleash-engine.d.ts",
   "type": "commonjs",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Unleash/yggdrasil-bindings.git",
+    "directory": "node-engine"
+  },
   "keywords": [
     "WebAssembly",
     "wasm-bindgen",
@@ -21,7 +26,8 @@
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
-    "access": "public"
+    "access": "public",
+    "tag": "alpha"
   },
   "scripts": {
     "bench": "tsx benchmark/bench.ts",

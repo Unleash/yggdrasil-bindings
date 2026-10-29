@@ -584,6 +584,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@unleash/yggdrasil-engine@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "@unleash/yggdrasil-engine@workspace:."
+  dependencies:
+    "@biomejs/biome": "npm:2.4.11"
+    tinybench: "npm:^6.2.0"
+    tsx: "npm:^4.23.15"
+    typescript: "npm:^7.0.2"
+    vitest: "npm:^4.1.11"
+  languageName: unknown
+  linkType: soft
+
 "@vitest/expect@npm:4.1.11":
   version: 4.1.11
   resolution: "@vitest/expect@npm:4.1.11"
@@ -1574,15 +1586,3 @@ __metadata:
   checksum: 10c0/a499c81ce6d4a1d260d4ea0f6d49ab4da09681e32c3f0472dee16667ed69d01dae63a3b81745a24bd78476ec4fcf856114cb4896ace738e01da34b2c42235416
   languageName: node
   linkType: hard
-
-"yggdrasil-engine@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "yggdrasil-engine@workspace:."
-  dependencies:
-    "@biomejs/biome": "npm:2.4.11"
-    tinybench: "npm:^6.2.0"
-    tsx: "npm:^4.23.15"
-    typescript: "npm:^7.0.2"
-    vitest: "npm:^4.1.11"
-  languageName: unknown
-  linkType: soft
