@@ -4,15 +4,9 @@
 import inspect
 import json
 
-_STANDARD_STRATEGIES = [
-    "default",
-    "userWithId",
-    "gradualRolloutUserId",
-    "gradualRolloutSessionId",
-    "gradualRolloutRandom",
-    "flexibleRollout",
-    "remoteAddress",
-]
+from yggdrasil_engine.yggdrasil_native import known_strategies  # type: ignore
+
+_STANDARD_STRATEGIES = known_strategies()
 
 
 def get_features_json(message):

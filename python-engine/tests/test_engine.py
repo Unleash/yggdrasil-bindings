@@ -995,6 +995,10 @@ def test_get_core_version_reads_a_version_from_the_library_without_an_engine():
     assert re.fullmatch(r"\d+\.\d+\.\d+", UnleashEngine.get_core_version())
 
 
+def test_get_spec_version_reads_a_version_from_the_library_without_an_engine():
+    assert re.fullmatch(r"\d+\.\d+\.\d+", UnleashEngine.get_spec_version())
+
+
 ## check_variant, copied from the ctypes engine's (2.x) tests/test_engine.py
 
 

@@ -4,7 +4,12 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
 from yggdrasil_engine.custom_strategy import CustomStrategyHandler
-from yggdrasil_engine.yggdrasil_native import NativeEngine, core_version  # type: ignore
+from yggdrasil_engine.yggdrasil_native import (  # type: ignore
+    NativeEngine,
+    core_version,
+    known_strategies,
+    spec_version,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -148,6 +153,17 @@ class UnleashEngine:
         """The version of the Yggdrasil core this engine runs, read from the
         compiled module, so it always matches the binary in use."""
         return core_version()
+
+    @staticmethod
+    def get_spec_version() -> str:
+        """The Unleash client specification version the Yggdrasil core supports."""
+        return spec_version()
+
+    @staticmethod
+    def get_known_strategies() -> list[str]:
+        """The names of the built-in strategies the Yggdrasil core evaluates.
+        Any other strategy name is treated as a custom strategy."""
+        return known_strategies()
 
     def __init__(self):
         self._native = NativeEngine()

@@ -1,6 +1,6 @@
 [project]
 name = "yggdrasil-engine"
-version = "3.0.0a1"
+version = "3.0.0a2"
 description = "Engine for evaluating Unleash feature flags"
 authors = [
     { name = "Simon Hornby", email = "liquidwicked64@gmail.com" },
