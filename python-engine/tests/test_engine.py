@@ -1527,3 +1527,57 @@ def test_check_all_variants_confines_a_non_bool_custom_strategy_to_its_toggle():
         name: engine.check_variant(name, {}) for name in ("plain", "custom")
     }
     assert results["custom"].is_found is False
+
+
+def _hostname_state(host_names: str) -> str:
+    return json.dumps(
+        {
+            "version": 1,
+            "features": [
+                {
+                    "name": "by-host",
+                    "enabled": True,
+                    "strategies": [
+                        {
+                            "name": "applicationHostname",
+                            "parameters": {"hostNames": host_names},
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+
+
+def _engine_on_host(monkeypatch, hostname: str, host_names: str) -> UnleashEngine:
+    monkeypatch.setenv("hostname", hostname)
+    engine = UnleashEngine()
+    engine.take_state(_hostname_state(host_names))
+    return engine
+
+
+def test_application_hostname_matches_this_machine(monkeypatch):
+    engine = _engine_on_host(monkeypatch, "build-host-1", "build-host-1")
+
+    assert engine.is_enabled("by-host", {}).is_enabled is True
+    assert engine.get_variant("by-host", {}).variant.feature_enabled is True
+    assert engine.check_variant("by-host", {}).variant.feature_enabled is True
+    assert engine.check_all_variants({})[0].variant.feature_enabled is True
+
+
+def test_application_hostname_ignores_case(monkeypatch):
+    engine = _engine_on_host(monkeypatch, "Build-Host-1", "build-HOST-1")
+
+    assert engine.is_enabled("by-host", {}).is_enabled is True
+
+
+def test_application_hostname_matches_one_of_several_hostnames(monkeypatch):
+    engine = _engine_on_host(monkeypatch, "build-host-1", "web-1, build-host-1")
+
+    assert engine.is_enabled("by-host", {}).is_enabled is True
+
+
+def test_application_hostname_does_not_match_another_machine(monkeypatch):
+    engine = _engine_on_host(monkeypatch, "build-host-1", "web-1, web-2")
+
+    assert engine.is_enabled("by-host", {}).is_enabled is False
