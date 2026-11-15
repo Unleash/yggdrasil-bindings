@@ -1581,3 +1581,106 @@ def test_application_hostname_does_not_match_another_machine(monkeypatch):
     engine = _engine_on_host(monkeypatch, "build-host-1", "web-1, web-2")
 
     assert engine.is_enabled("by-host", {}).is_enabled is False
+
+
+class _AllowListStrategy:
+    def apply(self, parameters, context):
+        return context.get("userId") in parameters["ids"].split(",")
+
+
+def _allow_list_toggle(name: str, ids: str) -> dict:
+    return {
+        "name": name,
+        "enabled": True,
+        "strategies": [{"name": "allowList", "parameters": {"ids": ids}}],
+    }
+
+
+def _plain_toggle(name: str, enabled: bool = True) -> dict:
+    return {"name": name, "enabled": enabled, "strategies": [{"name": "default"}]}
+
+
+def _delta(*events: dict) -> str:
+    return json.dumps({"events": list(events)})
+
+
+def _feature_updated(event_id: int, feature: dict) -> dict:
+    return {"type": "feature-updated", "eventId": event_id, "feature": feature}
+
+
+def _engine_with_allow_list(*features: dict) -> UnleashEngine:
+    engine = UnleashEngine()
+    engine.register_custom_strategies({"allowList": _AllowListStrategy()})
+    engine.take_state(json.dumps({"version": 1, "features": list(features)}))
+    return engine
+
+
+# a delta carries only the toggles that changed
+def test_custom_strategy_still_applies_after_a_delta_for_another_toggle():
+    engine = _engine_with_allow_list(
+        _allow_list_toggle("custom", "1"), _plain_toggle("plain")
+    )
+
+    engine.take_state(
+        _delta(_feature_updated(2, _plain_toggle("plain", enabled=False)))
+    )
+
+    assert engine.is_enabled("plain", {}).is_enabled is False
+    assert engine.is_enabled("custom", {"userId": "1"}).is_enabled is True
+    assert engine.get_variant("custom", {"userId": "1"}).variant.feature_enabled is True
+
+
+def test_custom_strategy_follows_a_delta_for_its_own_toggle():
+    engine = _engine_with_allow_list(
+        _allow_list_toggle("custom", "1"), _plain_toggle("plain")
+    )
+
+    engine.take_state(_delta(_feature_updated(2, _allow_list_toggle("custom", "2"))))
+
+    assert engine.is_enabled("custom", {"userId": "1"}).is_enabled is False
+    assert engine.is_enabled("custom", {"userId": "2"}).is_enabled is True
+
+
+def _engine_with_state(*features: dict) -> UnleashEngine:
+    engine = UnleashEngine()
+    engine.take_state(json.dumps({"version": 1, "features": list(features)}))
+    return engine
+
+
+# The SDK registers custom strategies in initialize_client(), after a bootstrap has loaded a state
+def test_custom_strategy_registered_after_the_state_applies():
+    engine = _engine_with_state(_allow_list_toggle("custom", "1"))
+
+    engine.register_custom_strategies({"allowList": _AllowListStrategy()})
+
+    assert engine.is_enabled("custom", {"userId": "1"}).is_enabled is True
+    assert engine.check_all_variants({"userId": "1"})[0].variant.feature_enabled is True
+
+
+def test_unregistered_custom_strategy_does_not_match():
+    engine = _engine_with_state(_allow_list_toggle("custom", "1"))
+
+    assert engine.is_enabled("custom", {"userId": "1"}).is_enabled is False
+    assert (
+        engine.check_all_variants({"userId": "1"})[0].variant.feature_enabled is False
+    )
+
+
+def test_unregistered_custom_strategy_leaves_the_other_strategies_working():
+    toggle = _allow_list_toggle("custom", "1")
+    toggle["strategies"].append({"name": "default"})
+    engine = _engine_with_state(toggle)
+
+    assert engine.is_enabled("custom", {"userId": "2"}).is_enabled is True
+    assert engine.check_all_variants({"userId": "2"})[0].variant.feature_enabled is True
+
+
+def test_custom_strategy_follows_a_full_state_that_changes_it():
+    engine = _engine_with_allow_list(_allow_list_toggle("custom", "1"))
+
+    engine.take_state(
+        json.dumps({"version": 1, "features": [_allow_list_toggle("custom", "2")]})
+    )
+
+    assert engine.is_enabled("custom", {"userId": "1"}).is_enabled is False
+    assert engine.is_enabled("custom", {"userId": "2"}).is_enabled is True

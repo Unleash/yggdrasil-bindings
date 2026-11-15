@@ -1,8 +1,4 @@
-# copy-pasted from the python-engine
-# planned to move this to rust side
-
 import inspect
-import json
 
 from yggdrasil_engine.yggdrasil_native import known_strategies  # type: ignore
 
@@ -30,9 +26,8 @@ class CustomStrategyHandler:
         self.strategy_definitions = {}
         self.strategy_implementations = {}
 
-    def update_strategies(self, features_json: str):
+    def update_strategies(self, parsed_toggles: dict):
         custom_strategies = {}
-        parsed_toggles = json.loads(features_json)
 
         for toggle in get_features_json(parsed_toggles):
             toggle_name = toggle["name"]

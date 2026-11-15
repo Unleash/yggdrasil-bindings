@@ -171,11 +171,19 @@ class UnleashEngine:
 
     def take_state(self, state_json: str) -> Optional[str]:
         warnings = self._native.take_state(state_json)
-        self.custom_strategy_handler.update_strategies(state_json)
+        if self.custom_strategy_handler.strategy_implementations:
+            self._update_custom_strategies(json.loads(state_json))
         return warnings
 
     def register_custom_strategies(self, custom_strategies: dict[str, Any]):
         self.custom_strategy_handler.register_custom_strategies(custom_strategies)
+        # a state can arrive before registration, for example from a bootstrap or the cache
+        self._update_custom_strategies()
+
+    def _update_custom_strategies(self, message: Optional[dict] = None) -> None:
+        if message is None or "features" not in message:
+            message = json.loads(self._native.get_state())
+        self.custom_strategy_handler.update_strategies(message)
 
     def is_enabled(
         self,
