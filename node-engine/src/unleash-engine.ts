@@ -3,13 +3,14 @@ import {
   type ClientFeaturesDelta,
   type EnabledResult,
   getSpecVersion,
-  getYggdrasilVersion,
   getSupportedStrategies,
+  getYggdrasilVersion,
   type KnownFeatures,
   type MetricsResult,
   type VariantResult,
-  WasmInterface
+  WasmInterface,
 } from '../wasm/wasm-interface.js';
+import { type CustomStrategy, CustomStrategyHandler } from './custom-strategies.js';
 
 export type {
   ClientFeatures,
@@ -29,13 +30,15 @@ export interface Context {
   properties?: Record<string, unknown>;
 }
 
-export { getSpecVersion, getYggdrasilVersion, getSupportedStrategies };
+export { getSpecVersion, getSupportedStrategies, getYggdrasilVersion };
 
 export class UnleashEngine {
   wasmInterface: WasmInterface | null;
+  customStrategyHandler: CustomStrategyHandler;
 
   constructor() {
     this.wasmInterface = new WasmInterface();
+    this.customStrategyHandler = new CustomStrategyHandler();
   }
 
   destroy(): void {
@@ -47,22 +50,63 @@ export class UnleashEngine {
 
   takeState(state: ClientFeatures | ClientFeaturesDelta): string | null {
     this.assertInitialized();
-    return this.wasmInterface.takeState(JSON.stringify(state));
+    const warnings = this.wasmInterface.takeState(JSON.stringify(state));
+    this.customStrategyHandler.updateStrategies(state);
+    return warnings;
   }
 
   isEnabled(featureName: string, context?: Context): EnabledResult {
     this.assertInitialized();
-    return this.wasmInterface.isEnabled(JSON.stringify({ ...context, toggleName: featureName }));
+    try {
+      const customResults = this.customStrategyHandler.evaluateCustomStrategies(
+        featureName,
+        context ?? {},
+      );
+      return this.wasmInterface.isEnabled(
+        JSON.stringify({ ...context, toggleName: featureName, externalResults: customResults }),
+      );
+    } catch (_: unknown) {
+      return {
+        enabled: undefined,
+        impressionData: false,
+      };
+    }
   }
 
   getVariant(featureName: string, context?: Context): VariantResult {
     this.assertInitialized();
-    return this.wasmInterface.getVariant(JSON.stringify({ ...context, toggleName: featureName }));
+    try {
+      const customResults = this.customStrategyHandler.evaluateCustomStrategies(
+        featureName,
+        context ?? {},
+      );
+      return this.wasmInterface.getVariant(
+        JSON.stringify({ ...context, toggleName: featureName, externalResults: customResults }),
+      );
+    } catch (_: unknown) {
+      return {
+        variant: undefined,
+        impressionData: false,
+      };
+    }
   }
 
   checkVariant(featureName: string, context?: Context): VariantResult {
     this.assertInitialized();
-    return this.wasmInterface.checkVariant(JSON.stringify({ ...context, toggleName: featureName }));
+    try {
+      const customResults = this.customStrategyHandler.evaluateCustomStrategies(
+        featureName,
+        context ?? {},
+      );
+      return this.wasmInterface.checkVariant(
+        JSON.stringify({ ...context, toggleName: featureName, externalResults: customResults }),
+      );
+    } catch (_: unknown) {
+      return {
+        variant: undefined,
+        impressionData: false,
+      };
+    }
   }
 
   count(featureName: string, isEnabled: boolean): void {
@@ -107,18 +151,14 @@ export class UnleashEngine {
 
   defineHistogram(name: string, helpText: string, buckets?: number[]): void {
     this.assertInitialized();
-    this.wasmInterface.defineHistogram(
-      name,
-      helpText,
-      new Float64Array(buckets ?? []),
-    );
+    this.wasmInterface.defineHistogram(name, helpText, new Float64Array(buckets ?? []));
   }
 
   incrementCounter(name: string, value: number = 1): void {
     this.assertInitialized();
 
     if (!Number.isSafeInteger(value)) {
-      throw new RangeError("Counter increment must be a safe integer");
+      throw new RangeError('Counter increment must be a safe integer');
     }
 
     this.wasmInterface.incrementCounter(name, BigInt(value));
@@ -132,6 +172,11 @@ export class UnleashEngine {
   observeHistogram(name: string, value: number): void {
     this.assertInitialized();
     this.wasmInterface.observeHistogram(name, value);
+  }
+
+  registerCustomStrategies(strategies: CustomStrategy[]): void {
+    this.assertInitialized();
+    this.customStrategyHandler.registerCustomStrategies(strategies);
   }
 
   private assertInitialized(): asserts this is this & { wasmInterface: WasmInterface } {

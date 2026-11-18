@@ -120,7 +120,6 @@ dist
 /lib
 /wasm
 /.tools
-Cargo.lock
 
 *.node
 .pnp.*

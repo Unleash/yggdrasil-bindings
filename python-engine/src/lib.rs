@@ -14,6 +14,7 @@ use unleash_yggdrasil::impact_metrics::{BucketMetricOptions, CollectedMetric, Me
 use unleash_yggdrasil::state::EnrichedContext;
 use unleash_yggdrasil::{
     Context, EngineState, ExtendedVariantDef, UpdateMessage, VariantDef, CORE_VERSION,
+    KNOWN_STRATEGIES, SUPPORTED_SPEC_VERSION,
 };
 
 #[derive(Debug)]
@@ -544,10 +545,22 @@ fn core_version() -> &'static str {
     CORE_VERSION
 }
 
+#[pyfunction]
+fn spec_version() -> &'static str {
+    SUPPORTED_SPEC_VERSION
+}
+
+#[pyfunction]
+fn known_strategies() -> &'static [&'static str] {
+    &KNOWN_STRATEGIES
+}
+
 #[pymodule]
 fn yggdrasil_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<NativeEngine>()?;
     m.add_function(wrap_pyfunction!(core_version, m)?)?;
+    m.add_function(wrap_pyfunction!(spec_version, m)?)?;
+    m.add_function(wrap_pyfunction!(known_strategies, m)?)?;
     #[cfg(feature = "test-helpers")]
     {
         m.add_function(wrap_pyfunction!(context_from_dict_as_json, m)?)?;

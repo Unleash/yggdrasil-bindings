@@ -33,7 +33,7 @@ Set `WASM_BINDGEN` to use a CLI installed outside PATH.
 The build also detects a CLI installed with `cargo install --root .tools`.
 
 ```js
-const { UnleashEngine } = require('yggdrasil-engine')
+const { UnleashEngine } = require('@unleash/yggdrasil-engine')
 const engine = new UnleashEngine()
 engine.takeState({ version: 1, features: [] ))
 const result = engine.isEnabled('demo-feature', { userId: 'user-1' })

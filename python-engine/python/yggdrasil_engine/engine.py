@@ -4,7 +4,12 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
 from yggdrasil_engine.custom_strategy import CustomStrategyHandler
-from yggdrasil_engine.yggdrasil_native import NativeEngine, core_version  # type: ignore
+from yggdrasil_engine.yggdrasil_native import (  # type: ignore
+    NativeEngine,
+    core_version,
+    known_strategies,
+    spec_version,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -149,17 +154,36 @@ class UnleashEngine:
         compiled module, so it always matches the binary in use."""
         return core_version()
 
+    @staticmethod
+    def get_spec_version() -> str:
+        """The Unleash client specification version the Yggdrasil core supports."""
+        return spec_version()
+
+    @staticmethod
+    def get_known_strategies() -> list[str]:
+        """The names of the built-in strategies the Yggdrasil core evaluates.
+        Any other strategy name is treated as a custom strategy."""
+        return known_strategies()
+
     def __init__(self):
         self._native = NativeEngine()
         self.custom_strategy_handler = CustomStrategyHandler()
 
     def take_state(self, state_json: str) -> Optional[str]:
         warnings = self._native.take_state(state_json)
-        self.custom_strategy_handler.update_strategies(state_json)
+        if self.custom_strategy_handler.strategy_implementations:
+            self._update_custom_strategies(json.loads(state_json))
         return warnings
 
     def register_custom_strategies(self, custom_strategies: dict[str, Any]):
         self.custom_strategy_handler.register_custom_strategies(custom_strategies)
+        # a state can arrive before registration, for example from a bootstrap or the cache
+        self._update_custom_strategies()
+
+    def _update_custom_strategies(self, message: Optional[dict] = None) -> None:
+        if message is None or "features" not in message:
+            message = json.loads(self._native.get_state())
+        self.custom_strategy_handler.update_strategies(message)
 
     def is_enabled(
         self,
