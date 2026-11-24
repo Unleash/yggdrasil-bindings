@@ -1,6 +1,7 @@
 import json
 import os
 from dataclasses import FrozenInstanceError, asdict
+from typing import Dict
 from unittest.mock import Mock
 
 import pytest
@@ -578,20 +579,40 @@ def test_is_enabled_does_not_raise_on_unexpected_engine_failure(monkeypatch):
     assert result.is_found is False
 
 
-def test_is_enabled_does_not_use_the_fallback_when_engine_errors(monkeypatch):
+def test_is_enabled_uses_the_fallback_when_engine_errors(
+    monkeypatch: pytest.MonkeyPatch,
+):
     engine = UnleashEngine()
     monkeypatch.setattr(
         engine,
         "_do_is_enabled",
         Mock(side_effect=YggdrasilError("boom")),
     )
+    should_emit = Mock(return_value=True)
+    monkeypatch.setattr(engine, "should_emit_impression_event", should_emit)
     fallback = Mock(return_value=True)
 
     result = engine.is_enabled("testFeature", {}, fallback_function=fallback)
 
-    fallback.assert_not_called()
-    assert result.is_enabled is False
+    fallback.assert_called_once_with("testFeature", {})
+    assert result == FeatureToggle(name="testFeature", is_enabled=True, is_found=False)
+    should_emit.assert_not_called()
+    assert engine.get_metrics() is None
+
+
+@pytest.mark.parametrize("context", [{"plan": object()}, {"userId": "123\ud800"}])
+def test_is_enabled_gives_the_fallback_answer_when_the_evaluation_fails(
+    context: Dict[str, object],
+):
+    engine = UnleashEngine()
+    _ = engine.take_state(_toggle_state("testFeature", False))
+    fallback = Mock(return_value=True)
+
+    result = engine.is_enabled("testFeature", context, fallback_function=fallback)
+
+    assert result.is_enabled is True
     assert result.is_found is False
+    fallback.assert_called_once_with("testFeature", context)
 
 
 def test_is_enabled_defaults_to_disabled_when_fallback_raises():
@@ -1829,20 +1850,24 @@ def test_check_enabled_does_not_raise_on_unexpected_engine_failure(monkeypatch):
     assert result.is_found is False
 
 
-def test_check_enabled_does_not_use_the_fallback_when_engine_errors(monkeypatch):
+def test_check_enabled_uses_the_fallback_when_engine_errors(
+    monkeypatch: pytest.MonkeyPatch,
+):
     engine = UnleashEngine()
     monkeypatch.setattr(
         engine,
         "_do_is_enabled",
         Mock(side_effect=YggdrasilError("boom")),
     )
+    should_emit = Mock(return_value=True)
+    monkeypatch.setattr(engine, "should_emit_impression_event", should_emit)
     fallback = Mock(return_value=True)
 
     result = engine.check_enabled("testFeature", {}, fallback_function=fallback)
 
-    fallback.assert_not_called()
-    assert result.is_enabled is False
-    assert result.is_found is False
+    fallback.assert_called_once_with("testFeature", {})
+    assert result == FeatureToggle(name="testFeature", is_enabled=True, is_found=False)
+    should_emit.assert_not_called()
 
 
 def test_check_enabled_defaults_to_disabled_when_fallback_raises():
