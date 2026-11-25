@@ -385,16 +385,21 @@ class UnleashEngine:
         ask the same question without recording it; both report impression
         events the same way.
 
-        `fallback_function` is consulted only when the engine does not know the
-        toggle; its answer sets `is_enabled` but leaves `is_found` at `False`.
+        `fallback_function` is consulted when the engine does not know the
+        toggle or fails to evaluate it; its answer sets `is_enabled` but leaves
+        `is_found` at `False`. A toggle that fails to evaluate is not recorded.
 
-        Never raises, and answers all or nothing: whatever fails, whether the
-        evaluation, the impression lookup or the recording, the caller gets the
-        disabled toggle rather than a half built answer.
+        Never raises, and answers all or nothing: whatever else fails, whether
+        the impression lookup, the recording or the fallback, the caller gets
+        the disabled toggle rather than a half built answer.
         """
         try:
+            try:
+                value = self._do_is_enabled(toggle_name, context)
+            except Exception:
+                return self._failed_evaluation(toggle_name, context, fallback_function)
             evaluation = self._is_enabled_or_fallback(
-                toggle_name, context, fallback_function
+                toggle_name, context, value, fallback_function
             )
             result = FeatureToggle(
                 name=toggle_name,
@@ -437,16 +442,21 @@ class UnleashEngine:
         `requires_impression_event_emission` carries the same answer it would
         under `is_enabled`.
 
-        `fallback_function` is consulted only when the engine does not know the
-        toggle; its answer sets `is_enabled` but leaves `is_found` at `False`.
+        `fallback_function` is consulted when the engine does not know the
+        toggle or fails to evaluate it; its answer sets `is_enabled` but leaves
+        `is_found` at `False`.
 
-        Never raises, and answers all or nothing: whatever fails, whether the
-        evaluation or the impression lookup, the caller gets the disabled
+        Never raises, and answers all or nothing: whatever else fails, whether
+        the impression lookup or the fallback, the caller gets the disabled
         toggle rather than a half built answer.
         """
         try:
+            try:
+                value = self._do_is_enabled(toggle_name, context)
+            except Exception:
+                return self._failed_evaluation(toggle_name, context, fallback_function)
             evaluation = self._is_enabled_or_fallback(
-                toggle_name, context, fallback_function
+                toggle_name, context, value, fallback_function
             )
             return FeatureToggle(
                 name=toggle_name,
@@ -687,13 +697,31 @@ class UnleashEngine:
             if response.status_code == StatusCode.ERROR:
                 raise YggdrasilError(response.error_message)
 
+    def _failed_evaluation(
+        self,
+        toggle_name: str,
+        context: Dict[str, object],
+        fallback_function: Optional[Callable[[str, Dict[str, object]], object]],
+    ) -> FeatureToggle:
+        is_enabled = False
+        if fallback_function is not None:
+            is_enabled = bool(fallback_function(toggle_name, context))
+        result = FeatureToggle(name=toggle_name, is_enabled=is_enabled)
+        _logger.warning(
+            "Failed to evaluate toggle %s, returning %s",
+            toggle_name,
+            result,
+            exc_info=True,
+        )
+        return result
+
     def _is_enabled_or_fallback(
         self,
         toggle_name: str,
         context: dict,
+        value: Optional[bool],
         fallback_function: Optional[Callable[[str, dict], Any]] = None,
     ) -> _ToggleEvaluation:
-        value = self._do_is_enabled(toggle_name, context)
         is_found = value is not None
         if value is None and fallback_function is not None:
             value = fallback_function(toggle_name, context)
