@@ -197,21 +197,36 @@ class UnleashEngine:
         This records the evaluation against the engine's metrics, so the toggle
         shows up in the next `get_metrics()` payload.
 
-        `fallback_function` is consulted only when the engine does not know the
-        toggle; its answer sets `is_enabled` but leaves `is_found` at `False`.
+        `fallback_function` is consulted when the engine does not know the
+        toggle or fails to evaluate it; its answer sets `is_enabled` but leaves
+        `is_found` at `False`.
 
         Never raises, and answers all or nothing: whatever fails, the caller
-        gets the disabled toggle rather than a half built answer.
+        gets the fallback's answer, or the disabled toggle when there is no
+        fallback or the fallback itself fails, rather than a half built answer.
         """
         try:
-            custom_strategy_results = (
-                self.custom_strategy_handler.evaluate_custom_strategies(
-                    toggle_name, context
+            try:
+                custom_strategy_results = (
+                    self.custom_strategy_handler.evaluate_custom_strategies(
+                        toggle_name, context
+                    )
                 )
-            )
-            enabled, impression = self._native.is_enabled(
-                toggle_name, context or {}, custom_strategy_results
-            )
+                enabled, impression = self._native.is_enabled(
+                    toggle_name, context or {}, custom_strategy_results
+                )
+            except Exception:
+                is_enabled = False
+                if fallback_function is not None:
+                    is_enabled = bool(fallback_function(toggle_name, context))
+                result = FeatureToggle(name=toggle_name, is_enabled=is_enabled)
+                _logger.warning(
+                    "Failed to evaluate toggle %s, returning %s",
+                    toggle_name,
+                    result,
+                    exc_info=True,
+                )
+                return result
             is_found = enabled is not None
             if not is_found:
                 if fallback_function is not None:

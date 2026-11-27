@@ -380,6 +380,28 @@ def test_is_enabled_does_not_raise_when_the_context_cannot_be_read(
     assert "Failed to evaluate toggle testFeature" in caplog.text
 
 
+@pytest.mark.parametrize("context", [{"plan": object()}, {"userId": "123\ud800"}])
+def test_is_enabled_returns_the_fallback_value_when_the_evaluation_fails(context):
+    engine = UnleashEngine()
+    _ = engine.take_state(_toggle_state("testFeature", True))
+    fallback = Mock(return_value=True)
+
+    result = engine.is_enabled("testFeature", context, fallback_function=fallback)
+
+    assert result == FeatureToggle(name="testFeature", is_enabled=True)
+    fallback.assert_called_once_with("testFeature", context)
+
+
+def test_is_enabled_does_not_call_a_raising_fallback_twice():
+    engine = UnleashEngine()
+    fallback = Mock(side_effect=RuntimeError("bad fallback"))
+
+    result = engine.is_enabled("nonExistentFeature", {}, fallback_function=fallback)
+
+    assert result == FeatureToggle(name="nonExistentFeature")
+    fallback.assert_called_once()
+
+
 def test_is_enabled_treats_a_missing_context_as_empty_and_gives_it_to_the_fallback_as_is():
     engine = UnleashEngine()
     _ = engine.take_state(_toggle_state("testFeature", True))
