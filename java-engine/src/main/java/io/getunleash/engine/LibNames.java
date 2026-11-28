@@ -7,14 +7,19 @@ import java.util.Locale;
 
 final class LibNames {
   static NativeLibrary pickForCurrentOsArch(String version) {
-    String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
-    String arch = System.getProperty("os.arch").toLowerCase(Locale.ROOT);
+    return pickForOsArch(System.getProperty("os.name"), System.getProperty("os.arch"), version);
+  }
+
+  static NativeLibrary pickForOsArch(String osName, String osArch, String version) {
+    String os = osName.toLowerCase(Locale.ROOT);
+    String arch = osArch.toLowerCase(Locale.ROOT);
+    boolean isArm64 = arch.contains("aarch64") || arch.contains("arm64");
     if (os.contains("mac")) {
-      return arch.contains("aarch64") || arch.contains("arm64")
+      return isArm64
           ? new NativeLibrary("macos-arm64", "libyggdrasilffi-" + version + ".dylib")
           : new NativeLibrary("macos-x86_64", "libyggdrasilffi-" + version + ".dylib");
     } else if (os.contains("win")) {
-      if (arch.contains("arm64")) {
+      if (isArm64) {
         return new NativeLibrary("windows-arm64", "yggdrasilffi-" + version + ".dll");
       }
       if (arch.contains("64")) {
@@ -23,11 +28,11 @@ final class LibNames {
       return new NativeLibrary("windows-i686", "yggdrasilffi-" + version + ".dll");
     } else { // linux
       if (isMusl()) {
-        return arch.contains("aarch64") || arch.contains("arm64")
+        return isArm64
             ? new NativeLibrary("linux-arm64-musl", "libyggdrasilffi-" + version + ".so")
             : new NativeLibrary("linux-x86_64-musl", "libyggdrasilffi-" + version + ".so");
       }
-      return arch.contains("aarch64") || arch.contains("arm64")
+      return isArm64
           ? new NativeLibrary("linux-arm64", "libyggdrasilffi-" + version + ".so")
           : new NativeLibrary("linux-x86_64", "libyggdrasilffi-" + version + ".so");
     }
